@@ -16,6 +16,8 @@
   "core.extensions.loadError": "Error loading {name}: {error}",
   "core.extensions.none": "No extensions available",
   "core.language.choose": "Language",
+  "core.widgets.failed": "Widget unavailable: {error}",
+  "core.widgets.unavailable": "The widget {widget} is no longer there (extension removed or switched off)",
   "core.output.title": "Output",
   "core.output.clear": "Clear",
   "core.output.resize": "Drag to resize the output panel (double click: initial height; with the keyboard ↑ ↓)",

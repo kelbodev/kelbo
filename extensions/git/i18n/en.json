@@ -117,5 +117,32 @@
   "errors.files_invalid": "Invalid file list",
   "errors.files_unknown": "Files not among the changes: {files}",
   "errors.command_failed": "git: {output}",
-  "errors.hash_invalid": "Invalid hash"
+  "errors.hash_invalid": "Invalid hash",
+  "widget.noRepo": "The project is not in a Git repository.",
+  "widget.aheadTitle": "Commits to send",
+  "widget.behindTitle": "Commits to receive",
+  "widget.merging": "merge in progress",
+  "widget.fetch": "Fetch",
+  "widget.pull": "Pull",
+  "widget.push": "Push",
+  "widget.pushTitle": {
+    "one": "Send {count} commit",
+    "other": "Send {count} commits"
+  },
+  "widget.changed": {
+    "one": "{count} changed file",
+    "other": "{count} changed files"
+  },
+  "widget.clean": "No changes",
+  "widget.more": {
+    "one": "and {count} more",
+    "other": "and {count} more"
+  },
+  "widget.recent": "Last commits",
+  "widget.confirmPush": {
+    "one": "Send {count} commit to origin/{branch}?",
+    "other": "Send {count} commits to origin/{branch}?"
+  },
+  "widget.done": "{action}: done",
+  "widget.failed": "{action} failed: {error}"
 }

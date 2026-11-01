@@ -62,5 +62,11 @@
   "errors.change_invalid": "Invalid change",
   "errors.key_invalid": "Invalid key name: {key}",
   "errors.value_invalid": "Invalid value for {key}",
-  "errors.key_exists": "The key {key} already exists"
+  "errors.key_exists": "The key {key} already exists",
+  "widget.noFiles": "No .env files in the project.",
+  "widget.template": "template",
+  "widget.ok": "✓ complete",
+  "widget.missingKeys": "Missing: {list}",
+  "widget.emptyKeys": "Empty: {list}",
+  "widget.noTemplate": "No template (.env.example) to compare with."
 }

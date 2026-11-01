@@ -150,5 +150,20 @@
     "sidebar": "sidebar.html",
     "js": "view.js",
     "css": "style.css"
-  }
+  },
+  "widgets": [
+    {
+      "id": "requests",
+      "title": {
+        "it": "Richieste HTTP",
+        "en": "HTTP requests"
+      },
+      "description": {
+        "it": "Richieste delle sezioni collegate al progetto, da inviare dal widget, con lo stato dell'ultima risposta",
+        "en": "Requests of the sections linked to the project, sent from the widget, with the status of the last answer"
+      },
+      "size": "m",
+      "js": "widget.js"
+    }
+  ]
 }

@@ -107,3 +107,18 @@
 .git-merge-commits,.git-merge-files,.git-file-ul{margin-block:6px;margin-inline:16px 0;font-size:11.5px;line-height:1.6}
 .git-merge-files{font-family:var(--font)}
 .git-radio{display:flex;align-items:center;gap:8px;font-size:12px;margin:3px 0;cursor:pointer}
+
+/* Widget della dashboard */
+.gw-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.gw-branch{font-family:var(--font);font-weight:600;color:var(--ext-color, #3fb950)}
+.gw-ab{font-family:var(--font);font-size:11px;color:var(--muted)}
+.gw-warn{font-size:11px;color:var(--warning)}
+.gw-actions{margin-inline-start:auto;display:flex;gap:4px}
+.gw-head{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:10px 0 4px}
+.gw-files,.gw-commits{display:flex;flex-direction:column;gap:2px}
+.gw-file,.gw-commit{display:flex;align-items:center;gap:8px;font-size:12px;min-width:0}
+.gw-file span,.gw-subject{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gw-xy{font-size:10px;color:var(--warning);min-width:18px}
+.gw-commit code{font-size:11px;color:var(--muted)}
+.gw-subject{flex:1}
+.gw-muted{color:var(--muted);font-size:11px;white-space:nowrap}

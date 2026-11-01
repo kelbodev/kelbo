@@ -6,6 +6,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.17.0] - 2026-11-01
+
+Milestone M3 (widgets and project dashboard).
+
+### Added
+- **Dashboard** (new built-in extension `dashboard`, first tab): the widgets of the extensions for the project chosen in its sidebar, in a grid. Per project: which widgets (**＋ Widget**, ⋯ → remove), their order (drag the header) and size (small, medium, whole row), saved in the `dashboards` section (*Dashboard* export checkbox); without a choice all the widgets are shown, **All widgets** goes back to that. ↗ opens the extension's section on the project; ↻ and showing the tab again refresh the widgets.
+- **Widgets of the built-in extensions**: *npm scripts* (running processes with ports and uptime, stop/restart/output; the most run scripts with ▶), *Git* (branch, ahead/behind, changed files, last commits; fetch, pull, push after a confirmation listing the commits to send), *Database* (the project's connections with the connection test — not those through a tunnel, which the test would open — and the linked migrations folder: how many, the last, repeated numbers), *.env files* (missing and empty keys, add the missing ones), *HTTP requests* (requests of the sections linked to the project, sent from the widget, status of the last answer), *SSH tunnels* (the tunnels of the project's database connections, connect/disconnect). The installed `mongo-client`, `ports` and `notes` add theirs.
+- **Widget contract** (`docs/EXTENSIONS.md`, additive): manifest block `widgets: [{ id, title, description?, scope: "project", size, js }]`, widget modules served like the frontend files and listed by `/api/core/extensions`; module `mount(ctx, el, { project })`, `refresh`, `unmount`, with the extension's frontend `ctx` plus `ctx.widget` (`setBadge`, `setTitle`, `openFull(params)`). Core host `ctx.widgets.list(scope)` / `ctx.widgets.mount(key, el, params, frame)`: module loaded on demand with the extension's style and catalogs; a widget that fails shows its error in its own box.
+- `ctx.open(code, params)`: the opened panel module receives `params` in `focus(params, ctx)` (NPM, Git, Env, Database, HTTP, Dashboard implement it: project, process, connection, request).
+- Backend `ctx.dataDir()`: the extension's data folder on this computer (`~/.kelbo/data/<code>`), for what doesn't belong in `config.json`.
+- NPM: runs of each script counted per project (`GET …/projects/:id/usage`); `processes()` service with `projectId`. Git: `GET …/repos/:id/summary` (last commits and those not on any remote).
+
+
 ## [2.16.1] - 2026-10-30
 
 ### Fixed

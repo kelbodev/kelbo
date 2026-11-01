@@ -105,5 +105,14 @@
   },
   "settings.orphans": "Server senza gruppo",
   "settings.orphansHint": "Questi server non appartengono a nessun gruppo: si possono eliminare qui o aggiungere a un gruppo con \"+ Aggiungi esistente\".",
-  "settings.noOrphans": "Nessun server senza gruppo."
+  "settings.noOrphans": "Nessun server senza gruppo.",
+  "widget.none": "Nessuna connessione database del progetto passa da un tunnel.",
+  "widget.noDb": "Serve la sezione Database per sapere quali tunnel usa il progetto.",
+  "widget.locked": "Le connessioni database sono protette dalla master password.",
+  "widget.unlock": "🔓 Sblocca",
+  "widget.connect": "Connetti",
+  "widget.disconnect": "Disconnetti",
+  "widget.usedBy": "Usato da: {list}",
+  "widget.missing": "tunnel non configurato",
+  "widget.reconnecting": "riconnessione…"
 }

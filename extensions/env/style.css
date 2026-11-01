@@ -19,3 +19,11 @@
 .env-template{font-size:10px;color:var(--muted);font-weight:normal}
 .env-error{color:var(--danger);font-size:12px}
 .sb-env-issues{margin-inline-start:auto;font-size:11px;color:var(--danger)}
+
+/* Widget della dashboard */
+.envw-files{display:flex;flex-direction:column;gap:8px}
+.envw-row{display:flex;align-items:center;gap:8px}
+.envw-row button{margin-inline-start:auto}
+.envw-err{color:var(--danger);font-size:11px;font-family:var(--font);word-break:break-word}
+.envw-warn{color:var(--warning);font-size:11px;font-family:var(--font);word-break:break-word}
+.envw-ok{color:var(--success,#3fb950);font-size:11px}

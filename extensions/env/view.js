@@ -175,6 +175,8 @@ export default {
     render();
 
     this.refresh = async () => { revealed = null; await loadProjects(); await loadProject(); };
+    // aperta da un widget o dalla dashboard: { project } sceglie il progetto
+    this.focus = params => { if (params?.project && params.project !== active) actions.select(params.project); };
     this.languageChanged = () => { renderProjects(); render(); };
   },
 

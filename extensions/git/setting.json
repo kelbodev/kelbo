@@ -41,6 +41,11 @@
       },
       {
         "method": "GET",
+        "path": "/repos/:id/summary",
+        "handler": "summary"
+      },
+      {
+        "method": "GET",
         "path": "/repos/:id/commit/:hash",
         "handler": "commitMessage"
       },
@@ -113,5 +118,20 @@
         }
       }
     ]
-  }
+  },
+  "widgets": [
+    {
+      "id": "status",
+      "title": {
+        "it": "Git",
+        "en": "Git"
+      },
+      "description": {
+        "it": "Branch, avanti/indietro, file modificati, ultimi commit; fetch, pull e push (con conferma dei commit da inviare)",
+        "en": "Branch, ahead/behind, changed files, last commits; fetch, pull and push (confirming the commits to send)"
+      },
+      "size": "m",
+      "js": "widget.js"
+    }
+  ]
 }

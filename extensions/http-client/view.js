@@ -1267,6 +1267,12 @@ export default {
     await load();
 
     this.refresh = load;
+    // aperta da un widget o dalla dashboard: { section, request } apre la richiesta
+    this.focus = async params => {
+      if (!params?.section || !params.request) return;
+      if (!section(params.section)) await load();
+      if (section(params.section)?.requests.some(r => r.id === params.request) && canLeave()) openRequest(params.section, params.request);
+    };
     this.languageChanged = () => { renderSidebar(); renderEditor(); };
   },
 };

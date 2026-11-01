@@ -51,5 +51,16 @@
   "errors.script_not_defined": "Script not defined in package.json: {script}",
   "errors.package_not_declared": "Package not declared in package.json: {name}",
   "errors.project_gone": "Project no longer available",
-  "errors.process_running": "Process still running"
+  "errors.process_running": "Process still running",
+  "widget.noScripts": "No scripts in package.json.",
+  "widget.exited": "exited ({code})",
+  "widget.logs": "Show the output in the NPM section",
+  "widget.restart": "Restart",
+  "widget.stop": "Stop",
+  "widget.mostUsed": "Most used",
+  "widget.runs": {
+    "one": "{count} run",
+    "other": "{count} runs"
+  },
+  "widget.run": "Run {script}"
 }

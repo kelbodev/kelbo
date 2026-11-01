@@ -318,5 +318,12 @@
   "editor.variableForms": "si scrive {{{name}}} o :{name}",
   "errors.param_unknown": "Il percorso contiene :{name} ma la sezione non ha una variabile «{name}»: aggiungila (✎) o scrivi il valore nell'URL",
   "body.jsonValid": "JSON valido",
-  "body.jsonErrorAt": "JSON non valido alla riga {line}, colonna {column}"
+  "body.jsonErrorAt": "JSON non valido alla riga {line}, colonna {column}",
+  "widget.none": "Nessuna sezione collegata al progetto (campo Progetto della sezione).",
+  "widget.noRequests": "Nessuna richiesta",
+  "widget.send": "Invia",
+  "widget.sendTitle": "Invia la richiesta",
+  "widget.openTitle": "Apri la richiesta nella sezione HTTP",
+  "widget.sending": "invio…",
+  "widget.lastTitle": "Ultima risposta: {status} in {ms} ms ({when})"
 }

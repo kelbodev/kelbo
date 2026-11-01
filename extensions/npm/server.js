@@ -77,6 +77,18 @@ module.exports = function createNpm(ctx) {
     startedAt: pd.startedAt, running: pd.running, exitCode: pd.exitCode,
   });
 
+  // Avvii degli script per progetto (per il widget "più usati"): nella cartella dati di Kelbo
+  // su questo computer, non in config.json → { <progetto>: { <script>: { count, last } } }
+  const usageFile = () => path.join(ctx.dataDir(), 'runs.json');
+  const readUsage = () => { try { return JSON.parse(fs.readFileSync(usageFile(), 'utf8')) || {}; } catch { return {}; } };
+  function countRun(projectId, script) {
+    const all = readUsage();
+    const entry = ((all[projectId] ||= {})[script] ||= { count: 0, last: null });
+    entry.count++;
+    entry.last = new Date().toISOString();
+    try { fs.writeFileSync(usageFile(), JSON.stringify(all)); } catch (e) { ctx.log.warn('contatore degli script non salvato:', e.message); }
+  }
+
   const projectOr404 = req => {
     const p = getProject(req.params.id);
     if (!p) throw ctx.error(404, 'project_not_found', { id: req.params.id });
@@ -92,7 +104,7 @@ module.exports = function createNpm(ctx) {
     services: {
       readPackage,
       // per l'estensione ports: processi avviati da Kelbo (pid = process group) e arresto
-      processes: () => [...processes.values()].filter(pd => pd.running).map(pd => ({ id: pd.id, pid: pd.pid, project: pd.projectLabel, script: pd.script })),
+      processes: () => [...processes.values()].filter(pd => pd.running).map(pd => ({ id: pd.id, pid: pd.pid, project: pd.projectLabel, projectId: pd.projectId, script: pd.script })),
       stopProcess(id, { force = false } = {}) {
         const pd = processes.get(id);
         if (!pd) return false;
@@ -206,7 +218,14 @@ module.exports = function createNpm(ctx) {
           args = ['run', script];
         }
         const pd = startNpm(p, script, args);
+        countRun(p.id, script);
         res.json({ id: pd.id, pid: pd.pid });
+      },
+
+      // Avvii degli script del progetto: { <script>: { count, last } }
+      usage(req, res) {
+        const p = projectOr404(req);
+        res.json({ scripts: readUsage()[p.id] || {} });
       },
 
       // npm update <pkg>: solo pacchetti dichiarati in package.json

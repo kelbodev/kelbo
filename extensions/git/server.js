@@ -386,6 +386,22 @@ module.exports = function createGit(ctx) {
         }
       },
 
+      // Per il widget: ultimi commit del branch e commit non ancora su nessun remoto (quelli
+      // che un push invierebbe), al massimo 50
+      async summary(req, res) {
+        const repo = repoOr404(req);
+        const SEP = '\x1f';
+        const fmtArgs = [`--format=%h${SEP}%an${SEP}%aI${SEP}%s`];
+        const parse = out => out.split('\n').filter(Boolean).map(l => { const [hash, author, date, subject] = l.split(SEP); return { hash, author, date, subject }; });
+        try {
+          const [recent, outgoing] = await Promise.all([
+            gitExec(repo.path, ['log', ...fmtArgs, '-5'], { allowFail: true }),
+            gitExec(repo.path, ['log', ...fmtArgs, '-50', 'HEAD', '--not', '--remotes'], { allowFail: true }),
+          ]);
+          res.json({ recent: parse(recent.out), outgoing: parse(outgoing.out) });
+        } catch (e) { throw ctx.error(500, 'command_failed', { output: e.message }); }
+      },
+
       // Azione git (commit, pull, push, merge, fetch, checkout, stash) — output in streaming SSE.
       // Ogni azione è una sequenza di comandi git eseguiti uno dopo l'altro (runSteps).
       async action(req, res) {

@@ -1,0 +1,25 @@
+.dash{padding:16px 20px;display:flex;flex-direction:column;gap:14px;overflow:auto;flex:1;min-height:0}
+.dash-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.dash-title{font-size:16px;margin:0;color:var(--ext-color)}
+.dash-path{font-family:var(--font);font-size:11px;color:var(--muted)}
+.dash-actions{margin-inline-start:auto;display:flex;gap:6px}
+.dash-muted{color:var(--muted);font-size:12px}
+.dash-none{grid-column:1/-1}
+.dash-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:start}
+.dash-w{background:var(--surface);border:1px solid var(--border);border-top:2px solid var(--w-color,var(--border));border-radius:8px;display:flex;flex-direction:column;min-width:0;min-height:120px}
+.dash-s{grid-column:span 1}
+.dash-m{grid-column:span 2}
+.dash-l{grid-column:1/-1}
+.dash-w.dragging{opacity:.4}
+.dash-w-head{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border);cursor:grab;user-select:none}
+.dash-w-icon{font-size:14px}
+.dash-w-title{font-weight:600;font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dash-w-badge{font-size:10px;font-family:var(--font);padding:1px 6px;border-radius:10px;background:color-mix(in srgb,var(--w-color) 18%,transparent);color:var(--w-color)}
+.dash-w-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 3px;border-radius:4px}
+.dash-w-btn:hover{color:var(--text);background:var(--surface2)}
+.dash-w-body{padding:10px 12px;font-size:12px;min-width:0;overflow:auto;max-height:420px}
+.dash-add{display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow:auto}
+.dash-add-item{display:flex;align-items:center;gap:10px;text-align:start;background:var(--surface2);border:1px solid var(--border);border-inline-start:3px solid var(--w-color);border-radius:6px;padding:8px 10px;color:var(--text);cursor:pointer;font:inherit}
+.dash-add-item:hover{border-color:var(--w-color)}
+.dash-add-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+@media (max-width:1100px){.dash-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dash-m{grid-column:span 2}}

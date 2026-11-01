@@ -115,5 +115,20 @@
         }
       }
     ]
-  }
+  },
+  "widgets": [
+    {
+      "id": "project-tunnels",
+      "title": {
+        "it": "Tunnel SSH",
+        "en": "SSH tunnels"
+      },
+      "description": {
+        "it": "Tunnel usati dalle connessioni database del progetto, con connetti e disconnetti",
+        "en": "Tunnels used by the project's database connections, with connect and disconnect"
+      },
+      "size": "s",
+      "js": "widget.js"
+    }
+  ]
 }

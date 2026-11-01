@@ -227,6 +227,7 @@
      EMPTY STATE
   ================================================================ */
   .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);gap:8px}
+  .widget-error{color:var(--danger);font-size:12px;padding:6px 2px;word-break:break-word}
   .empty-state .icon{font-size:32px}
   .empty-state p{font-size:13px}
 

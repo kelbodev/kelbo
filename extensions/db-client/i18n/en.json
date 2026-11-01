@@ -528,5 +528,20 @@
   "tree.fks": "Foreign keys",
   "tree.fieldsNone": "No fields",
   "tree.indexesNone": "No indexes",
-  "tree.fksNone": "No foreign keys"
+  "tree.fksNone": "No foreign keys",
+  "widget.none": "No connection linked to the project (Project field of the connection).",
+  "widget.locked": "The connections are protected by the master password.",
+  "widget.unlock": "🔓 Unlock",
+  "widget.testing": "testing…",
+  "widget.retest": "Test the connection again",
+  "widget.open": "Open",
+  "widget.openTitle": "Open the connection in the Database section",
+  "widget.migrations": {
+    "one": "{count} migration · last {last}",
+    "other": "{count} migrations · last {last}"
+  },
+  "widget.noMigrations": "empty migrations folder",
+  "widget.migrationsMissing": "migrations repository not found",
+  "widget.duplicates": "repeated numbers: {list}",
+  "widget.tunnelNotTested": "Not tested: testing it (↻) opens the tunnel"
 }

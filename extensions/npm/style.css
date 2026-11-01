@@ -52,3 +52,15 @@
 .pkg-installed{font-family:var(--font)}
 .pkg-ok{color:var(--success)}
 .pkg-warn{color:var(--warning)}
+
+/* Widget della dashboard */
+.npw-muted{color:var(--muted);font-size:11px;font-family:var(--font)}
+.npw-head{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:10px 0 4px}
+.npw-procs,.npw-scripts{display:flex;flex-direction:column;gap:2px}
+.npw-proc,.npw-script{display:flex;align-items:center;gap:8px;padding:3px 4px;border-radius:5px}
+.npw-proc:hover,.npw-script:hover{background:var(--surface2)}
+.npw-dead{opacity:.6}
+.npw-name{font-family:var(--font);font-size:12px;color:var(--ext-color, #f0883e);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.npw-script .npw-muted{margin-inline-start:auto}
+.npw-actions{margin-inline-start:auto;display:flex;gap:2px}
+.npw-proc .npw-muted{white-space:nowrap}
