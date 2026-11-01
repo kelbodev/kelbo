@@ -45,6 +45,8 @@ module.exports = function createDashboard(ctx) {
 
   return {
     config,
+    // Dati collegati a un progetto (pannello 📁 del core, prima di rimuoverlo)
+    projectLinks: project => (layouts()[project.id] ? [{ key: 'links.layout' }] : []),
     handlers: {
       // { widgets: [...] } o { widgets: null } se il progetto non ha una scelta salvata
       getLayout(req, res) {

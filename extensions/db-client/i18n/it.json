@@ -543,5 +543,6 @@
   "widget.noMigrations": "cartella delle migration vuota",
   "widget.migrationsMissing": "repository delle migration non trovato",
   "widget.duplicates": "numeri ripetuti: {list}",
-  "widget.tunnelNotTested": "Non provata: la prova (↻) apre il tunnel"
+  "widget.tunnelNotTested": "Non provata: la prova (↻) apre il tunnel",
+  "links.connection": "Connessione \"{name}\""
 }

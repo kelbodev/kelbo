@@ -812,7 +812,8 @@ window.Shell = (() => {
       ...window.Projects,
       async load() {
         const data = await window.Projects.load();
-        return { ...data, projects: data.projects.filter(p => withTraits(meta, p)) };
+        const projects = data.projects.filter(p => withTraits(meta, p));
+        return { ...data, projects, hidden: data.projects.length - projects.length };
       },
     };
   }

@@ -12,6 +12,7 @@ export default {
 
     let projects = [];
     let folders = [];
+    let hidden = 0; // progetti senza Node.js, solo nel pannello 📁
     let processes = [];
     let activeProject = null;
     let tab = 'scripts';
@@ -23,7 +24,7 @@ export default {
 
     // ---- dati ----
     async function loadProjects() {
-      try { ({ projects, folders } = await ctx.projects.load()); } catch { projects = []; folders = []; }
+      try { ({ projects, folders, hidden } = await ctx.projects.load()); } catch { projects = []; folders = []; hidden = 0; }
     }
 
     async function loadProcesses() {
@@ -50,8 +51,8 @@ export default {
     // ---- sidebar ----
     function renderProjects() {
       const el = $(ctx.sidebar, 'projects');
-      if (!projects.length && !folders.length) {
-        ctx.ui.patch(el, `<p class="npm-muted npm-pad">${esc(t('sidebar.none'))}<br><br><button class="btn btn-npm btn-sm" onclick="Ext.npm.addProject()">${esc(t('sidebar.add'))}</button></p>`);
+      if (!projects.length) {
+        ctx.ui.patch(el, `<p class="npm-muted npm-pad">${esc(t('sidebar.none'))}<br><br><button class="btn btn-npm btn-sm" onclick="Projects.openPanel()">${esc(t('sidebar.add'))}</button></p>${ctx.projects.hiddenNote(hidden)}`);
         return;
       }
       ctx.ui.patch(el, ctx.projects.tree(folders, projects, p => {
@@ -62,10 +63,8 @@ export default {
             <div class="sb-proj-label">${esc(p.label)}${n ? ` <span class="npm-run-count">▶${fmt.number(n)}</span>` : ''}</div>
             <div class="sb-proj-path">${esc(p.path)}</div>
           </div>
-          <button class="sb-proj-del" onclick="event.stopPropagation();Projects.form(${js(p.id)})" title="${esc(t('core.projects.edit'))}">✎</button>
-          <button class="sb-proj-del" onclick="event.stopPropagation();Ext.npm.deleteProject(${js(p.id)})" title="${esc(t('core.projects.remove'))}">✕</button>
         </div>`;
-      }));
+      }) + ctx.projects.hiddenNote(hidden));
     }
 
     // ---- pannello ----
@@ -277,16 +276,10 @@ export default {
         } catch (e) { toast(t('toast.pm2Error', { error: e.message }), 'error'); }
       },
 
-      addProject: () => ctx.projects.form(),
-      async deleteProject(id) {
-        if (!(await ctx.projects.remove(id))) return;
-        if (activeProject === id) { activeProject = null; renderTab(); }
-      },
     };
 
     ctx.sidebar.addEventListener('click', e => {
-      if (e.target.closest('[data-action="add-project"]')) actions.addProject();
-      if (e.target.closest('[data-action="add-folder"]')) ctx.projects.newFolder();
+      if (e.target.closest('[data-action="manage-projects"]')) ctx.projects.openPanel();
     });
     ctx.root.addEventListener('click', e => {
       const next = e.target.closest('.npm-tab')?.dataset.tab;

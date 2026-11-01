@@ -1,7 +1,7 @@
 {
   "sidebar.title": "Repositories",
   "sidebar.none": "No git repositories found.",
-  "sidebar.noneHint": "Add a project with + (here or in the NPM section): if it is inside a git repository it will appear here.",
+  "sidebar.noneHint": "Add projects from the 📁 Projects panel in the header: those inside a git repository show up here.",
   "empty": "Select a repository in the sidebar",
   "bar.reload": "↻ Reload",
   "files.title": "Changes",

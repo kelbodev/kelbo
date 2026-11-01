@@ -23,5 +23,6 @@
   "errors.widget_key": "Widget non valido: {key}",
   "errors.widget_size": "Dimensione non valida per il widget {key}",
   "errors.widget_duplicate": "Widget ripetuto: {key}",
-  "errors.project_not_found": "Progetto {id} non trovato"
+  "errors.project_not_found": "Progetto {id} non trovato",
+  "links.layout": "Disposizione dei widget salvata"
 }

@@ -1,6 +1,6 @@
 {
   "sidebar.title": ".env files",
-  "sidebar.none": "No projects: add one in the NPM or Git section.",
+  "sidebar.none": "No projects with .env files: add projects from the 📁 Projects panel in the header.",
   "issues": {
     "one": "{count} missing",
     "other": "{count} missing"

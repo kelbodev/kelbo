@@ -325,5 +325,6 @@
   "widget.sendTitle": "Invia la richiesta",
   "widget.openTitle": "Apri la richiesta nella sezione HTTP",
   "widget.sending": "invio…",
-  "widget.lastTitle": "Ultima risposta: {status} in {ms} ms ({when})"
+  "widget.lastTitle": "Ultima risposta: {status} in {ms} ms ({when})",
+  "links.section": "Sezione \"{name}\""
 }

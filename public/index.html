@@ -22,6 +22,7 @@
       <button class="notif-btn" id="notifBtn" onclick="Shell.toggleNotifications()" data-i18n-title="core.notifications.enable">🔔</button>
       <button class="btn btn-ghost" onclick="Shell.exportConfig()" data-i18n-title="core.export.buttonTitle">↓ <span data-i18n="core.export.button"></span></button>
       <label class="btn btn-ghost" style="cursor:pointer" data-i18n-title="core.import.buttonTitle">↑ <span data-i18n="core.import.button"></span><input type="file" accept=".json" style="display:none" onchange="Shell.importConfig(this)"></label>
+      <button class="btn btn-ghost" id="projectsBtn" onclick="Projects.openPanel()" data-i18n-title="core.projects.buttonTitle">📁</button>
       <button class="btn btn-ghost ext-admin-btn" id="extAdminBtn" onclick="Extensions.open()" data-i18n-title="core.ext.buttonTitle">🧩<span class="section-tab-badge" id="extAdminBadge" style="display:none"></span></button>
       <button class="btn btn-ghost" onclick="Shell.openMcp()" data-i18n-title="core.mcp.buttonTitle">🤖</button>
       <button class="btn btn-ghost" onclick="Shell.refresh()" data-i18n-title="core.action.refresh">↻</button>
