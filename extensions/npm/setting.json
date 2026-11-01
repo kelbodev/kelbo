@@ -35,6 +35,11 @@
         "handler": "runScript"
       },
       {
+        "method": "GET",
+        "path": "/projects/:id/usage",
+        "handler": "usage"
+      },
+      {
         "method": "POST",
         "path": "/projects/:id/update",
         "handler": "updatePackage"
@@ -166,5 +171,20 @@
         }
       }
     ]
-  }
+  },
+  "widgets": [
+    {
+      "id": "scripts",
+      "title": {
+        "it": "Script npm",
+        "en": "npm scripts"
+      },
+      "description": {
+        "it": "Processi in esecuzione con le porte e gli script più usati del progetto",
+        "en": "Running processes with their ports and the project's most used scripts"
+      },
+      "size": "m",
+      "js": "widget.js"
+    }
+  ]
 }

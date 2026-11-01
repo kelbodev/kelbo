@@ -305,6 +305,15 @@ export default {
     };
     this.hide = () => { closeStream?.(); closeStream = null; }; // following resta: si riprende in show
     this.refresh = async () => { await loadProjects(); await refreshAll(); };
+    // aperta da un widget o dalla dashboard: { project } sceglie il progetto, { process } ne mostra l'output
+    this.focus = async params => {
+      if (params?.project && projects.some(p => p.id === params.project)) { activeProject = params.project; tab = 'scripts'; renderProjects(); renderTab(); }
+      if (params?.process) {
+        await loadProcesses();
+        const pd = processes.find(x => x.id === params.process);
+        if (pd) stream(pd.id, scriptLabel(pd.script));
+      }
+    };
     this.languageChanged = () => { renderProjects(); if (ctx.isActive()) renderTab(); };
   },
 };
