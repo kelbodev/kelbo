@@ -64,3 +64,14 @@
 .tn-card-runtime{border-top:1px solid var(--border);padding-top:8px;margin-top:-2px}
 .tn-back{padding:3px 7px;font-size:11px;gap:4px}
 .tn-hex{font-family:var(--font);font-size:12px;color:var(--muted)}
+
+/* Widget della dashboard */
+.tw-muted{color:var(--muted);font-size:11px}
+.tw-list{display:flex;flex-direction:column;gap:8px}
+.tw-row{display:flex;align-items:center;gap:8px;font-size:12.5px}
+.tw-row button{margin-inline-start:auto}
+.tw-dot{width:8px;height:8px;border-radius:50%;background:var(--border);flex-shrink:0}
+.tw-on{background:var(--success,#3fb950);box-shadow:0 0 5px var(--success,#3fb950)}
+.tw-wait{background:var(--warning);animation:pulse 1.2s infinite}
+.tw-err{color:var(--danger);font-size:11px;margin-inline-start:auto}
+.tw-used{margin:2px 0 0 16px}

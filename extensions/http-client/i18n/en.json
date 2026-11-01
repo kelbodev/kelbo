@@ -318,5 +318,12 @@
   "editor.variableForms": "written {{{name}}} or :{name}",
   "errors.param_unknown": "The path has :{name} but the section has no variable “{name}”: add it (✎) or write the value in the URL",
   "body.jsonValid": "Valid JSON",
-  "body.jsonErrorAt": "Invalid JSON at line {line}, column {column}"
+  "body.jsonErrorAt": "Invalid JSON at line {line}, column {column}",
+  "widget.none": "No section linked to the project (Project field of the section).",
+  "widget.noRequests": "No requests",
+  "widget.send": "Send",
+  "widget.sendTitle": "Send the request",
+  "widget.openTitle": "Open the request in the HTTP section",
+  "widget.sending": "sending…",
+  "widget.lastTitle": "Last answer: {status} in {ms} ms ({when})"
 }

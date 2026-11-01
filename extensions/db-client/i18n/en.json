@@ -542,5 +542,6 @@
   },
   "widget.noMigrations": "empty migrations folder",
   "widget.migrationsMissing": "migrations repository not found",
-  "widget.duplicates": "repeated numbers: {list}"
+  "widget.duplicates": "repeated numbers: {list}",
+  "widget.tunnelNotTested": "Not tested: testing it (↻) opens the tunnel"
 }

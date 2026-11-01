@@ -20,7 +20,9 @@ async function load(ctx, el) {
     try { st.migs.set(c.id, await ctx.api.get(`/connections/${encodeURIComponent(c.id)}/migrations`)); } catch { st.migs.delete(c.id); }
     render(ctx, el);
   }));
-  await Promise.all(st.list.map(c => test(ctx, el, c.id)));
+  // prova automatica solo senza tunnel: quella via tunnel aprirebbe la connessione SSH
+  // semplicemente guardando la dashboard (la si prova con ↻)
+  await Promise.all(st.list.filter(c => !c.tunnel).map(c => test(ctx, el, c.id)));
 }
 
 async function test(ctx, el, id) {
@@ -65,7 +67,8 @@ function render(ctx, el) {
           <button class="btn btn-ghost btn-sm" data-dbw="open" data-id="${esc(c.id)}" title="${esc(t('widget.openTitle'))}">${esc(t('widget.open'))}</button>
         </span>
       </div>
-      ${tst && tst !== 'testing' ? `<div class="${tst.ok ? 'db-muted' : 'dbw-error'} dbw-detail">${esc(tst.text)}</div>` : ''}
+      ${tst && tst !== 'testing' ? `<div class="${tst.ok ? 'db-muted' : 'dbw-error'} dbw-detail">${esc(tst.text)}</div>`
+        : !tst && c.tunnel ? `<div class="db-muted dbw-detail">${esc(t('widget.tunnelNotTested'))}</div>` : ''}
       ${mig?.linked ? `<div class="db-muted dbw-detail">📁 ${esc(mig.repo?.label || mig.repo?.id || '')}${mig.dir ? `/${esc(mig.dir)}` : ''} · ${mig.repo?.missing ? esc(t('widget.migrationsMissing'))
         : mig.files?.length ? esc(t('widget.migrations', { count: mig.files.length, last })) : esc(t('widget.noMigrations'))}
         ${mig.duplicates?.length ? `<span class="dbw-error"> · ${esc(t('widget.duplicates', { list: fmt.list(mig.duplicates.map(String)) }))}</span>` : ''}</div>` : ''}
