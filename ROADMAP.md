@@ -132,6 +132,17 @@ Goal: see the pods of a cluster from Kelbo (`kubectl get pods`, live), and open 
 - [ ] **M9.9** MCP tools (read-only): contexts, namespaces, pods with status, logs tail with a line limit; secrets and env values never returned
 - [ ] **M9.10** Tests: providers contract with fixture extensions (discovery, a provider disabled while a tunnel uses it, missing handler refused); tunnels with a fake transport (start, ready, exit and reconnection, unavailable transport); `kubectl` with a fake `kubectl` that records its arguments and answers with JSON fixtures (pods, watch, port-forward output); README, CHANGELOG, release `kubectl@1.0.0` and a minor version of Kelbo for the contract
 
+## M10 — Project management in the core — core, `npm`, `git`, `env`
+
+Goal: projects are managed in one place of the core, not from the sidebars of NPM, Git and Env. The data is already the core's (`projects`, `projectFolders`, `/api/core/projects`, `ctx.projects`, the dialogs of `public/core/projects.js`), but adding, editing and removing a project happens from the extensions' sidebars, each with its own list: removing NPM removes the main way to add a project. Every section keeps choosing its own project (no global "active project": switching between projects is frequent and each section follows its own).
+
+- [ ] **M10.1** **📁 Projects** button in the header (like 🧩): one panel with every project grouped by folder; add (path chosen or typed, label proposed from the folder or `package.json`), edit name, path and folder, remove (with what is linked to it, see M10.3), create/rename/delete folders, reorder; search by name or path; a project whose folder is gone is marked
+- [ ] **M10.2** For each project, what Kelbo finds in it: `package.json` (name, scripts count), Git repository (branch, or the parent repository it belongs to), `.env` files, and what the extensions link to it (database and MongoDB connections, HTTP sections, notes board, dashboard layout) through a new optional frontend contract `ctx.projects.describe(project)` contributions — each extension adds a line, so the core doesn't know the others
+- [ ] **M10.3** Removing a project says what stays linked to it (connections, HTTP sections, notes board, dashboard layout) and keeps them unlinked, as today; renaming or moving a project keeps every link (the id never changes)
+- [ ] **M10.4** NPM, Git and Env sidebars show and select projects only: their add/edit/delete buttons become a link to the 📁 Projects panel (the selection, the folder tree and the per-section state stay as they are); with none of the three installed, projects can still be added
+- [ ] **M10.5** Import of projects from a folder: the subfolders that contain `package.json` or `.git`, chosen with checkboxes, added in one go (existing paths skipped)
+- [ ] **M10.6** Tests (panel API, linked items on removal, import from a folder skipping duplicates), README, `docs/EXTENSIONS.md` (`describe` contributions), CHANGELOG
+
 ---
 
 ## Parked
@@ -156,3 +167,4 @@ Not planned for now; to be taken back into the roadmap when needed (descriptions
 | M7 New name: Kelbo | M | core, extensions, `kelbo-extensions`, website | done in 2.13.0 except the website (M7.6) |
 | M8 Angular CLI | M | `angular-cli` (kelbo-extensions) | workspaces and generators first, then the form from `schema.json` with dry-run preview, then `ng add` / `ng update` and MCP tools |
 | M9 Kubernetes and port-forward tunnels | L | core (`provides` contract), `tunnels`, `kubectl` (kelbo-extensions) | providers contract and `tunnel-transport` first (tested with a fake transport), then pods, then the port-forward provider |
+| M10 Project management in the core | S | core (header panel), `npm`, `git`, `env` | panel first, then the extensions' sidebars become selection only, then import from a folder |
