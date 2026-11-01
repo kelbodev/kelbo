@@ -95,6 +95,8 @@ Only `setting.json` is mandatory: an extension can be frontend-only (`swagger`, 
 | `mcp.tools` | no | Tools the extension exposes to AI agents through the MCP server (see *MCP tools*); requires a backend |
 | `reloadable` | no | `false` for an extension that can't be stopped and started again while Kelbo runs: installing an update or removing it then asks for a restart (default `true`) |
 | `widgets` | no | Mini views for the project dashboard (see *Widgets*): `[{ id, title, description?, scope: "project", size: "s" \| "m" \| "l", js }]`; `js` is a module in the extension folder, served like the `frontend` files |
+| `projects` | no | `{ traits: ["node", …] }`: the extension works with the projects having at least one of these traits; `ctx.projects` (backend `list({ traits })`, frontend `load()`) and the dashboard widgets leave the others out (see *Projects and folders*). Without it the extension sees every project (Kelbo ≥ 2.18) |
+| `projectTraits` | no | Traits the extension adds to the core's `git`, `node`, `env`: `[{ id, label, files?, dependencies? }]` — present when one of `files` (relative paths) exists in the project folder or one of the npm packages in `dependencies` is in its `package.json` (dependencies, devDependencies, peerDependencies); at least one of the two. A trait with the id of a core trait or of an extension loaded earlier is ignored (Kelbo ≥ 2.18) |
 | `frontend.preload` | no | `true`: the module is mounted at startup (hidden) instead of on first open — for extensions that keep header pills, badges or notifications up to date in the background |
 
 ### Loading and states
@@ -169,7 +171,7 @@ Only `handlers` is needed when the manifest declares routes (and `mcp` when it d
 | `ctx.lib.ports` | `getPortsForPgid(pid)`: TCP ports listened on by a process group; `listListeningPorts()`: every listening TCP port of the machine with pid, process name, user and command line |
 | `ctx.log.info/warn/error(...)` | Console log prefixed with `[ext:<code>]` |
 | `ctx.dataDir()` | Folder of the extension's data on this computer (`~/.kelbo/data/<code>`, created on first call): for what doesn't belong in `config.json` — counters, caches — and isn't exported (Kelbo ≥ 2.17) |
-| `ctx.projects` | Projects of the core, read-only: `list()` (`{ id, label, path, folder? }`), `get(id)`, `folders()` (`{ id, label }`) |
+| `ctx.projects` | Projects of the core, read-only: `list({ traits }?)` (`{ id, label, path, folder?, traits? }`; with `traits`, only the projects having one of them), `get(id)`, `folders()` (`{ id, label }`), `traitsOf(project)` (effective traits) |
 | `ctx.vault` | Master password vault of the core, see *Secrets* |
 
 ### MCP tools
@@ -235,27 +237,67 @@ Errors and warnings of the extension state (`GET /api/core/extensions` → `erro
 
 ## Projects and folders
 
-Projects (folders on disk) are shared by several extensions (npm scripts, Git repositories, `.env` files, migrations…), so they belong to the core, not to an extension. They live in two sections of `config.json`:
+Projects (folders on disk) are shared by several extensions (npm scripts, Git repositories, `.env` files, migrations…), so they belong to the core, not to an extension. They are added, edited, removed and imported only in the core's **📁 Projects** panel (header); the extensions' sidebars just choose one. They live in two sections of `config.json`:
 
 ```json
 "projectFolders": [{ "id": "f1a2b3c4", "label": "Customers" }],
 "projects": [
   { "id": "my_app", "label": "My App", "path": "/Users/me/www/my-app", "folder": "f1a2b3c4" },
-  { "id": "tools", "label": "Tools", "path": "/Users/me/www/tools" }
+  { "id": "tools", "label": "Tools", "path": "/Users/me/www/tools", "traits": { "add": ["node"], "remove": ["git"] } }
 ]
 ```
 
-Folders group projects in the sidebars, one level only; a project without `folder` stays at the root. Deleting a folder moves its projects back to the root. Core API: `GET /api/core/projects` (`{ folders, projects }`), `POST /api/core/projects`, `PUT`/`DELETE /api/core/projects/:id` (label, path and folder; the id never changes), `POST /api/core/folders`, `PUT`/`DELETE /api/core/folders/:id`.
+Folders group projects, one level only; a project without `folder` stays at the root. Deleting a folder moves its projects back to the root.
 
-In the backend extensions read them with `ctx.projects`. In the frontend `ctx.projects` (`public/core/projects.js`) gives the shared pieces, so every sidebar looks and behaves the same:
+### Traits
+
+A project is not of one kind only (an Angular app is also a Node.js project and a Git repository), so instead of a type it has **traits**, detected in its folder:
+
+| Trait | Present when |
+|---|---|
+| `git` (core) | `.git` in the folder or in a parent folder |
+| `node` (core) | `package.json` in the folder |
+| `env` (core) | a `.env` or `.env.<something>` file in the folder |
+| extension traits | manifest `projectTraits`: one of its `files` exists, or one of its `dependencies` is in `package.json` |
+
+The user can force a trait on (`traits.add`) or off (`traits.remove`) per project; both are saved with the project and travel with its export. The effective traits are the detected ones plus `add` minus `remove`. An extension that declares `projects: { traits: [...] }` sees only the projects with at least one of them: the others are hidden from its sidebar (a note at the bottom counts them and opens the panel) and its dashboard widgets are not offered for them. Detection is cached for a few seconds.
+
+### Core API
+
+| Route | Purpose |
+|---|---|
+| `GET /api/core/projects` | `{ folders, projects, traits }`: each project with `traitsFound` (detected), `traitsActive` (effective) and `missing` (folder gone); `traits` are the known traits `{ id, label, source }` (`source`: `core` or the extension code) |
+| `POST /api/core/projects`, `PUT`/`DELETE /api/core/projects/:id` | Create; edit label, path, folder, `traits` (`{ add, remove }`; empty lists remove the override); remove. The id never changes |
+| `GET /api/core/projects/:id/links` | What the extensions link to the project: `{ links: [{ code, key, params }] }` (see below) |
+| `POST /api/core/projects/scan` | `{ path }` → `{ path, candidates: [{ path, name, label, traits, added }] }`: the folder and its direct subfolders (not hidden, not `node_modules`) with at least one trait |
+| `POST /api/core/projects/import` | `{ paths, folder? }` → `{ added, skipped: [{ path, reason: "exists" \| "not_found" }] }`: ids from the folder names, labels from `package.json` `name` |
+| `POST /api/core/folders`, `PUT`/`DELETE /api/core/folders/:id` | Folders |
+
+### Links to a project
+
+When an extension keeps data that refers to a project (a connection, a section, a layout…), its backend instance can return `projectLinks(project)` → `[{ key, params? }]` (sync or async); `key` is translated with the extension's catalog. The panel lists them before a project is removed: removing a project leaves those data in place, unlinked; renaming or moving it keeps every link, because the id never changes.
+
+```js
+module.exports = ctx => ({
+  projectLinks: project => connections().filter(c => c.projectId === project.id)
+    .map(c => ({ key: 'links.connection', params: { name: c.label } })),
+  handlers: { /* … */ },
+});
+```
+
+### Frontend
+
+In the backend extensions read projects with `ctx.projects`. In the frontend `ctx.projects` (`public/core/projects.js`) gives the shared pieces, so every sidebar looks and behaves the same:
 
 | Member | Purpose |
 |---|---|
-| `load()` | `{ folders, projects }` from the core |
-| `tree(folders, items, item)` | HTML of the sidebar tree: each folder (collapsible, with rename/delete menu) with its items, then the items without a folder. `items` are objects with an optional `folder` field (projects, repositories…), `item(x)` returns the HTML of one entry |
-| `form(id?)` | Dialog to add a project (no id) or edit name, path and folder |
-| `remove(id)` | Confirms and removes a project; resolves `true` when removed |
-| `newFolder()` | Dialog to create a folder |
+| `load()` | `{ folders, projects, traits, hidden }` from the core; `projects` only those with the extension's traits (manifest `projects`), `hidden` how many were left out |
+| `tree(folders, items, item)` | HTML of the sidebar tree: each folder (collapsible) with its items, then the items without a folder; folders with no items are not shown. `items` are objects with an optional `folder` field (projects, repositories…), `item(x)` returns the HTML of one entry |
+| `hiddenNote(count)` | HTML of the note "+ N projects not for this section" (opens the panel); empty for 0 |
+| `openPanel()` | Opens the 📁 Projects panel |
+| `form(id?)` | Opens the panel on the form to add a project (no id) or edit one |
+| `remove(id)` | Confirms and removes a project; resolves `true` when removed (prefer the panel, which shows the links) |
+| `newFolder()` | Opens the panel on the new folder form |
 
 After every change the core emits `core:projects-changed` on the bus; extensions that show projects reload them on it.
 

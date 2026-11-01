@@ -132,7 +132,7 @@ Goal: see the pods of a cluster from Kelbo (`kubectl get pods`, live), and open 
 - [ ] **M9.9** MCP tools (read-only): contexts, namespaces, pods with status, logs tail with a line limit; secrets and env values never returned
 - [ ] **M9.10** Tests: providers contract with fixture extensions (discovery, a provider disabled while a tunnel uses it, missing handler refused); tunnels with a fake transport (start, ready, exit and reconnection, unavailable transport); `kubectl` with a fake `kubectl` that records its arguments and answers with JSON fixtures (pods, watch, port-forward output); README, CHANGELOG, release `kubectl@1.0.0` and a minor version of Kelbo for the contract
 
-## M10 — Project management and project traits in the core — core, `npm`, `git`, `env`
+## M10 — Project management and project traits in the core — core, `npm`, `git`, `env` ✅ (2.18.0)
 
 Goal: projects are managed in one place of the core, not from the sidebars of NPM, Git and Env, and every extension sees only the projects it makes sense for. The data is already the core's (`projects`, `projectFolders`, `/api/core/projects`, `ctx.projects`), but adding, editing and removing a project happens from the extensions' sidebars, each with its own list: removing NPM removes the main way to add a project. Every section keeps choosing its own project (no global "active project": switching between projects is frequent and each section follows its own).
 
@@ -143,7 +143,7 @@ Goal: projects are managed in one place of the core, not from the sidebars of NP
 - [x] **M10.3** What the extensions link to a project, shown in the panel and before removing it: backend contract `instance.projectLinks(project)` → `[{ key, params }]` translated with the extension's catalog (database and MongoDB connections, HTTP sections, notes board, dashboard layout); removing a project keeps them unlinked, as today; renaming or moving it keeps every link (the id never changes)
 - [x] **M10.4** NPM, Git and Env sidebars show and select projects only: their add/edit/delete buttons become a link to the 📁 Projects panel; with none of the three installed, projects can still be added
 - [x] **M10.5** Import of projects from a folder: its subfolders with at least one known trait, chosen with checkboxes (traits shown, existing paths skipped), added in one go into a project folder
-- [ ] **M10.6** Tests (traits: detection, extension traits, overrides, filtered lists; panel API; links; import), README, `docs/EXTENSIONS.md` (`projects`, `projectTraits`, `projectLinks`), CHANGELOG
+- [x] **M10.6** Tests (traits: detection, extension traits, overrides, filtered lists; panel API; links; import), README, `docs/EXTENSIONS.md` (`projects`, `projectTraits`, `projectLinks`), CHANGELOG
 
 ---
 
@@ -169,4 +169,4 @@ Not planned for now; to be taken back into the roadmap when needed (descriptions
 | M7 New name: Kelbo | M | core, extensions, `kelbo-extensions`, website | done in 2.13.0 except the website (M7.6) |
 | M8 Angular CLI | M | `angular-cli` (kelbo-extensions) | workspaces and generators first, then the form from `schema.json` with dry-run preview, then `ng add` / `ng update` and MCP tools |
 | M9 Kubernetes and port-forward tunnels | L | core (`provides` contract), `tunnels`, `kubectl` (kelbo-extensions) | providers contract and `tunnel-transport` first (tested with a fake transport), then pods, then the port-forward provider |
-| M10 Project management and traits | M | core (traits, header panel), `npm`, `git`, `env` | traits and filtered lists first, then the panel, the links, the sidebars as selection only, the import from a folder |
+| M10 Project management and traits | M | core (traits, header panel), `npm`, `git`, `env` | done in 2.18.0 |

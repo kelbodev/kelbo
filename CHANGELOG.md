@@ -6,6 +6,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.18.0] - 2026-11-01
+
+Milestone M10 (project management and project traits in the core).
+
+### Added
+- **📁 Projects** panel in the header, the one place where projects are managed: projects grouped by folder with search by name, id or path, traits as labels, projects whose folder is gone marked; add and edit (name, path, folder, traits), remove, create/rename/delete folders.
+- **Project traits**: what a project is, detected in its folder — `git` (inside a repository), `node` (`package.json`), `env` (`.env*` files) — plus the traits declared by the extensions (manifest `projectTraits`: a file in the folder or an npm dependency). Each trait can be left automatic or forced on/off per project (`traits: { add, remove }` in `projects`, exported with the project).
+- **Sections see only their projects**: an extension declares the traits it works with (manifest `projects: { traits }`); NPM shows the Node.js projects, Git those in a repository, Env those with `.env` files, and the dashboard offers a widget only on the projects of its extension. The others are counted at the bottom of the sidebar, a click opens the panel.
+- **What is linked to a project** before removing it: database connections, HTTP sections, the dashboard layout (and the notes boards and MongoDB connections of the installed extensions) are listed and stay, unlinked. Backend contract `projectLinks(project)` → `[{ key, params }]`.
+- **Import from a folder**: the folder and its direct subfolders with at least one trait, with their traits and the ones already added marked, chosen with checkboxes and added in one go, optionally into a folder (`POST /api/core/projects/scan`, `/import`).
+- Backend `ctx.projects.list({ traits })` and `traitsOf(project)`; frontend `ctx.projects.load()` with `hidden`, `hiddenNote(count)`, `openPanel()`; `GET /api/core/projects` with `traitsFound`, `traitsActive`, `missing` and the known `traits`; `GET /api/core/projects/:id/links`.
+
+### Changed
+- The NPM, Git and Env sidebars only choose a project: adding, editing and removing projects and folders moved to the 📁 Projects panel (📁 in their header opens it). `ctx.projects.form()` and `newFolder()` open the panel; empty folders are no longer shown in the sidebars.
+- The npm MCP tool lists only the Node.js projects.
+
 ## [2.17.0] - 2026-11-01
 
 Milestone M3 (widgets and project dashboard).
