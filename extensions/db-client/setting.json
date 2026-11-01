@@ -316,5 +316,20 @@
         }
       }
     ]
-  }
+  },
+  "widgets": [
+    {
+      "id": "connections",
+      "title": {
+        "it": "Database",
+        "en": "Database"
+      },
+      "description": {
+        "it": "Connessioni collegate al progetto: stato, migration del repository collegato, apertura nella sezione Database",
+        "en": "Connections linked to the project: status, migrations of the linked repository, open in the Database section"
+      },
+      "size": "m",
+      "js": "widget.js"
+    }
+  ]
 }

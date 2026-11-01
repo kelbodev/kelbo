@@ -528,5 +528,19 @@
   "tree.fks": "Foreign key",
   "tree.fieldsNone": "Nessun campo",
   "tree.indexesNone": "Nessun indice",
-  "tree.fksNone": "Nessuna foreign key"
+  "tree.fksNone": "Nessuna foreign key",
+  "widget.none": "Nessuna connessione collegata al progetto (campo Progetto della connessione).",
+  "widget.locked": "Le connessioni sono protette dalla master password.",
+  "widget.unlock": "🔓 Sblocca",
+  "widget.testing": "prova…",
+  "widget.retest": "Prova di nuovo la connessione",
+  "widget.open": "Apri",
+  "widget.openTitle": "Apri la connessione nella sezione Database",
+  "widget.migrations": {
+    "one": "{count} migration · ultima {last}",
+    "other": "{count} migration · ultima {last}"
+  },
+  "widget.noMigrations": "cartella delle migration vuota",
+  "widget.migrationsMissing": "repository delle migration non trovato",
+  "widget.duplicates": "numeri ripetuti: {list}"
 }

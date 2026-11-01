@@ -1,5 +1,8 @@
 {
-  "name": { "it": "Env", "en": "Env" },
+  "name": {
+    "it": "Env",
+    "en": "Env"
+  },
   "code": "env",
   "version": "1.0.0",
   "kelbo": "^2.0",
@@ -14,19 +17,55 @@
   "backend": {
     "module": "server.js",
     "routes": [
-      { "method": "GET",  "path": "/projects",                          "handler": "projects" },
-      { "method": "GET",  "path": "/projects/:id",                      "handler": "project" },
-      { "method": "POST", "path": "/projects/:id/files",                "handler": "create" },
-      { "method": "GET",  "path": "/projects/:id/files/:file/value",    "handler": "value" },
-      { "method": "PUT",  "path": "/projects/:id/files/:file",          "handler": "update" },
-      { "method": "POST", "path": "/projects/:id/files/:file/add-missing", "handler": "addMissing" }
+      {
+        "method": "GET",
+        "path": "/projects",
+        "handler": "projects"
+      },
+      {
+        "method": "GET",
+        "path": "/projects/:id",
+        "handler": "project"
+      },
+      {
+        "method": "POST",
+        "path": "/projects/:id/files",
+        "handler": "create"
+      },
+      {
+        "method": "GET",
+        "path": "/projects/:id/files/:file/value",
+        "handler": "value"
+      },
+      {
+        "method": "PUT",
+        "path": "/projects/:id/files/:file",
+        "handler": "update"
+      },
+      {
+        "method": "POST",
+        "path": "/projects/:id/files/:file/add-missing",
+        "handler": "addMissing"
+      }
     ]
   },
   "mcp": {
     "tools": [
-      { "name": "check", "handler": "check", "readOnly": true,
+      {
+        "name": "check",
+        "handler": "check",
+        "readOnly": true,
         "description": "For each project (or one), its .env files with their keys, the keys missing compared with the template (.env.example) and the extra and empty ones. Values are never returned.",
-        "inputSchema": { "type": "object", "properties": { "project": { "type": "string", "description": "Project id (default: all)" } } } }
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "project": {
+              "type": "string",
+              "description": "Project id (default: all)"
+            }
+          }
+        }
+      }
     ]
   },
   "frontend": {
@@ -34,5 +73,20 @@
     "sidebar": "sidebar.html",
     "js": "view.js",
     "css": "style.css"
-  }
+  },
+  "widgets": [
+    {
+      "id": "files",
+      "title": {
+        "it": "File .env",
+        "en": ".env files"
+      },
+      "description": {
+        "it": "File .env del progetto con le chiavi mancanti o vuote rispetto al modello (mai i valori)",
+        "en": "The project's .env files with the keys missing or empty compared with the template (never the values)"
+      },
+      "size": "s",
+      "js": "widget.js"
+    }
+  ]
 }

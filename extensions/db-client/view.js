@@ -2476,6 +2476,12 @@ export default {
     renderLimitOptions();
 
     this.show = loadVault;
+    // aperta da un widget o dalla dashboard: { connection } la apre nella tab attiva
+    this.focus = async params => {
+      if (!params?.connection) return;
+      if (vault.state !== 'unlocked') await loadVault();
+      if (connections.some(c => c.id === params.connection)) actions.select(params.connection);
+    };
     this.refresh = async () => { cache.clear(); migStatus.clear(); await loadVault(); reopen(); };
     // Cambio di lingua: testi dinamici di nuovo, senza ricaricare dati né perdere l'editor
     this.languageChanged = () => {

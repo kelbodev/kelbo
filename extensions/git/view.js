@@ -632,6 +632,14 @@ export default {
     };
     this.hide = () => { clearInterval(timer); timer = null; closeBranchPop(); };
     this.refresh = async () => { await loadRepos(); renderRepo(); if (activeRepo) await reload(); };
+    // aperta da un widget o dalla dashboard: { project } sceglie il repository del progetto
+    this.focus = async params => {
+      if (!params?.project) return;
+      await loadRepos();
+      const p = ctx.projects && (await ctx.projects.load()).projects.find(x => x.id === params.project);
+      const r = repos.find(x => x.id === params.project) || (p && repos.find(x => p.path === x.path || p.path.startsWith(x.path + '/')));
+      if (r && r.id !== activeRepo) await actions.select(r.id);
+    };
     this.languageChanged = () => { closeBranchPop(); renderRepos(); renderHeader(); renderFiles(); if (activeRepo) loadLog(); };
   },
 };

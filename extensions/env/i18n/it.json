@@ -62,5 +62,11 @@
   "errors.change_invalid": "Modifica non valida",
   "errors.key_invalid": "Nome di chiave non valido: {key}",
   "errors.value_invalid": "Valore non valido per {key}",
-  "errors.key_exists": "La chiave {key} esiste già"
+  "errors.key_exists": "La chiave {key} esiste già",
+  "widget.noFiles": "Nessun file .env nel progetto.",
+  "widget.template": "modello",
+  "widget.ok": "✓ completo",
+  "widget.missingKeys": "Mancanti: {list}",
+  "widget.emptyKeys": "Vuote: {list}",
+  "widget.noTemplate": "Nessun modello (.env.example) con cui confrontare."
 }
