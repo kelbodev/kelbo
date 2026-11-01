@@ -419,6 +419,8 @@ window.Shell = (() => {
       hasExtension: code => extList.some(e => e.code === code && (e.state === 'ok' || e.state === 'warning')),
       // Client per le API di un'altra estensione (/api/ext/<code>)
       apiFor: code => withStreams(apiClient(`/api/ext/${code}`)),
+      // widget delle estensioni attive, per chi li vuole mostrare (es. la dashboard)
+      widgets: { list: listWidgets, mount: mountWidget },
     };
   }
 
@@ -793,9 +795,88 @@ window.Shell = (() => {
     } catch { /* errore già mostrato nel pannello */ }
   }
 
-  // Apertura da tab, pulsanti nell'header o altre estensioni
-  function open(code) {
-    if (exts.has(code)) activate(code);
+  // Apertura da tab, pulsanti nell'header o altre estensioni; params (es. { project }) va a
+  // focus(params, ctx) del modulo, se lo esporta, dopo il caricamento
+  async function open(code, params) {
+    if (!exts.has(code)) return;
+    await activate(code);
+    const entry = exts.get(code);
+    if (params && active === code) { try { await entry.loading; entry.module?.focus?.(params, entry.ctx); } catch (e) { console.error(e); } }
+  }
+
+  // ---- widget: mini viste delle estensioni per la dashboard di progetto ----
+
+  const widgetCss = new Map(); // code → <link> dello stile dell'estensione, se il pannello non l'ha già
+  function ensureExtensionCss(meta) {
+    if (!meta.frontend?.css || exts.get(meta.code)?.css || widgetCss.has(meta.code)) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `/ext/${meta.code}/${meta.frontend.css}?v=${encodeURIComponent(meta.loadId ?? 0)}`;
+    document.head.appendChild(link);
+    widgetCss.set(meta.code, link);
+  }
+
+  // Widget disponibili (estensioni attive): chiave "codice/id"
+  function listWidgets(scope = 'project') {
+    return extList.filter(usable).flatMap(meta => (meta.widgets || []).filter(w => w.scope === scope).map(w => ({
+      key: `${meta.code}/${w.id}`, code: meta.code, id: w.id, title: pick(w.title), description: pick(w.description || ''),
+      size: w.size, icon: meta.icon || '◆', color: meta.color, extension: pick(meta.name),
+    })));
+  }
+
+  // Contesto di un widget: quello dell'estensione (API, traduzioni, ui, vault, bus) con el come
+  // radice, più ctx.widget per il riquadro che lo ospita
+  function widgetContext(meta, el, frame) {
+    const extCtx = exts.get(meta.code)?.ctx;
+    return {
+      code: meta.code, meta, root: el,
+      api: withStreams(apiClient(`/api/ext/${meta.code}`)),
+      core: apiClient('/api/core'),
+      t: window.I18n.scoped(meta.code),
+      i18n: { get lang() { return window.I18n.lang; }, pick, apply: root => window.I18n.apply(root, meta.code) },
+      ui: { esc, js, cssColor, ansiToHtml, toast, openModal, closeModal, patch: UI.patch, formatUptime, toolNotice, notify, contextMenu, t, fmt, errorText: window.I18n.errorText },
+      bus: {
+        on(name, fn) { const h = e => fn(e.detail); bus.addEventListener(name, h); return () => bus.removeEventListener(name, h); },
+        emit(name, detail) { bus.dispatchEvent(new CustomEvent(name, { detail })); },
+      },
+      projects: window.Projects,
+      vault: window.Vault,
+      open,
+      hasExtension: code => extList.some(e => e.code === code && usable(e)),
+      apiFor: code => withStreams(apiClient(`/api/ext/${code}`)),
+      // il pannello dell'estensione, se è già stato aperto (per chi vuole riusarne lo stato)
+      panelCtx: () => extCtx || exts.get(meta.code)?.ctx || null,
+      widget: {
+        setTitle: text => frame.onTitle?.(text),
+        setBadge: value => frame.onBadge?.(value),
+        openFull: params => open(meta.code, params),
+      },
+    };
+  }
+
+  // Monta il widget "codice/id" in el: → { refresh(), unmount() }. Un widget che fallisce
+  // mostra l'errore nel suo riquadro e non tocca gli altri
+  async function mountWidget(key, el, params = {}, frame = {}) {
+    const [code, id] = String(key).split('/');
+    const meta = extList.find(m => m.code === code && usable(m));
+    const w = meta?.widgets?.find(x => x.id === id);
+    const fail = e => {
+      console.error(`[widget ${key}]`, e);
+      el.innerHTML = `<div class="widget-error">⚠ ${esc(t('core.widgets.failed', { error: e?.message || String(e) }))}</div>`;
+    };
+    if (!w) { el.innerHTML = `<div class="widget-error">${esc(t('core.widgets.unavailable', { widget: key }))}</div>`; return { refresh() {}, unmount() {} }; }
+    let mod = null, ctx = null;
+    try {
+      ensureExtensionCss(meta);
+      mod = await import(`/ext/${code}/${w.js}?v=${encodeURIComponent(meta.loadId ?? 0)}`);
+      mod = mod.default || mod;
+      ctx = widgetContext(meta, el, frame);
+      await mod.mount(ctx, el, params);
+    } catch (e) { fail(e); }
+    return {
+      async refresh() { try { await mod?.refresh?.(ctx, el, params); } catch (e) { fail(e); } },
+      unmount() { try { mod?.unmount?.(ctx, el); } catch (e) { console.error(e); } el.innerHTML = ''; },
+    };
   }
 
   // Avvio: estensioni, poi la prima sezione

@@ -16,6 +16,8 @@
   "core.extensions.loadError": "Errore nel caricamento di {name}: {error}",
   "core.extensions.none": "Nessuna estensione disponibile",
   "core.language.choose": "Lingua",
+  "core.widgets.failed": "Widget non disponibile: {error}",
+  "core.widgets.unavailable": "Il widget {widget} non c'è più (estensione rimossa o spenta)",
   "core.output.title": "Output",
   "core.output.clear": "Pulisci",
   "core.output.resize": "Trascina per ridimensionare il pannello di output (doppio clic: altezza iniziale; con la tastiera ↑ ↓)",

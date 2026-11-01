@@ -1,0 +1,32 @@
+{
+  "name": { "it": "Dashboard", "en": "Dashboard" },
+  "code": "dashboard",
+  "version": "1.0.0",
+  "kelbo": "^2.0",
+  "description": {
+    "it": "Dashboard di progetto: i widget delle estensioni (script npm, Git, database, .env, richieste HTTP, tunnel…) insieme, scelti, ordinati e dimensionati per ogni progetto",
+    "en": "Project dashboard: the widgets of the extensions (npm scripts, Git, databases, .env, HTTP requests, tunnels…) together, chosen, ordered and sized per project"
+  },
+  "color": "#a371f7",
+  "icon": "📊",
+  "position": "tab",
+  "order": 5,
+  "config": ["dashboards"],
+  "export": [
+    {
+      "id": "dashboards",
+      "label": { "it": "Dashboard", "en": "Dashboard" },
+      "description": { "it": "Widget scelti per ogni progetto, con ordine e dimensione", "en": "Widgets chosen for each project, with order and size" },
+      "sections": ["dashboards"]
+    }
+  ],
+  "backend": {
+    "module": "server.js",
+    "routes": [
+      { "method": "GET", "path": "/layouts/:project", "handler": "getLayout" },
+      { "method": "PUT", "path": "/layouts/:project", "handler": "saveLayout" },
+      { "method": "DELETE", "path": "/layouts/:project", "handler": "resetLayout" }
+    ]
+  },
+  "frontend": { "html": "view.html", "sidebar": "sidebar.html", "js": "view.js", "css": "style.css" }
+}
