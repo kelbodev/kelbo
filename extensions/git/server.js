@@ -71,7 +71,7 @@ module.exports = function createGit(ctx) {
   function getGitRepos() {
     const seen = new Set();
     const repos = [];
-    for (const p of ctx.projects.list()) {
+    for (const p of ctx.projects.list({ traits: ['git'] })) {
       const gitRoot = findGitRoot(p.path);
       if (!gitRoot || seen.has(gitRoot)) continue; // più progetti nella stessa repo: una sola voce
       seen.add(gitRoot);

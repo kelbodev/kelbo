@@ -88,5 +88,10 @@
       "size": "s",
       "js": "widget.js"
     }
-  ]
+  ],
+  "projects": {
+    "traits": [
+      "env"
+    ]
+  }
 }

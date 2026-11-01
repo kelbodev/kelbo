@@ -84,7 +84,7 @@ module.exports = function createEnv(ctx) {
   return {
     handlers: {
       projects(req, res) {
-        res.json(ctx.projects.list().map(p => {
+        res.json(ctx.projects.list({ traits: ['env'] }).map(p => {
           const o = overview(p);
           return { id: p.id, label: p.label, ...(p.folder ? { folder: p.folder } : {}), files: o.files.map(f => f.name), template: o.template, issues: o.issues };
         }));

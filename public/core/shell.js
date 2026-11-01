@@ -402,7 +402,7 @@ window.Shell = (() => {
       },
       expose(obj) { window.Ext[meta.code] = obj; },
       // progetti e cartelle del core (public/core/projects.js)
-      projects: window.Projects,
+      projects: scopedProjects(meta),
       vault: window.Vault,
       setBadge(value) {
         const badge = entry.tab?.querySelector('.section-tab-badge');
@@ -804,6 +804,19 @@ window.Shell = (() => {
     if (params && active === code) { try { await entry.loading; entry.module?.focus?.(params, entry.ctx); } catch (e) { console.error(e); } }
   }
 
+  // ---- progetti visti da un'estensione: solo quelli con i suoi tratti (manifest "projects") ----
+
+  const withTraits = (meta, p) => !meta.projects?.traits?.length || (p.traitsActive || []).some(x => meta.projects.traits.includes(x));
+  function scopedProjects(meta) {
+    return {
+      ...window.Projects,
+      async load() {
+        const data = await window.Projects.load();
+        return { ...data, projects: data.projects.filter(p => withTraits(meta, p)) };
+      },
+    };
+  }
+
   // ---- widget: mini viste delle estensioni per la dashboard di progetto ----
 
   const widgetCss = new Map(); // code → <link> dello stile dell'estensione, se il pannello non l'ha già
@@ -816,9 +829,10 @@ window.Shell = (() => {
     widgetCss.set(meta.code, link);
   }
 
-  // Widget disponibili (estensioni attive): chiave "codice/id"
-  function listWidgets(scope = 'project') {
-    return extList.filter(usable).flatMap(meta => (meta.widgets || []).filter(w => w.scope === scope).map(w => ({
+  // Widget disponibili (estensioni attive): chiave "codice/id"; con project, solo quelli delle
+  // estensioni che lavorano con i suoi tratti
+  function listWidgets(scope = 'project', project = null) {
+    return extList.filter(usable).filter(meta => !project || withTraits(meta, project)).flatMap(meta => (meta.widgets || []).filter(w => w.scope === scope).map(w => ({
       key: `${meta.code}/${w.id}`, code: meta.code, id: w.id, title: pick(w.title), description: pick(w.description || ''),
       size: w.size, icon: meta.icon || '◆', color: meta.color, extension: pick(meta.name),
     })));
@@ -839,7 +853,7 @@ window.Shell = (() => {
         on(name, fn) { const h = e => fn(e.detail); bus.addEventListener(name, h); return () => bus.removeEventListener(name, h); },
         emit(name, detail) { bus.dispatchEvent(new CustomEvent(name, { detail })); },
       },
-      projects: window.Projects,
+      projects: scopedProjects(meta),
       vault: window.Vault,
       open,
       hasExtension: code => extList.some(e => e.code === code && usable(e)),

@@ -21,7 +21,7 @@ export default {
     let loading = null;       // caricamento della griglia in corso
 
     const project = () => projects.find(p => p.id === active) || null;
-    const available = () => ctx.widgets.list('project');
+    const available = () => ctx.widgets.list('project', project());
 
     // ---- caricamento ----
 

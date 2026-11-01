@@ -60,11 +60,22 @@ module.exports = function coreRoutes(extensions) {
 
   // Progetti e cartelle della sidebar (condivisi da npm, git, env…)
   router.get('/projects', (req, res) => {
-    res.json({ folders: projects.folders(), projects: projects.list() });
+    // traitsFound: rilevati nella cartella, traitsActive: con quelli forzati; traits: i tratti conosciuti
+    res.json({ folders: projects.folders(), projects: projects.list().map(projects.describeProject), traits: projects.knownTraits() });
   });
   router.post('/projects', (req, res) => { res.json(projects.createProject(req.body)); });
   router.put('/projects/:id', (req, res) => { res.json(projects.updateProject(req.params.id, req.body)); });
   router.delete('/projects/:id', (req, res) => { projects.deleteProject(req.params.id); res.json({ ok: true }); });
+  // Cosa le estensioni hanno collegato al progetto (connessioni, sezioni HTTP, bacheca…)
+  const answer = fn => (req, res, next) => { Promise.resolve().then(() => fn(req)).then(r => res.json(r)).catch(next); };
+  router.get('/projects/:id/links', answer(async req => {
+    const p = projects.get(req.params.id);
+    if (!p) throw coreError(404, 'project_not_found', { id: String(req.params.id) });
+    return { links: await extensions.projectLinks(p) };
+  }));
+  // Import da una cartella: sottocartelle con almeno un tratto conosciuto, poi quelle scelte
+  router.post('/projects/scan', answer(req => projects.scanFolder(req.body?.path)));
+  router.post('/projects/import', answer(req => projects.importProjects(req.body || {})));
   router.post('/folders', (req, res) => { res.json(projects.createFolder(req.body)); });
   router.put('/folders/:id', (req, res) => { res.json(projects.updateFolder(req.params.id, req.body)); });
   router.delete('/folders/:id', (req, res) => { projects.deleteFolder(req.params.id); res.json({ ok: true }); });

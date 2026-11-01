@@ -133,5 +133,10 @@
       "size": "m",
       "js": "widget.js"
     }
-  ]
+  ],
+  "projects": {
+    "traits": [
+      "git"
+    ]
+  }
 }
