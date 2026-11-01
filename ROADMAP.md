@@ -33,24 +33,24 @@ Goal: no secret is typed or kept without the master password, and a click on a b
 - [x] **M2.7** *(2.4.1)* HTTP client sidebar: requests grouped by user type (section ▸ user ▸ requests), new request per user, move under another user
 - [x] **M2.8** *(2.5.0)* HTTP client files: body *File* and *Multipart form* read from disk when sending (path absolute or relative to the project); binary answers saved to Downloads with the name from `Content-Disposition` or the Content-Type
 
-## M3 — Widgets and project dashboard — core and built-in extensions
+## M3 — Widgets and project dashboard — core and built-in extensions ✅ (2.17.0)
 
 Goal: every extension can share a **mini view** (widget) of what it knows about a project, and a new **Dashboard** section puts the widgets of one project together: the npm scripts used most, the Git state with pull/push, the project's database, its to-do list… Today extensions share data only through backend services (`ctx.require`) and frontend events (`ctx.bus`); a widget adds a shared piece of UI, with no extension needing to know the others.
 
-- [ ] **M3.1** Widget contract (`docs/EXTENSIONS.md`, additive: extensions without widgets don't change): manifest block `widgets: [{ id, title, scope: "project", size: "s" | "m" | "l", js }]`; the widget module exports `mount(ctx, el, { project })`, optional `refresh`, `unmount`, with the extension's own frontend `ctx` (its API, translations, `ctx.ui`, `ctx.vault`) plus `ctx.widget`: `setBadge`, `setTitle`, `openFull(params)` (opens the extension's section on that project). Widgets are listed by `/api/core/extensions`; a widget that fails shows its error in its own box and never breaks the others
-- [ ] **M3.2** Core widget host: `ctx.widgets.list(scope)` and `ctx.widgets.mount(id, el, params)` for any extension that wants to show widgets; modules loaded on demand with the extension's CSS and catalogs; the same click-feedback and redraw rules as the panels (M2)
-- [ ] **M3.3** Built-in extension `dashboard` (tab): project selector (the core projects, also from a link in NPM/Git/the sidebar), grid of the widgets for that project; per project the user chooses which widgets to show, their order (drag) and size, saved in its config section; *Add widget* lists the widgets of the loaded extensions; refresh on ↻ and when the tab is shown
-- [ ] **M3.4** Widgets of the built-in extensions:
+- [x] **M3.1** Widget contract (`docs/EXTENSIONS.md`, additive: extensions without widgets don't change): manifest block `widgets: [{ id, title, scope: "project", size: "s" | "m" | "l", js }]`; the widget module exports `mount(ctx, el, { project })`, optional `refresh`, `unmount`, with the extension's own frontend `ctx` (its API, translations, `ctx.ui`, `ctx.vault`) plus `ctx.widget`: `setBadge`, `setTitle`, `openFull(params)` (opens the extension's section on that project). Widgets are listed by `/api/core/extensions`; a widget that fails shows its error in its own box and never breaks the others
+- [x] **M3.2** Core widget host: `ctx.widgets.list(scope)` and `ctx.widgets.mount(id, el, params)` for any extension that wants to show widgets; modules loaded on demand with the extension's CSS and catalogs; the same click-feedback and redraw rules as the panels (M2)
+- [x] **M3.3** Built-in extension `dashboard` (tab): project selector (the core projects, also from a link in NPM/Git/the sidebar), grid of the widgets for that project; per project the user chooses which widgets to show, their order (drag) and size, saved in its config section; *Add widget* lists the widgets of the loaded extensions; refresh on ↻ and when the tab is shown
+- [x] **M3.4** Widgets of the built-in extensions:
   - **NPM** — scripts used most in the project (run counter kept by the extension in the Kelbo home, not in `config.json`), running processes with ports, run/stop/restart, a link to the logs
   - **Git** — branch, ahead/behind, changed files, last commits; fetch, pull and push (push after a confirmation showing the commits that will be sent)
   - **Database** — connections linked to the project (`projectId`, already there): status, pending migrations of the linked repository, a link that opens the connection
   - **Env** — `.env` files of the project with missing or empty keys compared with the template (never the values)
   - **HTTP** — sections linked to the project: their requests, with send from the widget and the status of the last answer
   - **SSH tunnels** — the tunnels used by the project's database connections, with connect/disconnect
-- [ ] **M3.5** Widgets of the installed extensions in kelbo-extensions, each released with its own version: `mongo-client` (connections linked to a project — needs a `projectId` field like the DB client), `ports` (ports in use by the project's processes); `notes` gets its widget in M4.6
-- [ ] **M3.6** Tests (contract and host with fixture extensions, a broken widget isolated, dashboard layout saved per project), README section "Dashboard", CHANGELOG
+- [x] **M3.5** Widgets of the installed extensions in kelbo-extensions, each released with its own version: `mongo-client` (connections linked to a project — needs a `projectId` field like the DB client), `ports` (ports in use by the project's processes); `notes` gets its widget in M4.6
+- [x] **M3.6** Tests (contract and host with fixture extensions, a broken widget isolated, dashboard layout saved per project), README section "Dashboard", CHANGELOG
 
-## M4 — Notes and to-do lists — new external extension `notes` (kelbo-extensions) — `notes@1.0.0` ✅ except M4.5–M4.7
+## M4 — Notes and to-do lists — new external extension `notes` (kelbo-extensions) — `notes@1.0.0` ✅ except M4.5 and M4.7
 
 Goal: to-do lists and notes kept next to the code, one board per project. Small and self-contained, so it is born as an installable extension in `kelbo-extensions`; the core does not change. *Changed from the first plan: the content is encrypted with the master password (it may hold anything), boards are the projects themselves instead of free sections, and notes are sticky notes instead of Markdown documents.*
 
@@ -59,7 +59,7 @@ Goal: to-do lists and notes kept next to the code, one board per project. Small 
 - [x] **M4.3** Notes: sticky notes in a grid, six colours, saved automatically a moment after the last keystroke with a "saved" indicator; a note changed elsewhere in the meantime is not overwritten (`409`)
 - [x] **M4.4** To-do lists: several per board; add an item with Enter, edit in place, check/uncheck, reorder by dragging, delete; done items under the open ones with their date and *Clear done*; lists renamed in place, moved and deleted from their menu
 - [ ] **M4.5** From the NPM and Git sections, a link *Notes of this project* opens the extension on that project (`ctx.open` and the event bus, only when `notes` is installed)
-- [ ] **M4.6** Widget for the project dashboard (M3): open items of the project's lists (check them from the widget, add one) and the last notes changed
+- [x] **M4.6** Widget for the project dashboard (M3): open items of the project's lists (check them from the widget, add one) and the last notes changed
 - [ ] **M4.7** Search across list names, items and notes of every board, with the matches highlighted
 
 ## M5 — DB client: PostgreSQL and SQL Server — extension `db-client`
@@ -149,7 +149,7 @@ Not planned for now; to be taken back into the roadmap when needed (descriptions
 |---|---|---|---|
 | M1 MCP stdio bridge | S | core | done in 2.2.0 |
 | M2 Secrets and lost clicks | S | core, `http-client`, `mongo-client` | done in 2.3.0 |
-| M3 Widgets and project dashboard | M | core contract and host, built-in `dashboard`, widgets in every extension | widget contract first, then the dashboard, then one widget per extension |
+| M3 Widgets and project dashboard | M | core contract and host, built-in `dashboard`, widgets in every extension | done in 2.17.0 (with the `notes` widget of M4.6) |
 | M4 Notes and to-do lists | S | `notes` (kelbo-extensions); link in NPM and Git | `notes@1.0.0` done (boards per project, encrypted); link, widget and search left |
 | M5 PostgreSQL and SQL Server | L | `db-client` | engine layer first (MySQL moved onto it with no change), then one dialect at a time |
 | M6 Install script and updates from the interface | M | core, `install.sh`/`install.ps1` | script first (PM2 is the base of the restart), then check, update and restart from the interface |

@@ -17,6 +17,8 @@ export default {
     let custom = false;       // scelta salvata (altrimenti tutti i widget, dimensione predefinita)
     const handles = new Map(); // key → { refresh, unmount }
     let dragging = null;
+    let generation = 0;       // ogni disegno della griglia: i widget di un disegno vecchio si smontano
+    let loading = null;       // caricamento della griglia in corso
 
     const project = () => projects.find(p => p.id === active) || null;
     const available = () => ctx.widgets.list('project');
@@ -30,7 +32,12 @@ export default {
       await loadBoard();
     }
 
-    async function loadBoard() {
+    function loadBoard() {
+      loading = doLoadBoard().finally(() => { loading = null; });
+      return loading;
+    }
+    async function doLoadBoard() {
+      generation++;
       unmountAll();
       const p = project();
       $(ctx.root, 'empty').hidden = !!p;
@@ -75,6 +82,8 @@ export default {
     // ---- griglia ----
 
     function renderBoard() {
+      const gen = ++generation;
+      unmountAll();
       const grid = $(ctx.root, 'grid');
       const info = new Map(available().map(w => [w.key, w]));
       grid.innerHTML = layout.length ? layout.map(item => {
@@ -102,7 +111,7 @@ export default {
             b.hidden = empty;
             b.textContent = empty ? '' : String(value);
           },
-        }).then(h => { if (handles.has(item.key) || !grid.contains(box)) h.unmount(); else handles.set(item.key, h); });
+        }).then(h => { if (gen !== generation || !grid.contains(box)) h.unmount(); else handles.set(item.key, h); });
       }
     }
 
@@ -219,7 +228,8 @@ export default {
     ctx.bus.on('core:projects-changed', load);
     await load();
 
-    this.show = () => { if (handles.size) refreshAll(); else loadBoard(); };
+    // tornando sulla sezione: i widget già mostrati si aggiornano (niente secondo caricamento)
+    this.show = () => { if (!loading) refreshAll(); };
     this.refresh = load;
     // apertura da un'altra sezione: { project } sceglie il progetto
     this.focus = params => { if (params?.project) select(params.project); };

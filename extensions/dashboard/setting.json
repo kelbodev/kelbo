@@ -2,7 +2,7 @@
   "name": { "it": "Dashboard", "en": "Dashboard" },
   "code": "dashboard",
   "version": "1.0.0",
-  "kelbo": "^2.0",
+  "kelbo": "^2.17",
   "description": {
     "it": "Dashboard di progetto: i widget delle estensioni (script npm, Git, database, .env, richieste HTTP, tunnel…) insieme, scelti, ordinati e dimensionati per ogni progetto",
     "en": "Project dashboard: the widgets of the extensions (npm scripts, Git, databases, .env, HTTP requests, tunnels…) together, chosen, ordered and sized per project"

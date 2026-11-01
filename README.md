@@ -37,6 +37,7 @@ When the server stops (Ctrl+C, `kill` or closing the terminal), the tunnels and 
 
 Each section is an extension (see [Writing an extension](#writing-an-extension)):
 
+- **📊 Dashboard** (`dashboard`) — the widgets of the extensions for one project together. See *Dashboard*.
 - **🔗 SSH tunnels** (`tunnels`) — servers grouped by colour; one click opens `ssh -N -L 127.0.0.1:<port>:<remote> <alias>`. Automatic reconnection with backoff (5s → 60s), per-tunnel logs, header pills with "Stop all", desktop notifications. Groups and servers are managed from the ≡ button in the sidebar.
 - **📦 NPM** (`npm`) — the projects' `package.json` scripts: run the `package.json` scripts with live logs, restart/stop (the whole process group), listening ports, dependencies with installed version, `npm outdated` and updates. Projects are shared by NPM, Git and Env and can be grouped in **folders** (one level; ✎ on a project to move it, 📁+ to create a folder, ⋯ on a folder to rename or delete it); projects without a folder stay at the root of the sidebar.
 - **🌿 Git** (`git`) — repositories derived from the projects (walking up to the `.git` folder); projects can be added here too. Status, file selection and commit, commit graph with branch legend, pull/push/merge/checkout/stash/fetch. Branch panel on the branch badge: search, local and remote branches, switch (with "stash and switch" when there are uncommitted changes, `--track` for remote branches), new branch from any start point, merge with a preview of incoming commits and files (fast-forward, `--no-ff`, `--squash`) and conflict handling (abort / conclude), deletion of local branches (unmerged ones only after confirmation). Only one git operation at a time runs on each repository.
@@ -48,6 +49,22 @@ Each section is an extension (see [Writing an extension](#writing-an-extension))
 The section tabs can be put in any order by dragging them (or with Alt+←/→ on a focused tab); the order is saved in `config.json` and the first tab is the one opened at startup. Right click on the tab bar → *Restore the default order*. New extensions go after the others.
 
 The header also holds the language (🌐), desktop notifications (🔔), **Export**/**Import** of the configuration, the MCP server (🤖) and ↻ to refresh. The sidebar can be resized by dragging its edge (or with ←/→ when the edge is focused; double click restores the initial width); each section has its own width, remembered by the browser. The output panel at the bottom (npm scripts, git actions…) is resized the same way, from its top edge (↑/↓ when focused, double click for the initial height), with its own height per section.
+
+## Dashboard
+
+The **📊 Dashboard** section (the first tab of a new installation) puts together, for the project chosen in its sidebar, the **widgets** of the extensions — small views of what each one knows about that project:
+
+| Widget | Shows | Actions |
+|---|---|---|
+| **npm scripts** | running processes with their ports and uptime; the scripts run most (Kelbo counts the runs on this computer, in `~/.kelbo/data/npm`, not in `config.json`) | ▶ run, ■ stop, ↻ restart, ≡ the output in the NPM section |
+| **Git** | branch, ahead/behind, changed files, last commits | fetch, pull, push — the push first lists the commits it will send and asks to confirm |
+| **Database** | connections linked to the project (their *Project* field): the connection test, the migrations folder (how many, the last one, repeated numbers) | ↻ test, open in the Database section; connections through an SSH tunnel are tested only on ↻ (the test opens the tunnel) |
+| **.env files** | missing and empty keys compared with the template, never the values | ＋ add the missing keys |
+| **HTTP requests** | requests of the sections linked to the project, with the status of the last answer | ▶ send (user type, token and variables as in the editor), open the request |
+| **SSH tunnels** | tunnels used by the project's database connections | connect, disconnect |
+| **MongoDB**, **Ports in use**, **To-dos and notes** | from the installed extensions `mongo-client`, `ports` and `notes` (open items to check or add, last notes) | |
+
+Each widget has a header with its badge, ↗ to open the extension's section on the project and ⋯ for its size (small, medium, whole row), refresh and remove. **＋ Widget** adds one of those not shown, the widgets are reordered by dragging their header, and the choice is saved per project in `config.json` (section `dashboards`, *Dashboard* export checkbox); until something is changed a project shows all the widgets, and **All widgets** goes back to that. A widget that fails shows its error in its own box without affecting the others. Extensions add widgets with a `widgets` block in their manifest (see [docs/EXTENSIONS.md](docs/EXTENSIONS.md#widgets)).
 
 ## Database client
 
@@ -161,7 +178,7 @@ Everything is stored in `config.json` in the project folder. The file is created
 - `projects[].path` — absolute path of the project folder
 - `projects[].folder` — optional sidebar folder (`projectFolders[].id`); without it the project is at the root of the sidebars
 
-Each key belongs to the core (`projects` and `projectFolders`, shared by NPM, Git and Env; `layout`, the order of the tabs; `vault`, the master password; `extensions`, switched-off extensions, catalogs and the list of installed ones) or to an extension (`groups` and `servers` to tunnels, `dbConnections` and `dbFolders` to db-client, `httpSections` to http-client, `mockServers` to mock-server), which validates it on every save. **Export** offers the checkboxes of the core (Progetti e cartelle, Estensioni installate) and of the extensions (Tunnel SSH, Connessioni database, Richieste HTTP, Mock server) and downloads one `.json` file; **Import** shows the checkboxes found in the file and lets you *merge* (add new items) or *replace* (overwrite those sections). Anything not selected is left untouched.
+Each key belongs to the core (`projects` and `projectFolders`, shared by NPM, Git and Env; `layout`, the order of the tabs; `vault`, the master password; `extensions`, switched-off extensions, catalogs and the list of installed ones) or to an extension (`dashboards` to dashboard, `groups` and `servers` to tunnels, `dbConnections` and `dbFolders` to db-client, `httpSections` to http-client, `mockServers` to mock-server), which validates it on every save. **Export** offers the checkboxes of the core (Progetti e cartelle, Estensioni installate) and of the extensions (Dashboard, Tunnel SSH, Connessioni database, Richieste HTTP, Mock server) and downloads one `.json` file; **Import** shows the checkboxes found in the file and lets you *merge* (add new items) or *replace* (overwrite those sections). Anything not selected is left untouched.
 
 ## Languages
 

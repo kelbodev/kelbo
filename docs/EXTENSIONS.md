@@ -8,6 +8,7 @@ Every feature that can be added or removed is an **extension**: a folder under `
 
 | Code | Position | Order | Owns in `config.json` | Export/import checkboxes | Dependencies | Preload |
 |---|---|---|---|---|---|---|
+| `dashboard` | tab | 5 | `dashboards` | Dashboard | — | no |
 | `tunnels` | tab | 10 | `groups`, `servers` | Tunnel SSH | — | yes |
 | `npm` | tab | 20 | — | — | — | yes |
 | `env` | tab | 22 | — | — | — | no |
@@ -20,7 +21,7 @@ The official installable extensions (`pm2`, `ports`, `mongo-client`, `swagger`) 
 
 The core owns `projects` and `projectFolders` (see *Projects and folders*) and their **Progetti e cartelle** export checkbox, `layout` (the tab order chosen by the user, not exported) and `vault` (the master password, see *Secrets*).
 
-Services offered by the built-in extensions to the others (`ctx.require(code)`): `npm` → `readPackage(project)`, `processes()`, `stopProcess(id)`; `tunnels` → `getServer(key)`, `ensureTunnel(key)`, `activeTunnels()`, `stopTunnel(id)`; `git` → `repos()`; `db-client` → `decryptPassword(connection)`.
+Services offered by the built-in extensions to the others (`ctx.require(code)`): `npm` → `readPackage(project)`, `processes()` (with `projectId`), `stopProcess(id)`; `tunnels` → `getServer(key)`, `ensureTunnel(key)`, `activeTunnels()`, `stopTunnel(id)`; `git` → `repos()`; `db-client` → `decryptPassword(connection)`.
 
 
 ## Folder layout
@@ -93,6 +94,7 @@ Only `setting.json` is mandatory: an extension can be frontend-only (`swagger`, 
 | `frontend.html` / `sidebar` / `js` / `css` | no | Files served under `/ext/<code>/…`; only the files listed here are served (never `server.js` or `setting.json`) |
 | `mcp.tools` | no | Tools the extension exposes to AI agents through the MCP server (see *MCP tools*); requires a backend |
 | `reloadable` | no | `false` for an extension that can't be stopped and started again while Kelbo runs: installing an update or removing it then asks for a restart (default `true`) |
+| `widgets` | no | Mini views for the project dashboard (see *Widgets*): `[{ id, title, description?, scope: "project", size: "s" \| "m" \| "l", js }]`; `js` is a module in the extension folder, served like the `frontend` files |
 | `frontend.preload` | no | `true`: the module is mounted at startup (hidden) instead of on first open — for extensions that keep header pills, badges or notifications up to date in the background |
 
 ### Loading and states
@@ -166,6 +168,7 @@ Only `handlers` is needed when the manifest declares routes (and `mcp` when it d
 | `ctx.lib.system` | `hasCommand(cmd)`, `getTools()` (installed external tools) |
 | `ctx.lib.ports` | `getPortsForPgid(pid)`: TCP ports listened on by a process group; `listListeningPorts()`: every listening TCP port of the machine with pid, process name, user and command line |
 | `ctx.log.info/warn/error(...)` | Console log prefixed with `[ext:<code>]` |
+| `ctx.dataDir()` | Folder of the extension's data on this computer (`~/.kelbo/data/<code>`, created on first call): for what doesn't belong in `config.json` — counters, caches — and isn't exported (Kelbo ≥ 2.17) |
 | `ctx.projects` | Projects of the core, read-only: `list()` (`{ id, label, path, folder? }`), `get(id)`, `folders()` (`{ id, label }`) |
 | `ctx.vault` | Master password vault of the core, see *Secrets* |
 
@@ -374,7 +377,8 @@ export default {
 | `ctx.expose(obj)` | Publishes functions as `window.Ext.<code>` for inline handlers |
 | `ctx.setBadge(value)` | Number or text on the tab or header button (`null` hides it) |
 | `ctx.setPills(html)` | The extension's pills in the header bar (`''` removes them) |
-| `ctx.open(code)`, `ctx.isActive()` | Open a section; whether this panel is visible |
+| `ctx.open(code, params)`, `ctx.isActive()` | Open a section; with `params` (e.g. `{ project }`) the opened module's `focus(params, ctx)` is called after it loads (Kelbo ≥ 2.17); whether this panel is visible |
+| `ctx.widgets` | `list(scope)`: widgets of the active extensions (`{ key: "<code>/<id>", code, id, title, description, size, icon, color, extension }`); `mount(key, el, params, { onTitle, onBadge })` → `{ refresh(), unmount() }` — for extensions that show widgets (the dashboard) (Kelbo ≥ 2.17) |
 
 Inline handlers call the functions published with `ctx.expose`, always escaping arguments with `ctx.ui.js(value)` and text with `ctx.ui.esc(value)` — values coming from repositories, `package.json` files or processes may contain quotes and markup.
 
@@ -383,6 +387,36 @@ Requests to `/api/…` started by a click (within 400 ms) put the clicked button
 Inside the panel, the sidebar and the pills the CSS variable `--ext-color` holds the extension colour; the `hidden` attribute always hides an element; elements with `data-uptime="<ISO date>"` show an elapsed time that updates every second. Shared classes (`btn`, `sidebar-head`, `sb-item`, `empty-state`, `data-table`, `form-row`, `pill`, `tool-notice`, …) are defined in `public/core/shell.css`.
 
 The header (language, notifications, Export/Import dialogs built from the extensions' checkboxes, 🤖 MCP server, ↻) belongs to the core.
+
+## Widgets
+
+A widget is a **mini view** of what an extension knows about a project, shown by the **Dashboard** section (the built-in `dashboard` extension) next to the widgets of the other extensions. No extension needs to know the others: each declares its widgets in the manifest and the core host mounts them.
+
+```json
+"widgets": [
+  { "id": "scripts", "title": { "it": "Script npm", "en": "npm scripts" }, "description": { "it": "…", "en": "…" }, "size": "m", "js": "widget.js" }
+]
+```
+
+`size` is the default width in the dashboard grid (`s` one column of four, `m` two, `l` the whole row); the user can change it, the order and which widgets are shown, per project. The widget module is loaded on demand with the extension's `style.css` and catalogs, without mounting its panel:
+
+```js
+export default {
+  async mount(ctx, el, { project }) { /* draw into el; project = { id, label, path, folder? } */ },
+  async refresh(ctx, el, params) { /* ↻ of the dashboard, the section shown again */ },
+  unmount(ctx, el) { /* timers, streams */ },
+};
+```
+
+The widget `ctx` is the extension's own frontend context — `api`, `apiFor`, `core`, `t` (its catalogs), `i18n`, `ui` (without `output`), `bus`, `projects`, `vault`, `open`, `hasExtension` — with `el` as `root`, plus `ctx.widget`:
+
+| Member | Purpose |
+|---|---|
+| `setBadge(value)` | Badge next to the widget title (`null` hides it) |
+| `setTitle(text)` | Replaces the title of the widget box |
+| `openFull(params)` | Opens the extension's section with `params` (e.g. `{ project }`, `{ process }`): the panel module receives them in `focus(params, ctx)` |
+
+Widgets handle their events with `addEventListener` on `el` (not `ctx.expose`, which belongs to the panel), redraw with `ctx.ui.patch` and get the same click feedback as the panels. A widget whose module fails to load or throws in `mount` shows the error in its own box; the other widgets are not touched. Keep widgets light: no long polling (5–15 s at most), no action that opens connections by itself (e.g. a database test through an SSH tunnel waits for a click), and never secret values.
 
 ## Translations
 
