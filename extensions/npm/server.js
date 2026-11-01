@@ -104,7 +104,7 @@ module.exports = function createNpm(ctx) {
     services: {
       readPackage,
       // per l'estensione ports: processi avviati da Kelbo (pid = process group) e arresto
-      processes: () => [...processes.values()].filter(pd => pd.running).map(pd => ({ id: pd.id, pid: pd.pid, project: pd.projectLabel, script: pd.script })),
+      processes: () => [...processes.values()].filter(pd => pd.running).map(pd => ({ id: pd.id, pid: pd.pid, project: pd.projectLabel, projectId: pd.projectId, script: pd.script })),
       stopProcess(id, { force = false } = {}) {
         const pd = processes.get(id);
         if (!pd) return false;
