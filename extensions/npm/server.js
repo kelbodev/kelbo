@@ -119,7 +119,7 @@ module.exports = function createNpm(ctx) {
     mcp: {
       projects() {
         return {
-          projects: ctx.projects.list().map(p => {
+          projects: ctx.projects.list({ traits: ['node'] }).map(p => {
             const pkg = readPackage(p);
             return { id: p.id, label: p.label, path: p.path, name: pkg?.name || null, scripts: pkg?.scripts || {} };
           }),

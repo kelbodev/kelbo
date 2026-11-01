@@ -23,5 +23,6 @@
   "errors.widget_key": "Invalid widget: {key}",
   "errors.widget_size": "Invalid size for the widget {key}",
   "errors.widget_duplicate": "Repeated widget: {key}",
-  "errors.project_not_found": "Project {id} not found"
+  "errors.project_not_found": "Project {id} not found",
+  "links.layout": "Saved widget layout"
 }

@@ -8,6 +8,7 @@ export default {
     const $ = (root, role) => root.querySelector(`[data-role="${role}"]`);
     let projects = [];
     let folders = [];
+    let hidden = 0; // progetti senza file .env, solo nel pannello 📁
     let active = null;   // id del progetto
     let data = null;     // panoramica del progetto (chiavi, mai valori)
     let revealed = null; // { file, key, value }: un solo valore visibile alla volta
@@ -17,18 +18,18 @@ export default {
 
     async function loadProjects() {
       try { projects = await ctx.api.get('/projects'); } catch (e) { toast(e.message, 'error'); projects = []; }
-      try { folders = (await ctx.projects.load()).folders; } catch { folders = []; }
+      try { ({ folders, hidden } = await ctx.projects.load()); } catch { folders = []; hidden = 0; }
       renderProjects();
     }
 
     function renderProjects() {
       const el = $(ctx.sidebar, 'projects');
-      el.innerHTML = !projects.length ? `<p class="env-muted" style="padding:12px">${esc(t('sidebar.none'))}</p>`
+      el.innerHTML = (!projects.length ? `<p class="env-muted" style="padding:12px">${esc(t('sidebar.none'))}</p>`
         : ctx.projects.tree(folders, projects, p => `<button class="sb-item ${p.id === active ? 'active' : ''}" onclick="Ext.env.select(${js(p.id)})">
             <span class="sb-icon">${p.files.length ? '🔑' : '·'}</span><span>${esc(p.label)}</span>
             ${p.issues ? `<span class="sb-env-issues" title="${esc(t('issuesTitle', { count: p.issues }))}">${esc(t('issues', { count: p.issues }))}</span>`
               : `<span class="sb-count">${esc(ctx.ui.fmt.number(p.files.length))}</span>`}
-          </button>`);
+          </button>`)) + ctx.projects.hiddenNote(hidden);
     }
 
     async function loadProject() {
@@ -167,7 +168,10 @@ export default {
       },
     };
 
-    ctx.sidebar.addEventListener('click', e => { if (e.target.closest('[data-action="reload"]')) this.refresh(); });
+    ctx.sidebar.addEventListener('click', e => {
+      if (e.target.closest('[data-action="reload"]')) this.refresh();
+      if (e.target.closest('[data-action="manage-projects"]')) ctx.projects.openPanel();
+    });
     ctx.root.addEventListener('click', e => { if (e.target.closest('[data-action="new-file"]')) actions.newFile(); });
     ctx.bus.on('core:projects-changed', loadProjects);
     ctx.expose(actions);

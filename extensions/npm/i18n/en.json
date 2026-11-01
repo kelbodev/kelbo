@@ -1,8 +1,7 @@
 {
   "sidebar.title": "NPM projects",
-  "sidebar.newProject": "New project",
-  "sidebar.none": "No projects.",
-  "sidebar.add": "+ Add",
+  "sidebar.none": "No Node.js projects.",
+  "sidebar.add": "📁 Manage projects",
   "sidebar.remove": "Remove",
   "empty": "Select a project in the sidebar",
   "tab.scripts": "▶ Scripts",

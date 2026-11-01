@@ -397,6 +397,10 @@ module.exports = function createHttpClient(ctx) {
   return {
     config,
 
+    // Dati collegati a un progetto (pannello 📁 del core, prima di rimuoverlo)
+    projectLinks: project => sections().filter(s => s.projectId === project.id)
+      .map(s => ({ key: 'links.section', params: { name: s.label } })),
+
     handlers: {
       browser(req, res) { res.json(browserInfo(browserPath())); },
 

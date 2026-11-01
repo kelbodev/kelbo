@@ -491,6 +491,10 @@ module.exports = function createDbClient(ctx) {
   return {
     config,
 
+    // Dati collegati a un progetto (pannello 📁 del core, prima di rimuoverlo)
+    projectLinks: project => connections().filter(c => c.projectId === project.id)
+      .map(c => ({ key: 'links.connection', params: { name: c.label } })),
+
     handlers: {
       info(req, res) {
         res.json({
