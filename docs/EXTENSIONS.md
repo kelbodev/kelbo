@@ -96,7 +96,7 @@ Only `setting.json` is mandatory: an extension can be frontend-only (`swagger`, 
 | `reloadable` | no | `false` for an extension that can't be stopped and started again while Kelbo runs: installing an update or removing it then asks for a restart (default `true`) |
 | `widgets` | no | Mini views for the project dashboard (see *Widgets*): `[{ id, title, description?, scope: "project", size: "s" \| "m" \| "l", js }]`; `js` is a module in the extension folder, served like the `frontend` files |
 | `projects` | no | `{ traits: ["node", …] }`: the extension works with the projects having at least one of these traits; `ctx.projects` (backend `list({ traits })`, frontend `load()`) and the dashboard widgets leave the others out (see *Projects and folders*). Without it the extension sees every project (Kelbo ≥ 2.18) |
-| `projectTraits` | no | Traits the extension adds to the core's `git`, `node`, `env`: `[{ id, label, files?, dependencies? }]` — present when one of `files` (relative paths) exists in the project folder or one of the npm packages in `dependencies` is in its `package.json` (dependencies, devDependencies, peerDependencies); at least one of the two. A trait with the id of a core trait or of an extension loaded earlier is ignored (Kelbo ≥ 2.18) |
+| `projectTraits` | no | Traits the extension adds to the core's `git`, `node`, `env`: `[{ id, label, files?, dependencies?, detect? }]` — present when one of `files` (relative paths, folders too) exists in the project folder or one of the npm packages in `dependencies` is in its `package.json` (dependencies, devDependencies, peerDependencies); with `detect: true` the backend has the last word (see *Traits*, Kelbo ≥ 2.19). At least one of the three. A trait with the id of a core trait or of an extension loaded earlier is ignored (Kelbo ≥ 2.18) |
 | `frontend.preload` | no | `true`: the module is mounted at startup (hidden) instead of on first open — for extensions that keep header pills, badges or notifications up to date in the background |
 
 ### Loading and states
@@ -258,9 +258,18 @@ A project is not of one kind only (an Angular app is also a Node.js project and 
 | `git` (core) | `.git` in the folder or in a parent folder |
 | `node` (core) | `package.json` in the folder |
 | `env` (core) | a `.env` or `.env.<something>` file in the folder |
-| extension traits | manifest `projectTraits`: one of its `files` exists, or one of its `dependencies` is in `package.json` |
+| extension traits | manifest `projectTraits`: one of its `files` exists, or one of its `dependencies` is in `package.json`; with `detect: true`, and the backend's `detectTrait(id, dir)` returns `true` |
 
 The user can force a trait on (`traits.add`) or off (`traits.remove`) per project; both are saved with the project and travel with its export. The effective traits are the detected ones plus `add` minus `remove`. An extension that declares `projects: { traits: [...] }` sees only the projects with at least one of them: the others are hidden from its sidebar (a note at the bottom counts them and opens the panel) and its dashboard widgets are not offered for them. Detection is cached for a few seconds.
+
+When a file or a folder is not enough (a `scripts` folder with only a README is not a scripts project), a trait declares `detect: true` and the extension's backend instance decides with `detectTrait(id, dir)` → `true`/`false`. It is synchronous and called for every project on every detection (after the cache), so it should stop at the first evidence; `files` and `dependencies`, when declared, are checked first as a quick filter, and `detectTrait` is called only for the folders that pass it. A `detectTrait` that throws counts as `false`. Kelbo 2.18 ignores `detect` and uses `files`/`dependencies` alone (Kelbo ≥ 2.19).
+
+```js
+module.exports = ctx => ({
+  detectTrait: (id, dir) => id === 'scripts' && hasRunnableScript(dir),
+  handlers: { /* … */ },
+});
+```
 
 ### Core API
 

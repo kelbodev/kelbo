@@ -22,16 +22,34 @@ before(async () => {
   write(dirs.mono, '.git/HEAD', 'ref: refs/heads/main\n');
   write(dirs.mono, 'packages/api/package.json', '{}');
   dirs.api = path.join(dirs.mono, 'packages', 'api');
+  // tratti con "detect": la cartella tools c'è in due progetti, ma solo in uno con dentro "ok"
+  write(dirs.ngfile, 'tools/ok', '');
+  fs.mkdirSync(path.join(dirs.mono, 'tools'));
+  write(dirs.node, 'PURE', '');
 
   const ext = path.join(root, 'ext');
   writeExtension(ext, 'ng', {
     'setting.json': manifest('ng', {
       projects: { traits: ['angular'] },
-      projectTraits: [{ id: 'angular', label: { it: 'Angular', en: 'Angular' }, files: ['angular.json'], dependencies: ['@angular/core'] }],
+      projectTraits: [
+        { id: 'angular', label: { it: 'Angular', en: 'Angular' }, files: ['angular.json'], dependencies: ['@angular/core'] },
+        { id: 'tool', label: 'Tool', files: ['tools'], detect: true },   // file come filtro, poi il backend
+        { id: 'pure', label: 'Pure', detect: true },                     // solo il backend
+        { id: 'broken', label: 'Broken', detect: true },                 // detectTrait che lancia: assente
+      ],
       backend: { module: 'server.js', routes: [] },
     }),
     // collegamenti: l'estensione dice quali suoi dati riguardano il progetto
-    'server.js': `module.exports = () => ({ handlers: {}, projectLinks: p => (p.id === 'ng' ? [{ key: 'links.workspace', params: { name: 'shop' } }] : []) });`,
+    'server.js': `const fs = require('fs'), path = require('path');
+      module.exports = () => ({
+        handlers: {},
+        projectLinks: p => (p.id === 'ng' ? [{ key: 'links.workspace', params: { name: 'shop' } }] : []),
+        detectTrait(id, dir) {
+          if (id === 'broken') throw new Error('rotto');
+          if (id === 'tool') return fs.existsSync(path.join(dir, 'tools', 'ok'));
+          return id === 'pure' && fs.existsSync(path.join(dir, 'PURE'));
+        },
+      });`,
   });
   writeExtension(ext, 'all', { 'setting.json': manifest('all', {}) });
   srv = await startServer({
@@ -51,12 +69,14 @@ const byId = list => Object.fromEntries(list.map(p => [p.id, p]));
 
 test('tratti: rilevati dal core e dalle estensioni, forzati e tolti, cartelle mancanti', async () => {
   const { projects, traits } = (await srv.request('GET', '/api/core/projects')).json;
-  assert.deepEqual(traits.map(t => [t.id, t.source]), [['git', 'core'], ['node', 'core'], ['env', 'core'], ['angular', 'ng']]);
+  assert.deepEqual(traits.map(t => [t.id, t.source]), [['git', 'core'], ['node', 'core'], ['env', 'core'], ['angular', 'ng'], ['tool', 'ng'], ['pure', 'ng'], ['broken', 'ng']]);
+  assert.deepEqual(Object.keys(traits[3]).sort(), ['id', 'label', 'source']);
   const p = byId(projects);
   assert.deepEqual(p.ng.traitsActive.sort(), ['angular', 'git', 'node']);   // dipendenza in package.json
-  assert.deepEqual(p.ngfile.traitsActive, ['angular']);                     // file angular.json
+  assert.deepEqual(p.ngfile.traitsActive, ['angular', 'tool']);             // file angular.json; tools/ok confermato
+  assert.ok(!p.mono || !p.mono.traitsActive.includes('tool'));              // tools/ senza "ok": detect dice no
   assert.deepEqual([p.plain.traitsFound, p.plain.traitsActive.sort()], [[], ['angular', 'node']]);
-  assert.deepEqual([p.node.traitsFound.sort(), p.node.traitsActive], [['env', 'node'], ['env']]);
+  assert.deepEqual([p.node.traitsFound.sort(), p.node.traitsActive.sort()], [['env', 'node', 'pure'], ['env', 'pure']]);
   assert.deepEqual(p.api.traitsActive.sort(), ['git', 'node']);             // git della cartella superiore
   assert.deepEqual([p.gone.missing, p.gone.traitsActive, p.ng.missing], [true, [], false]);
 });
@@ -75,7 +95,7 @@ test('tratti forzati: salvati con il progetto, validati, tolti se vuoti', async 
   let r = await srv.request('PUT', '/api/core/projects/ngfile', { body: { traits: { add: ['git', 'git'], remove: ['angular'] } } });
   assert.deepEqual(r.json.traits, { add: ['git'], remove: ['angular'] });
   const p = byId((await srv.request('GET', '/api/core/projects')).json.projects).ngfile;
-  assert.deepEqual(p.traitsActive, ['git']);
+  assert.deepEqual(p.traitsActive.sort(), ['git', 'tool']);
   for (const traits of ['node', { add: 'node' }, { add: ['Node!'] }, { remove: [1] }, { other: [] }]) {
     r = await srv.request('PUT', '/api/core/projects/ngfile', { body: { traits } });
     assert.deepEqual([r.status, r.json.code], [400, 'core.project_traits_invalid'], JSON.stringify(traits));
@@ -91,7 +111,11 @@ test('tratti forzati: salvati con il progetto, validati, tolti se vuoti', async 
 test('manifest: projects e projectTraits validati', () => {
   const ok = validateManifest(manifest('x', { projects: { traits: ['node'] }, projectTraits: [{ id: 'vue', label: 'Vue', dependencies: ['vue'] }] }), 'x');
   assert.deepEqual(ok.projects, { traits: ['node'] });
-  assert.deepEqual(ok.projectTraits, [{ id: 'vue', label: 'Vue', files: [], dependencies: ['vue'] }]);
+  assert.deepEqual(ok.projectTraits, [{ id: 'vue', label: 'Vue', files: [], dependencies: ['vue'], detect: false }]);
+  const det = validateManifest(manifest('x', { backend: { module: 'server.js', routes: [] }, projectTraits: [{ id: 'cli', label: 'CLI', detect: true }] }), 'x');
+  assert.equal(det.projectTraits[0].detect, true);
+  assert.throws(() => validateManifest(manifest('x', { projectTraits: [{ id: 'cli', label: 'CLI', detect: true }] }), 'x')); // senza backend
+  assert.throws(() => validateManifest(manifest('x', { backend: { module: 'server.js', routes: [] }, projectTraits: [{ id: 'cli', label: 'CLI', detect: 'yes' }] }), 'x'));
   const bad = extra => assert.throws(() => validateManifest(manifest('x', extra), 'x'), undefined, JSON.stringify(extra));
   bad({ projects: 'node' });
   bad({ projects: { traits: [] } });

@@ -61,7 +61,7 @@ module.exports = function coreRoutes(extensions) {
   // Progetti e cartelle della sidebar (condivisi da npm, git, env…)
   router.get('/projects', (req, res) => {
     // traitsFound: rilevati nella cartella, traitsActive: con quelli forzati; traits: i tratti conosciuti
-    res.json({ folders: projects.folders(), projects: projects.list().map(projects.describeProject), traits: projects.knownTraits() });
+    res.json({ folders: projects.folders(), projects: projects.list().map(projects.describeProject), traits: projects.knownTraits().map(({ id, label, source }) => ({ id, label, source })) });
   });
   router.post('/projects', (req, res) => { res.json(projects.createProject(req.body)); });
   router.put('/projects/:id', (req, res) => { res.json(projects.updateProject(req.params.id, req.body)); });
