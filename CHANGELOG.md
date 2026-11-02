@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.19.0] - 2026-11-02
+
+### Added
+- **Traits confirmed by the extension**: a manifest trait can declare `detect: true`; the extension's backend then decides with `detectTrait(id, dir)` whether the project really has it, after the quick check on `files`/`dependencies` (e.g. the Scripts extension counts a `scripts` folder only when it holds a script that can run on this computer). Contract in `docs/EXTENSIONS.md` (additive; Kelbo 2.18 ignores the field).
+
+### Changed
+- `GET /api/core/projects`: the known `traits` carry only `id`, `label` and `source`.
+
 ## [2.18.0] - 2026-11-01
 
 Milestone M10 (project management and project traits in the core).
