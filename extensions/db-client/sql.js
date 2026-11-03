@@ -51,6 +51,45 @@ function mask(sql) {
   return out;
 }
 
+// Istruzioni separate da ";" al primo livello (fuori da stringhe, identificatori quotati e
+// commenti): [{ sql, start }] senza quelle vuote o di soli commenti. Le istruzioni composte
+// (BEGIN … END di procedure e trigger, DELIMITER) non sono riconosciute.
+function splitStatements(sql) {
+  if (typeof sql !== 'string') return [];
+  const out = [];
+  let start = 0, i = 0;
+  const push = end => {
+    const text = sql.slice(start, end);
+    if (mask(text).trim()) {
+      const lead = text.length - text.trimStart().length;
+      out.push({ sql: text.trim(), start: start + lead });
+    }
+  };
+  while (i < sql.length) {
+    const c = sql[i], n = sql[i + 1];
+    if (c === "'" || c === '"' || c === '`') {
+      const q = c;
+      i++;
+      while (i < sql.length) {
+        if (sql[i] === '\\' && q !== '`') { i += 2; continue; }
+        if (sql[i] === q) { if (sql[i + 1] === q) { i += 2; continue; } break; }
+        i++;
+      }
+      i++;
+    } else if ((c === '-' && n === '-' && /\s/.test(sql[i + 2] ?? ' ')) || c === '#') {
+      while (i < sql.length && sql[i] !== '\n') i++;
+    } else if (c === '/' && n === '*') {
+      const end = sql.indexOf('*/', i + 2);
+      i = end === -1 ? sql.length : end + 2;
+    } else if (c === ';') {
+      push(i);
+      start = ++i;
+    } else i++;
+  }
+  push(sql.length);
+  return out;
+}
+
 // { kind: 'read' | 'write' | 'empty' | 'invalid', verb, reason?, word? }
 // reason è un codice (tradotto dalla UI): missing, empty, single_statement, use_unsupported,
 // explain_analyze_write, into, row_lock, write_word (con word = la parola trovata)
@@ -286,4 +325,4 @@ function countQuery(sql) {
   return { sql: `SELECT COUNT(*) FROM (\n${body}\n) AS kelbo_count`, limit };
 }
 
-module.exports = { classify, mask, schemaChange, placeholders, describeParams, bindParams, countQuery };
+module.exports = { classify, splitStatements, mask, schemaChange, placeholders, describeParams, bindParams, countQuery };

@@ -233,3 +233,17 @@
 .dbw-actions{margin-inline-start:auto;display:flex;gap:2px;flex-shrink:0}
 .dbw-detail{font-size:11px;font-family:var(--font);margin:2px 0 0 16px;word-break:break-word}
 .dbw-error{color:var(--danger)}
+
+/* più istruzioni: sotto-tab dei risultati e riepilogo dell'esecuzione */
+.db-subtabs{display:flex;align-items:center;gap:2px;padding:4px 10px 0;border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0;position:sticky;top:0;z-index:3;background:var(--bg)}
+.db-subtab{padding:5px 12px;font-size:11px;font-family:var(--font);background:none;border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;color:var(--muted);cursor:pointer;white-space:nowrap;margin-bottom:-1px}
+.db-subtab:hover{color:var(--text);background:var(--surface2)}
+.db-subtab.active{color:var(--text);background:var(--surface);border-color:var(--border);border-bottom-color:var(--surface)}
+.db-subtab-error{color:var(--danger)}
+.db-subtab-count{font-size:10px;opacity:.7;margin-inline-start:4px}
+.db-subtabs-ms{margin-inline-start:auto;font-size:10px;padding:0 6px}
+.db-batch-table td{vertical-align:top}
+.db-batch-sql code{font-family:var(--font);font-size:11px;white-space:pre-wrap;word-break:break-word;display:block;max-height:7.5em;overflow:hidden}
+.db-batch-ok{color:var(--success);font-family:var(--font);font-size:11px}
+.db-batch-err{color:var(--danger);font-family:var(--font);font-size:11px;white-space:pre-wrap}
+.db-batch-failed{background:color-mix(in srgb,var(--danger) 6%,transparent)}

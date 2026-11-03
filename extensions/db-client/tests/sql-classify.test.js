@@ -91,3 +91,15 @@ test('conteggio delle righe totali: COUNT(*) della SELECT senza il suo LIMIT fin
   // non SELECT: niente conteggio
   for (const q of ['SHOW TABLES', 'DESCRIBE t', 'EXPLAIN SELECT 1', '']) assert.equal(countQuery(q), null);
 });
+
+test('più istruzioni: separate da ; fuori da stringhe, identificatori e commenti', () => {
+  const { splitStatements } = require('../sql');
+  const parts = s => splitStatements(s).map(x => x.sql);
+  assert.deepEqual(parts('SELECT 1'), ['SELECT 1']);
+  assert.deepEqual(parts('SELECT 1;'), ['SELECT 1']);
+  assert.deepEqual(parts("SELECT 'a;b'; SELECT \"c;d\"; SELECT `e;f` FROM t"), ["SELECT 'a;b'", 'SELECT "c;d"', 'SELECT `e;f` FROM t']);
+  assert.deepEqual(parts("SELECT 'it''s; ok'; SELECT 'x\\';y'"), ["SELECT 'it''s; ok'", "SELECT 'x\\';y'"]);
+  assert.deepEqual(parts('SELECT 1 -- a; b\n; /* c; d */ SELECT 2 # e; f\n'), ['SELECT 1 -- a; b', '/* c; d */ SELECT 2 # e; f']);
+  assert.deepEqual(parts(' ;; -- solo commenti;\n /* x */ ;'), []);
+  assert.deepEqual(splitStatements('SELECT 1;\n  SELECT 2').map(x => x.start), [0, 12]);
+});

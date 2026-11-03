@@ -265,11 +265,11 @@ export default {
     function makeTab({ connId = null, db = null, sql = '', title = null, key = null } = {}) {
       const c = connections.find(x => x.id === connId);
       return { id: ++tabSeq, connId, db: db || c?.database || null, sql, title, key, running: false, frag: null,
-        st: { grid: null, designer: null, lastResult: null, resultSort: null, lastParamInfo: null, edits: null } };
+        st: { grid: null, designer: null, lastResult: null, resultSort: null, lastParamInfo: null, edits: null, batch: null } };
     }
     // Stato dei risultati della tab visibile → nella tab (nodi del pannello compresi)
     function stash(tab) {
-      tab.st = { grid, designer, lastResult, resultSort, lastParamInfo, edits };
+      tab.st = { grid, designer, lastResult, resultSort, lastParamInfo, edits, batch };
       const frag = document.createDocumentFragment();
       const el = $(ctx.root, 'results');
       tab.scroll = el.scrollTop;
@@ -277,7 +277,7 @@ export default {
       tab.frag = frag;
     }
     function restore(tab) {
-      ({ grid, designer, lastResult, resultSort, lastParamInfo, edits } = tab.st);
+      ({ grid, designer, lastResult, resultSort, lastParamInfo, edits, batch = null } = tab.st);
       const el = $(ctx.root, 'results');
       el.replaceChildren(tab.frag || '');
       tab.frag = null;
@@ -1346,6 +1346,8 @@ export default {
       searchTimer = setTimeout(() => { grid.search = e.target.value; grid.page = 1; loadGrid(); }, 300);
     });
     $(ctx.root, 'results').addEventListener('click', e => {
+      const sub = e.target.closest('[data-batch]')?.dataset.batch;
+      if (sub !== undefined && batch) { showBatch(sub === 'summary' ? 'summary' : Number(sub)); return; }
       const ed = e.target.closest('[data-edits]')?.dataset.edits;
       if (ed) {
         const data = grid ? grid.data : lastResult;
@@ -1759,7 +1761,7 @@ export default {
       const list = readHistory();
       const label = id => connections.find(c => c.id === id)?.label || id;
       // summary: { rows } o { affected } (le voci più vecchie hanno un testo già pronto)
-      const summary = s => typeof s === 'string' ? s : s?.rows != null ? t('history.rows', { count: s.rows }) : t('history.affected', { count: s?.affected ?? 0 });
+      const summary = s => typeof s === 'string' ? s : s?.statements != null ? t('history.statements', { count: s.statements }) : s?.rows != null ? t('history.rows', { count: s.rows }) : t('history.affected', { count: s?.affected ?? 0 });
       openModal(t('history.title'), list.length ? `
         <div class="db-history">${list.map((h, i) => `
           <button class="db-history-item" onclick="Ext['db-client'].useHistory(${i})" title="${esc(t('history.load'))}">
@@ -1800,11 +1802,18 @@ export default {
         else if (!res.ok) { inTab(tab, () => { renderError(ctx.ui.errorText(data, `HTTP ${res.status}`), sql); showParamsUsed(opts?.paramInfo); }); record(false); }
         else {
           data.paramInfo = opts?.paramInfo || null;
-          inTab(tab, () => renderResult(data));
-          record(true, data.kind === 'rows' ? { rows: data.rowCount } : { affected: data.affectedRows });
-          // istruzione di schema eseguita dall'editor: l'albero si aggiorna da solo
-          if (/^\s*(CREATE|ALTER|DROP|RENAME|TRUNCATE)\b/i.test(sql.replace(/^(\s*(--[^\n]*|#[^\n]*|\/\*[\s\S]*?\*\/))*/, ''))) {
-            refreshDatabase(c, /^\s*(CREATE|DROP)\s+(DATABASE|SCHEMA)\b/i.test(sql) ? null : body.database);
+          if (data.kind === 'batch') {
+            inTab(tab, () => renderBatch(data));
+            record(!data.failed, { statements: data.statements });
+          } else {
+            inTab(tab, () => renderResult(data));
+            record(true, data.kind === 'rows' ? { rows: data.rowCount } : { affected: data.affectedRows });
+          }
+          // istruzioni di schema eseguite dall'editor: l'albero si aggiorna da solo
+          const executed = data.kind === 'batch' ? data.results.filter(r => r.kind !== 'error').map(r => r.sql) : [sql];
+          const bare = s => s.replace(/^(\s*(--[^\n]*|#[^\n]*|\/\*[\s\S]*?\*\/))*/, '');
+          if (executed.some(s => /^\s*(CREATE|ALTER|DROP|RENAME|TRUNCATE)\b/i.test(bare(s)))) {
+            refreshDatabase(c, executed.some(s => /^\s*(CREATE|DROP)\s+(DATABASE|SCHEMA)\b/i.test(bare(s))) ? null : body.database);
           }
         }
       } catch (e) {
@@ -1973,11 +1982,12 @@ export default {
       if (!keepResults) $(ctx.root, 'results').innerHTML = `<div class="db-muted db-pad">${esc(t('run.waiting'))}</div>`;
       // parametri in grassetto: il testo tradotto è escapato, poi i segnaposto diventano <strong>
       const strong = v => `\u0000${v}\u0001`;
-      const text = esc(t(data.database ? 'confirm.textDb' : 'confirm.text', {
+      const text = esc(t(`${data.statements ? 'confirm.textBatch' : 'confirm.text'}${data.database ? 'Db' : ''}`, {
         verb: strong(data.verb || t('confirm.unknownVerb')), database: strong(data.database || ''), connection: strong(active()?.label || ''),
       })).replace(/\u0000/g, '<strong>').replace(/\u0001/g, '</strong>');
       openModal(t('confirm.title'), `
         <p class="db-confirm-text">${text}${data.reason ? ` <span class="db-muted">(${esc(t(`reason.${data.reason}`, { word: data.word || '' }))})</span>` : ''}</p>
+        ${data.statements ? `<p class="db-muted">${esc(t('confirm.batch', { count: data.statements, writes: data.writes }))}</p>` : ''}
         <pre class="db-confirm-sql">${highlightSql(data.sql, esc)}</pre>`,
         `<button class="btn btn-ghost" onclick="UI.closeModal();Ext['db-client'].cancelConfirm()">${esc(t('core.action.cancel'))}</button>
          ${data.migration ? `<button class="btn btn-ghost" onclick="Ext['db-client'].confirmRun()">${esc(t('confirm.runOnly'))}</button>
@@ -1988,6 +1998,48 @@ export default {
       }
     }
 
+    // ---- più istruzioni: una tab per ogni SELECT, poi "Esecuzione" con l'esito di tutte ----
+    function renderBatch(data) {
+      const rows = data.results.findIndex(r => r.kind === 'rows');
+      batch = { data, sel: data.failed || rows === -1 ? 'summary' : rows };
+      showBatch();
+    }
+    function showBatch(sel = batch.sel) {
+      batch.sel = sel;
+      if (sel === 'summary') {
+        lastResult = null;
+        lastParamInfo = batch.data.paramInfo || null;
+        ctx.ui.patch($(ctx.root, 'results'), `${paramsUsed(batch.data.paramInfo)}${batchBar()}${batchSummary()}`);
+      } else renderResult(batch.data.results[sel]);
+    }
+    function batchBar() {
+      const { data, sel } = batch;
+      const tabsHtml = data.results.map((r, i) => (r.kind !== 'rows' ? '' : `
+        <button class="db-subtab ${sel === i ? 'active' : ''}" data-batch="${i}" title="${esc(r.sql)}">
+          ▦ ${esc(t('batch.result', { n: r.n }))} <span class="db-subtab-count">${esc(fmt.number(r.rowCount))}${r.truncated ? '+' : ''}</span></button>`)).join('');
+      const done = data.results.filter(r => r.kind !== 'error').length;
+      return `<div class="db-subtabs" role="tablist">${tabsHtml}
+        <button class="db-subtab ${sel === 'summary' ? 'active' : ''} ${data.failed ? 'db-subtab-error' : ''}" data-batch="summary">
+          ${data.failed ? '✖' : '✔'} ${esc(t('batch.summary'))} <span class="db-subtab-count">${esc(fmt.number(done))}/${esc(fmt.number(data.statements))}</span></button>
+        <span class="db-muted db-subtabs-ms">${esc(t('result.ms', { ms: data.ms }))}</span></div>`;
+    }
+    function batchSummary() {
+      const { data } = batch;
+      const outcome = r => {
+        if (r.kind === 'error') return `<span class="db-batch-err">✖ ${esc(r.error)}</span>`;
+        if (r.kind === 'rows') return `<button class="btn btn-ghost btn-sm" data-batch="${data.results.indexOf(r)}">▦ ${esc(t('result.rows', { count: r.rowCount }))}${r.truncated ? ` ${esc(t('result.truncated', { limit: r.limit }))}` : ''}</button>`;
+        return `<span class="db-batch-ok">${esc(t('result.affected', { count: r.affectedRows }))}${r.insertId ? ` · insertId ${esc(r.insertId)}` : ''}${r.info ? ` · ${esc(r.info)}` : ''}</span>`;
+      };
+      const skipped = data.skipped ? `<p class="db-muted db-pad">${esc(t('batch.skipped', { count: data.skipped }))}</p>` : '';
+      return `<div class="db-table-wrap"><table class="data-table db-table db-batch-table">
+        <thead><tr><th>#</th><th>${esc(t('batch.statement'))}</th><th>${esc(t('batch.outcome'))}</th><th>ms</th></tr></thead>
+        <tbody>${data.results.map(r => `<tr class="${r.kind === 'error' ? 'db-batch-failed' : ''}">
+          <td class="db-muted">${esc(r.n)}</td>
+          <td class="db-batch-sql"><code title="${esc(r.sql)}">${highlightSql(r.sql.length > 300 ? `${r.sql.slice(0, 300)}…` : r.sql, esc)}</code></td>
+          <td>${outcome(r)}</td><td class="db-muted">${r.ms != null ? esc(fmt.number(r.ms)) : ''}</td></tr>`).join('')}</tbody>
+      </table></div>${skipped}`;
+    }
+
     function renderError(message, sql) {
       $(ctx.root, 'results').innerHTML = `<div class="db-error">✖ ${esc(message)}</div>`;
     }
@@ -1995,6 +2047,8 @@ export default {
     // Ordinamento lato client dei risultati dell'editor (numeri come numeri, NULL in fondo):
     // indici delle righe, così la riga modificata resta quella giusta
     let lastResult = null, resultSort = null;
+    // Più istruzioni eseguite insieme: { data, sel } con sel = indice del risultato mostrato o 'summary'
+    let batch = null;
     function sortedIndexes(data) {
       const idx = data.rows.map((_, i) => i);
       if (!resultSort) return idx;
@@ -2070,15 +2124,17 @@ export default {
       const el = $(ctx.root, 'results');
       if (!keepSort) resultSort = null;
       lastResult = data;
-      lastParamInfo = data.paramInfo || null;
+      if (!batch?.data.results.includes(data)) batch = null; // un risultato singolo chiude il gruppo
+      lastParamInfo = (batch ? batch.data.paramInfo : data.paramInfo) || null;
+      const head = batch ? `${paramsUsed(batch.data.paramInfo)}${batchBar()}` : paramsUsed(data.paramInfo);
       if (data.kind === 'result') {
-        el.innerHTML = `${paramsUsed(data.paramInfo)}<div class="db-ok">${esc(t('result.affected', { count: data.affectedRows }))}${data.insertId ? ` · insertId ${esc(data.insertId)}` : ''}${data.info ? ` · ${esc(data.info)}` : ''} <span class="db-muted">(${esc(t('result.ms', { ms: data.ms }))})</span></div>`;
+        el.innerHTML = `${head}<div class="db-ok">${esc(t('result.affected', { count: data.affectedRows }))}${data.insertId ? ` · insertId ${esc(data.insertId)}` : ''}${data.info ? ` · ${esc(data.info)}` : ''} <span class="db-muted">(${esc(t('result.ms', { ms: data.ms }))})</span></div>`;
         return;
       }
       const target = resultTarget(data);
       const editable = i => !!target?.colOf[i];
       ctx.ui.patch(el, `
-        ${paramsUsed(data.paramInfo)}
+        ${head}
         <div class="db-result-meta">${esc(t('result.rows', { count: data.rowCount }))}${data.truncated ? ` ${esc(t('result.truncated', { limit: data.limit }))}` : ''}${totalText(data)} · ${esc(t('result.ms', { ms: data.ms }))}
           ${target ? `<span class="db-badge" title="${esc(t('result.editableHint'))}">✎ ${esc(t('result.editable', { table: target.table }))}</span>` : ''}
           ${target ? editsBar(data) : ''}</div>

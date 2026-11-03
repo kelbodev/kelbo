@@ -544,5 +544,22 @@
   "widget.migrationsMissing": "repository delle migration non trovato",
   "widget.duplicates": "numeri ripetuti: {list}",
   "widget.tunnelNotTested": "Non provata: la prova (↻) apre il tunnel",
-  "links.connection": "Connessione \"{name}\""
+  "links.connection": "Connessione \"{name}\"",
+  "batch.result": "Risultato {n}",
+  "batch.summary": "Esecuzione",
+  "batch.statement": "Istruzione",
+  "batch.outcome": "Esito",
+  "batch.skipped": {
+    "one": "{count} istruzione non eseguita dopo l'errore",
+    "other": "{count} istruzioni non eseguite dopo l'errore"
+  },
+  "confirm.batch": "{count} istruzioni, quelle che modificano dati o schema: {writes}. Vengono eseguite in ordine, una alla volta, fermandosi al primo errore.",
+  "history.statements": {
+    "one": "{count} istruzione",
+    "other": "{count} istruzioni"
+  },
+  "errors.batch_statement": "Istruzione {n}: {error}",
+  "errors.batch_too_many": "Al massimo {max} istruzioni per volta",
+  "confirm.textBatch": "Queste istruzioni ({verb}) possono modificare dati o schema su {connection}.",
+  "confirm.textBatchDb": "Queste istruzioni ({verb}) possono modificare dati o schema del database {database} su {connection}."
 }

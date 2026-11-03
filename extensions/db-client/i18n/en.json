@@ -544,5 +544,22 @@
   "widget.migrationsMissing": "migrations repository not found",
   "widget.duplicates": "repeated numbers: {list}",
   "widget.tunnelNotTested": "Not tested: testing it (↻) opens the tunnel",
-  "links.connection": "Connection \"{name}\""
+  "links.connection": "Connection \"{name}\"",
+  "batch.result": "Result {n}",
+  "batch.summary": "Execution",
+  "batch.statement": "Statement",
+  "batch.outcome": "Outcome",
+  "batch.skipped": {
+    "one": "{count} statement not run after the error",
+    "other": "{count} statements not run after the error"
+  },
+  "confirm.batch": "{count} statements, those changing data or schema: {writes}. They run in order, one at a time, stopping at the first error.",
+  "history.statements": {
+    "one": "{count} statement",
+    "other": "{count} statements"
+  },
+  "errors.batch_statement": "Statement {n}: {error}",
+  "errors.batch_too_many": "At most {max} statements at a time",
+  "confirm.textBatch": "These statements ({verb}) may change data or schema on {connection}.",
+  "confirm.textBatchDb": "These statements ({verb}) may change data or schema of the database {database} on {connection}."
 }

@@ -29,11 +29,18 @@ async function startMysql() {
   const dir = tmpDir('devdock-mysql-');
   const data = path.join(dir, 'data');
   const port = await freePort();
-  execFileSync(mysqld, ['--no-defaults', '--initialize-insecure', `--datadir=${data}`], { stdio: 'ignore' });
+  // MariaDB (mysqld di molte distribuzioni Linux): datadir con mariadb-install-db, niente X protocol
+  const mariadb = /mariadb/i.test(spawnSync(mysqld, ['--version'], { encoding: 'utf8' }).stdout || '');
+  if (mariadb) {
+    const install = ['mariadb-install-db', 'mysql_install_db'].map(c => spawnSync('which', [c], { encoding: 'utf8' }).stdout.trim()).find(Boolean);
+    if (!install) return null;
+    execFileSync(install, ['--no-defaults', `--datadir=${data}`, '--auth-root-authentication-method=normal', '--skip-test-db', ...(process.getuid?.() === 0 ? ['--user=root'] : [])], { stdio: 'ignore' });
+  } else execFileSync(mysqld, ['--no-defaults', '--initialize-insecure', `--datadir=${data}`], { stdio: 'ignore' });
   const proc = spawn(mysqld, [
     '--no-defaults', `--datadir=${data}`, `--port=${port}`, '--bind-address=127.0.0.1',
     `--socket=${path.join(dir, 'mysql.sock')}`, `--pid-file=${path.join(dir, 'mysql.pid')}`,
-    '--mysqlx=OFF', '--skip-log-bin', '--innodb-buffer-pool-size=16M', `--log-error=${path.join(dir, 'error.log')}`,
+    ...(mariadb ? (process.getuid?.() === 0 ? ['--user=root'] : []) : ['--mysqlx=OFF']),
+    '--skip-log-bin', '--innodb-buffer-pool-size=16M', `--log-error=${path.join(dir, 'error.log')}`,
   ], { stdio: 'ignore' });
   for (let i = 0; i < 100 && !(await portOpen(port)); i++) await new Promise(r => setTimeout(r, 200));
 
@@ -57,4 +64,7 @@ async function startMysql() {
   };
 }
 
-module.exports = { startMysql };
+// MariaDB invece di MySQL: alcuni dettagli (int(11), JSON come longtext) cambiano
+const isMariaDb = () => { const m = findMysqld(); return !!m && /mariadb/i.test(spawnSync(m, ['--version'], { encoding: 'utf8' }).stdout || ''); };
+
+module.exports = { startMysql, isMariaDb };
