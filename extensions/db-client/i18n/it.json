@@ -561,5 +561,17 @@
   "errors.batch_statement": "Istruzione {n}: {error}",
   "errors.batch_too_many": "Al massimo {max} istruzioni per volta",
   "confirm.textBatch": "Queste istruzioni ({verb}) possono modificare dati o schema su {connection}.",
-  "confirm.textBatchDb": "Queste istruzioni ({verb}) possono modificare dati o schema del database {database} su {connection}."
+  "confirm.textBatchDb": "Queste istruzioni ({verb}) possono modificare dati o schema del database {database} su {connection}.",
+  "mgrun.title": "Migration salvata",
+  "mgrun.label": "Script npm di {project} da lanciare ora (facoltativo)",
+  "mgrun.hint": "Per esempio lo script che applica le migration del progetto. L'output compare qui; al termine puoi chiudere, rilanciarlo o tornare alla modifica della tabella. Lo script scelto viene ricordato per questa connessione.",
+  "mgrun.run": "Esegui",
+  "mgrun.back": "Torna alla modifica della tabella",
+  "mgrun.running": "in esecuzione…",
+  "mgrun.ok": "terminato correttamente",
+  "mgrun.failed": "terminato con codice {code}",
+  "mgrun.stopped": "fermato",
+  "mgrun.stop": "Ferma",
+  "mgrun.again": "Esegui di nuovo",
+  "mgrun.lost": "[collegamento all'output perso]"
 }
