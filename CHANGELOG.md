@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.22.0] - 2026-11-03
+
+### Added
+- **Git: diff of a changed file** against the last commit (± on the file in the changes list): side by side or unified (the choice is remembered), the changed part of a line highlighted, three lines of context or **Whole file**, previous/next changed file, added and removed lines counted. New files show all their lines as added; binary files are only reported. Backend `GET …/repos/:id/diff?file=&context=` (only files listed by `git status`, at most 2 MB of diff).
+- **Git: merge editor** for the files in conflict (**Resolve** on the file or in the merge banner): every conflict with *ours* (current branch) and *theirs* (the branch being merged) side by side, plus the common ancestor when git wrote it; per conflict **Ours**, **Theirs**, **Both**, **Both (theirs first)** or **Neither**, or all at once; the result is shown and can be edited by hand. **Save and mark resolved** writes the file (refused while it still has conflict markers), runs `git add` and opens the next file in conflict. Files deleted on one side, binary or larger than 5 MB: keep ours, keep theirs or delete the file. Backend `GET`/`POST …/repos/:id/conflict` (base, ours and theirs from the index stages; only files in conflict).
+
 ## [2.21.0] - 2026-11-03
 
 ### Added

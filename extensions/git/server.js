@@ -215,6 +215,47 @@ module.exports = function createGit(ctx) {
     return { branch, ahead, behind, files, stashCount, merging, conflicts };
   }
 
+  // ---- diff e merge editor ----
+
+  const MAX_DIFF = 2 * 1024 * 1024;     // testo del diff restituito
+  const MAX_FILE = 5 * 1024 * 1024;     // file letto o scritto dal merge editor
+
+  // Solo file presenti in git status (niente percorsi arbitrari), dentro il repository
+  async function changedFile(repo, file) {
+    if (typeof file !== 'string' || !file || file.includes('\0')) throw ctx.error(400, 'file_required');
+    const entry = (await getGitStatus(repo.path)).files.find(f => f.name === file);
+    if (!entry) throw ctx.error(404, 'file_not_changed', { file });
+    const abs = path.resolve(repo.path, file);
+    if (abs !== repo.path && !abs.startsWith(repo.path + path.sep)) throw ctx.error(400, 'file_outside', { file });
+    return { entry, abs };
+  }
+
+  const isBinary = buf => buf.subarray(0, 8000).includes(0);
+  // Contenuto di un file del repository a un certo stadio dell'indice (":1:" base, ":2:" nostra,
+  // ":3:" loro): null se non c'è (aggiunto o cancellato da un lato)
+  async function stageText(cwd, stage, file) {
+    const r = await new Promise(resolve => {
+      const proc = spawn('git', ['show', `:${stage}:${file}`], { cwd, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } });
+      const chunks = [];
+      let size = 0;
+      proc.stdout.on('data', d => { size += d.length; if (size <= MAX_FILE) chunks.push(d); });
+      proc.on('close', code => resolve({ code, buf: Buffer.concat(chunks), size }));
+      proc.on('error', () => resolve({ code: 1, buf: Buffer.alloc(0), size: 0 }));
+    });
+    if (r.code !== 0) return { text: null };
+    if (r.size > MAX_FILE) return { text: null, tooLarge: true };
+    if (isBinary(r.buf)) return { text: null, binary: true };
+    return { text: r.buf.toString('utf8') };
+  }
+
+  // Nome leggibile del commit che si sta unendo (branch, se c'è)
+  async function mergeHeadName(cwd) {
+    const r = await gitExec(cwd, ['name-rev', '--name-only', '--exclude=tags/*', 'MERGE_HEAD'], { allowFail: true });
+    const name = r.out.trim();
+    if (name && name !== 'undefined') return name.replace(/^remotes\//, '');
+    return (await gitExec(cwd, ['rev-parse', '--short', 'MERGE_HEAD'], { allowFail: true })).out.trim() || 'MERGE_HEAD';
+  }
+
   return {
     // Per le altre estensioni (es. db-client per le migration)
     services: { repos: getGitRepos },
@@ -400,6 +441,75 @@ module.exports = function createGit(ctx) {
           ]);
           res.json({ recent: parse(recent.out), outgoing: parse(outgoing.out) });
         } catch (e) { throw ctx.error(500, 'command_failed', { output: e.message }); }
+      },
+
+      // Differenze di un file modificato rispetto all'ultimo commit (indice e cartella insieme):
+      // { file, xy, patch, binary, truncated }. context: righe intorno alle modifiche, "all" = tutto
+      async diff(req, res) {
+        const repo = repoOr404(req);
+        const { entry } = await changedFile(repo, req.query.file);
+        const context = req.query.context === 'all' ? 100000 : Math.min(Math.max(parseInt(req.query.context) || 3, 0), 1000);
+        const base = ['--no-pager', '-c', 'core.quotepath=off', 'diff', '--no-color', '--no-ext-diff', `-U${context}`];
+        const hasHead = (await gitExec(repo.path, ['rev-parse', '--verify', '-q', 'HEAD'], { allowFail: true })).code === 0;
+        let r;
+        if (entry.xy === '??' || !hasHead) {
+          // non tracciato (o repository senza commit): tutto il file come aggiunto
+          r = await gitExec(repo.path, [...base, '--no-index', '--', process.platform === 'win32' ? 'NUL' : '/dev/null', entry.name], { allowFail: true });
+        } else {
+          r = await gitExec(repo.path, [...base, '-M', 'HEAD', '--', ...(entry.orig ? [entry.orig] : []), entry.name], { allowFail: true });
+        }
+        if (r.code > 1) throw ctx.error(500, 'command_failed', { output: r.err.trim() });
+        const patch = r.out;
+        res.json({
+          file: entry.name, orig: entry.orig || null, xy: entry.xy,
+          binary: /^Binary files .* differ$/m.test(patch) || /^GIT binary patch$/m.test(patch),
+          truncated: patch.length > MAX_DIFF, patch: patch.length > MAX_DIFF ? patch.slice(0, MAX_DIFF) : patch,
+        });
+      },
+
+      // File in conflitto: base, nostra, loro (dall'indice) e il file com'è ora (con i marcatori)
+      async conflict(req, res) {
+        const repo = repoOr404(req);
+        const { entry, abs } = await changedFile(repo, req.query.file);
+        if (!CONFLICT_XY.has(entry.xy)) throw ctx.error(409, 'not_conflicted', { file: entry.name });
+        const [base, ours, theirs] = await Promise.all([1, 2, 3].map(n => stageText(repo.path, n, entry.name)));
+        let working = null, binary = !!(ours.binary || theirs.binary), tooLarge = !!(ours.tooLarge || theirs.tooLarge);
+        try {
+          const st = fs.statSync(abs);
+          if (st.size > MAX_FILE) tooLarge = true;
+          else { const buf = fs.readFileSync(abs); if (isBinary(buf)) binary = true; else working = buf.toString('utf8'); }
+        } catch { working = null; } // cancellato nella cartella
+        const branch = (await gitExec(repo.path, ['branch', '--show-current'], { allowFail: true })).out.trim() || 'HEAD';
+        res.json({
+          file: entry.name, xy: entry.xy, binary, tooLarge,
+          base: base.text, ours: ours.text, theirs: theirs.text, working,
+          oursLabel: branch, theirsLabel: await mergeHeadName(repo.path),
+        });
+      },
+
+      // Risoluzione: { file, content } scrive il file risolto, { file, delete: true } lo toglie;
+      // poi git add (o git rm). Il contenuto non deve avere più marcatori di conflitto.
+      async resolve(req, res) {
+        const repo = repoOr404(req);
+        const { file, content } = req.body || {};
+        const { entry, abs } = await changedFile(repo, file);
+        if (!CONFLICT_XY.has(entry.xy)) throw ctx.error(409, 'not_conflicted', { file: entry.name });
+        if (busyRepos.has(repo.path)) throw ctx.error(409, 'busy');
+        busyRepos.add(repo.path);
+        try {
+          if (req.body.delete === true) {
+            await gitExec(repo.path, ['rm', '-q', '--', entry.name]);
+          } else {
+            if (typeof content !== 'string' || Buffer.byteLength(content) > MAX_FILE) throw ctx.error(400, 'content_invalid');
+            if (/^(<{7}|>{7})( |$)/m.test(content)) throw ctx.error(400, 'markers_left');
+            fs.writeFileSync(abs, content);
+            await gitExec(repo.path, ['add', '--', entry.name]);
+          }
+        } catch (e) {
+          if (e.status) throw e;
+          throw ctx.error(500, 'command_failed', { output: e.message });
+        } finally { busyRepos.delete(repo.path); }
+        res.json({ ok: true, ...(await statusOf(repo)) });
       },
 
       // Azione git (commit, pull, push, merge, fetch, checkout, stash) — output in streaming SSE.
