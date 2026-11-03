@@ -253,3 +253,56 @@ test('eliminazione dei branch locali', async () => {
   assert.match(r.text, /branch -D non-unito/);
   assert.doesNotMatch(git(repo, 'branch'), /non-unito|da-eliminare/);
 });
+
+test('diff di un file modificato o nuovo rispetto all\'ultimo commit', async () => {
+  git(repo, 'checkout', '-q', 'main');
+  const lines = Array.from({ length: 20 }, (_, i) => `riga ${i + 1}`);
+  commitFile(repo, 'diff.txt', lines.join('\n') + '\n');
+  fs.writeFileSync(path.join(repo, 'diff.txt'), lines.map((l, i) => (i === 9 ? 'riga 10 cambiata' : l)).join('\n') + '\nriga 21\n');
+  fs.writeFileSync(path.join(repo, 'nuovo file.txt'), 'ciao\n');
+  const diff = (file, extra = '') => srv.request('GET', `/api/ext/git/repos/r/diff?file=${encodeURIComponent(file)}${extra}`);
+  let r = await diff('diff.txt');
+  assert.equal(r.status, 200, r.text);
+  assert.equal(r.json.binary, false);
+  assert.match(r.json.patch, /^-riga 10$/m);
+  assert.match(r.json.patch, /^\+riga 10 cambiata$/m);
+  assert.doesNotMatch(r.json.patch, /^ riga 2$/m);      // 3 righe di contesto
+  r = await diff('diff.txt', '&context=all');
+  assert.match(r.json.patch, /^ riga 2$/m);             // tutto il file
+  r = await diff('nuovo file.txt');
+  assert.equal(r.json.xy, '??');
+  assert.match(r.json.patch, /^\+ciao$/m);
+  fs.writeFileSync(path.join(repo, 'bin.dat'), Buffer.from([0, 1, 2, 0, 255]));
+  assert.equal((await diff('bin.dat')).json.binary, true);
+  // solo file modificati, mai percorsi arbitrari
+  assert.equal((await diff('package.json')).json.code, 'git.file_not_changed');
+  assert.equal((await diff('../../etc/passwd')).status, 404);
+  assert.equal((await srv.request('GET', '/api/ext/git/repos/r/diff')).json.code, 'git.file_required');
+  git(repo, 'checkout', '-q', '--', 'diff.txt');
+  fs.rmSync(path.join(repo, 'nuovo file.txt'));
+  fs.rmSync(path.join(repo, 'bin.dat'));
+});
+
+test('merge editor: base, nostra e loro; risoluzione scritta e aggiunta', async () => {
+  git(repo, 'checkout', '-q', 'main');
+  commitFile(repo, 'me.txt', 'uno\ndue\ntre\n');
+  git(repo, 'checkout', '-q', '-b', 'me-loro'); fs.writeFileSync(path.join(repo, 'me.txt'), 'uno\nDUE loro\ntre\n'); git(repo, 'commit', '-qam', 'loro');
+  git(repo, 'checkout', '-q', 'main'); fs.writeFileSync(path.join(repo, 'me.txt'), 'uno\nDUE nostra\ntre\n'); git(repo, 'commit', '-qam', 'nostra');
+  await action({ action: 'merge', branch: 'me-loro' });
+  const get = file => srv.request('GET', `/api/ext/git/repos/r/conflict?file=${encodeURIComponent(file)}`);
+  const put = body => srv.request('POST', '/api/ext/git/repos/r/conflict', { body });
+  let r = await get('me.txt');
+  assert.equal(r.status, 200, r.text);
+  assert.deepEqual([r.json.base, r.json.ours, r.json.theirs], ['uno\ndue\ntre\n', 'uno\nDUE nostra\ntre\n', 'uno\nDUE loro\ntre\n']);
+  assert.deepEqual([r.json.oursLabel, r.json.theirsLabel], ['main', 'me-loro']);
+  assert.match(r.json.working, /^<{7} HEAD\nDUE nostra\n={7}\nDUE loro\n>{7} me-loro$/m);
+  // marcatori rimasti: rifiutato; poi risolto e aggiunto, il merge si conclude
+  assert.equal((await put({ file: 'me.txt', content: r.json.working })).json.code, 'git.markers_left');
+  assert.equal((await put({ file: 'package.json', content: 'x' })).json.code, 'git.file_not_changed');
+  r = await put({ file: 'me.txt', content: 'uno\nDUE nostra\nDUE loro\ntre\n' });
+  assert.equal(r.status, 200, r.text);
+  assert.deepEqual(r.json.conflicts, []);
+  assert.equal(fs.readFileSync(path.join(repo, 'me.txt'), 'utf8'), 'uno\nDUE nostra\nDUE loro\ntre\n');
+  assert.equal((await get('me.txt')).json.code, 'git.not_conflicted');
+  assert.equal(exitOf(await action({ action: 'merge_continue' })), 0);
+});

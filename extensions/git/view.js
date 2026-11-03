@@ -15,6 +15,92 @@ function bestBranchRef(refs) {
   return names.sort((a, b) => a.length - b.length)[0] || null;
 }
 
+// ---- diff: patch unificata di git → blocchi di righe ----
+// [{ oldStart, newStart, header, lines: [{ t: ' ' | '-' | '+', s }] }]
+function parsePatch(patch) {
+  const hunks = [];
+  let h = null;
+  for (const line of String(patch || '').split('\n')) {
+    const m = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@ ?(.*)$/.exec(line);
+    if (m) { h = { oldStart: Number(m[1]), newStart: Number(m[2]), header: m[3], lines: [] }; hunks.push(h); continue; }
+    if (!h || line.startsWith('\\')) continue; // "\ No newline at end of file"
+    if (line[0] === ' ' || line[0] === '-' || line[0] === '+') h.lines.push({ t: line[0], s: line.slice(1) });
+  }
+  return hunks;
+}
+
+// Righe affiancate: le righe tolte e aggiunte consecutive vanno sulla stessa riga
+// [{ kind: 'hunk', header } | { kind: 'same'|'change', o: { n, s }|null, n: { n, s }|null }]
+function sideBySide(hunks) {
+  const rows = [];
+  for (const h of hunks) {
+    rows.push({ kind: 'hunk', header: h.header, oldStart: h.oldStart, newStart: h.newStart });
+    let on = h.oldStart, nn = h.newStart, i = 0;
+    while (i < h.lines.length) {
+      const l = h.lines[i];
+      if (l.t === ' ') { rows.push({ kind: 'same', o: { n: on++, s: l.s }, n: { n: nn++, s: l.s } }); i++; continue; }
+      const del = [], add = [];
+      while (i < h.lines.length && h.lines[i].t === '-') del.push(h.lines[i++].s);
+      while (i < h.lines.length && h.lines[i].t === '+') add.push(h.lines[i++].s);
+      for (let k = 0; k < Math.max(del.length, add.length); k++) {
+        rows.push({ kind: 'change', o: k < del.length ? { n: on++, s: del[k] } : null, n: k < add.length ? { n: nn++, s: add[k] } : null });
+      }
+    }
+  }
+  return rows;
+}
+
+// Parte cambiata di una riga rispetto all'altra (prefisso e suffisso comuni tolti)
+function changedRange(a, b) {
+  let p = 0;
+  while (p < a.length && p < b.length && a[p] === b[p]) p++;
+  let s = 0;
+  while (s < a.length - p && s < b.length - p && a[a.length - 1 - s] === b[b.length - 1 - s]) s++;
+  return [p, a.length - s];
+}
+
+// ---- merge: testo con i marcatori di conflitto → parti comuni e conflitti ----
+// [{ type: 'common', lines } | { type: 'conflict', ours, base, theirs, raw }]; eol: '\r\n' o '\n'
+function parseConflicts(text) {
+  const eol = /\r\n/.test(text) ? '\r\n' : '\n';
+  const lines = text.split(/\r?\n/);
+  const parts = [];
+  let common = [], c = null, where = null;
+  for (const line of lines) {
+    if (!c && /^<{7}( |$)/.test(line)) { if (common.length) parts.push({ type: 'common', lines: common }); common = []; c = { type: 'conflict', ours: [], base: null, theirs: [], raw: [line] }; where = 'ours'; continue; }
+    if (c) {
+      c.raw.push(line);
+      if (where === 'ours' && /^\|{7}( |$)/.test(line)) { c.base = []; where = 'base'; continue; }
+      if ((where === 'ours' || where === 'base') && /^={7}$/.test(line)) { where = 'theirs'; continue; }
+      if (where === 'theirs' && /^>{7}( |$)/.test(line)) { parts.push(c); c = null; where = null; continue; }
+      c[where].push(line);
+      continue;
+    }
+    common.push(line);
+  }
+  if (c) common = [...c.raw, ...common]; // conflitto non chiuso: resta com'è
+  if (common.length) parts.push({ type: 'common', lines: common });
+  return { parts, eol };
+}
+
+// Testo risultante: per ogni conflitto la scelta (ours, theirs, ours-theirs, theirs-ours, none),
+// o i marcatori originali se non è ancora scelto
+function mergeResult({ parts, eol }, choices) {
+  const out = [];
+  let k = 0;
+  for (const p of parts) {
+    if (p.type === 'common') { out.push(...p.lines); continue; }
+    const ch = choices[k++];
+    if (ch === 'ours') out.push(...p.ours);
+    else if (ch === 'theirs') out.push(...p.theirs);
+    else if (ch === 'ours-theirs') out.push(...p.ours, ...p.theirs);
+    else if (ch === 'theirs-ours') out.push(...p.theirs, ...p.ours);
+    else if (ch === 'none') { /* nessuna delle due */ }
+    else out.push(...p.raw);
+  }
+  return out.join(eol);
+}
+
 // Branch unito da un merge commit, ricavato dal messaggio standard di git/GitHub/GitLab
 function mergedBranchName(subject) {
   const patterns = [
@@ -243,7 +329,7 @@ export default {
       }
       banner.innerHTML = `
         <div class="git-merge-title">${esc(t('merge.banner'))} — ${esc(status.conflicts.length ? t('merge.conflicts', { count: status.conflicts.length }) : t('merge.resolved'))}</div>
-        ${status.conflicts.length ? `<ul>${status.conflicts.map(f => `<li>${esc(f)}</li>`).join('')}</ul>
+        ${status.conflicts.length ? `<ul>${status.conflicts.map(f => `<li>${esc(f)} <button class="btn btn-ghost btn-sm" onclick="Ext.git.resolve(${js(f)})">⚔ ${esc(t('mergeEditor.open'))}</button></li>`).join('')}</ul>
           <p class="git-muted">${esc(t('merge.hint'))}</p>` : ''}
         <div class="git-merge-actions">
           <button class="btn btn-ghost btn-sm" data-action="merge-abort">${esc(t('merge.abort'))}</button>
@@ -271,6 +357,9 @@ export default {
           <span class="git-file-xy ${XY_CLASS[label] || ''}">${esc(label)}</span>
           <span class="git-file-name">${esc(parts[parts.length - 1])}</span>
           ${parts.length > 1 ? `<span class="git-file-dir">${esc(parts.slice(0, -1).join('/'))}/</span>` : ''}
+          ${status.conflicts.includes(f.name)
+            ? `<button class="git-file-act git-file-resolve" onclick="event.stopPropagation();Ext.git.resolve(${js(f.name)})" title="${esc(t('mergeEditor.open'))}">⚔ ${esc(t('mergeEditor.short'))}</button>`
+            : `<button class="git-file-act" onclick="event.stopPropagation();Ext.git.diff(${js(f.name)})" title="${esc(t('diff.open'))}">±</button>`}
         </div>`;
       }).join(''));
       toggle.textContent = `${status.files.every(f => selected.has(f.name)) ? '☑' : '☐'} ${allLabel}`;
@@ -546,8 +635,186 @@ export default {
       await loadLog();
     }
 
+    // ---- diff di un file rispetto all'ultimo commit ----
+    let diffView = null; // { file, mode: 'split'|'unified', all, data }
+    const DIFF_MODE_KEY = 'kelbo.git.diffMode';
+    async function openDiff(file) {
+      let mode = 'split';
+      try { mode = localStorage.getItem(DIFF_MODE_KEY) === 'unified' ? 'unified' : 'split'; } catch { /* predefinito */ }
+      diffView = { file, mode, all: diffView?.all || false, data: null };
+      await loadDiff();
+    }
+    async function loadDiff() {
+      const v = diffView;
+      if (!v) return;
+      try { v.data = await ctx.api.get(repoUrl(`/diff?file=${encodeURIComponent(v.file)}${v.all ? '&context=all' : ''}`)); }
+      catch (e) { toast(e.message, 'error'); return; }
+      if (diffView === v) renderDiff();
+    }
+    function renderDiff() {
+      const v = diffView;
+      const d = v.data;
+      const files = (status?.files || []).filter(f => !status.conflicts.includes(f.name)).map(f => f.name);
+      const at = files.indexOf(v.file);
+      const hunks = parsePatch(d.patch);
+      const plus = hunks.reduce((n, h) => n + h.lines.filter(l => l.t === '+').length, 0);
+      const minus = hunks.reduce((n, h) => n + h.lines.filter(l => l.t === '-').length, 0);
+      // testo della riga, con la parte cambiata evidenziata se c'è la riga corrispondente dall'altra parte
+      const code = (text, other) => {
+        if (other == null) return esc(text);
+        const [a, b] = changedRange(text, other);
+        return a >= b ? esc(text) : `${esc(text.slice(0, a))}<mark>${esc(text.slice(a, b))}</mark>${esc(text.slice(b))}`;
+      };
+      let body;
+      if (d.binary) body = `<p class="git-muted git-pad">${esc(t('diff.binary'))}</p>`;
+      else if (!hunks.length) body = `<p class="git-muted git-pad">${esc(t('diff.none'))}</p>`;
+      else if (v.mode === 'split') {
+        body = `<table class="git-diff git-diff-split"><colgroup><col class="git-d-numcol"><col><col class="git-d-numcol"><col></colgroup><tbody>${sideBySide(hunks).map(r => {
+          if (r.kind === 'hunk') return `<tr class="git-d-hunk"><td colspan="4">@@ −${r.oldStart} +${r.newStart} @@ ${esc(r.header)}</td></tr>`;
+          if (r.kind === 'same') return `<tr><td class="git-d-no">${r.o.n}</td><td class="git-d-code">${esc(r.o.s)}</td><td class="git-d-no">${r.n.n}</td><td class="git-d-code">${esc(r.n.s)}</td></tr>`;
+          const side = (x, other, cls) => (x ? `<td class="git-d-no">${x.n}</td><td class="git-d-code ${cls}">${code(x.s, other?.s)}</td>` : '<td class="git-d-no"></td><td class="git-d-empty"></td>');
+          return `<tr>${side(r.o, r.n, 'git-d-del')}${side(r.n, r.o, 'git-d-add')}</tr>`;
+        }).join('')}</tbody></table>`;
+      } else {
+        body = `<table class="git-diff git-diff-unified"><colgroup><col class="git-d-numcol"><col class="git-d-numcol"><col></colgroup><tbody>${hunks.map(h => {
+          let on = h.oldStart, nn = h.newStart;
+          return `<tr class="git-d-hunk"><td colspan="3">@@ −${h.oldStart} +${h.newStart} @@ ${esc(h.header)}</td></tr>` + h.lines.map(l => {
+            const o = l.t !== '+' ? on++ : '', n = l.t !== '-' ? nn++ : '';
+            return `<tr class="${l.t === '+' ? 'git-d-add' : l.t === '-' ? 'git-d-del' : ''}"><td class="git-d-no">${o}</td><td class="git-d-no">${n}</td><td class="git-d-code"><span class="git-d-sign">${l.t === ' ' ? ' ' : l.t === '-' ? '−' : '+'}</span>${esc(l.s)}</td></tr>`;
+          }).join('');
+        }).join('')}</tbody></table>`;
+      }
+      openModal(t('diff.title', { file: d.file }), `
+        <div class="git-diff-bar">
+          <span class="git-mono">${d.orig ? `${esc(d.orig)} → ` : ''}${esc(d.file)}</span>
+          <span class="git-d-stat"><span class="git-d-plus">+${fmt.number(plus)}</span> <span class="git-d-minus">−${fmt.number(minus)}</span></span>
+          <span class="git-diff-tools">
+            <label class="git-d-check"><input type="checkbox" ${v.all ? 'checked' : ''} onchange="Ext.git.diffAll(this.checked)"> ${esc(t('diff.wholeFile'))}</label>
+            <span class="git-seg">
+              <button class="${v.mode === 'split' ? 'active' : ''}" onclick="Ext.git.diffMode('split')">${esc(t('diff.split'))}</button>
+              <button class="${v.mode === 'unified' ? 'active' : ''}" onclick="Ext.git.diffMode('unified')">${esc(t('diff.unified'))}</button>
+            </span>
+            <button class="btn btn-ghost btn-sm" ${at > 0 ? '' : 'disabled'} onclick="Ext.git.diff(${js(files[at - 1] || '')})" title="${esc(t('diff.prev'))}">‹</button>
+            <span class="git-muted">${at >= 0 ? `${fmt.number(at + 1)}/${fmt.number(files.length)}` : ''}</span>
+            <button class="btn btn-ghost btn-sm" ${at >= 0 && at < files.length - 1 ? '' : 'disabled'} onclick="Ext.git.diff(${js(files[at + 1] || '')})" title="${esc(t('diff.next'))}">›</button>
+          </span>
+        </div>
+        <p class="git-muted git-d-legend">${esc(t(d.xy === '??' ? 'diff.untracked' : 'diff.legend'))}${d.truncated ? ` ${esc(t('diff.truncated'))}` : ''}</p>
+        <div class="git-diff-wrap">${body}</div>`,
+        `<button class="btn btn-ghost" onclick="UI.closeModal()">${esc(t('core.action.close'))}</button>`);
+      document.getElementById('modal')?.classList.add('modal-wide', 'git-diff-modal');
+    }
+
+    // ---- merge editor: un conflitto alla volta, nostra | loro, risultato modificabile ----
+    let mergeView = null; // { file, data, parsed, choices, manual }
+    async function openMerge(file) {
+      let data;
+      try { data = await ctx.api.get(repoUrl(`/conflict?file=${encodeURIComponent(file)}`)); }
+      catch (e) { toast(e.message, 'error'); return; }
+      const parsed = data.working != null && !data.binary && !data.tooLarge ? parseConflicts(data.working) : null;
+      const count = parsed ? parsed.parts.filter(p => p.type === 'conflict').length : 0;
+      mergeView = { file, data, parsed, choices: Array(count).fill(null), manual: false };
+      renderMerge();
+    }
+    const mergeConflicts = () => mergeView.parsed.parts.filter(p => p.type === 'conflict');
+    function renderMerge() {
+      const v = mergeView;
+      const d = v.data;
+      const title = t('mergeEditor.title', { file: d.file });
+      const close = `<button class="btn btn-ghost" onclick="UI.closeModal()">${esc(t('core.action.cancel'))}</button>`;
+      // binario, troppo grande, cancellato da un lato o senza marcatori: si sceglie il file intero
+      if (!v.parsed || !mergeConflicts().length) {
+        const why = d.binary ? t('mergeEditor.binary') : d.tooLarge ? t('mergeEditor.tooLarge') : t('mergeEditor.whole', { ours: d.oursLabel, theirs: d.theirsLabel });
+        const textual = !d.binary && !d.tooLarge;
+        openModal(title, `<p>${esc(why)}</p>
+          <div class="git-me-whole">
+            ${['ours', 'theirs'].map(side => `<div><h4>${esc(t(`mergeEditor.${side}`, { name: side === 'ours' ? d.oursLabel : d.theirsLabel }))}</h4>
+              ${d[side] == null ? `<p class="git-muted">${esc(t('mergeEditor.deleted'))}</p>` : `<pre class="git-me-pre">${esc(d[side])}</pre>`}</div>`).join('')}
+          </div>`,
+          `${close}
+           ${textual && d.ours != null ? `<button class="btn btn-ghost" onclick="Ext.git.mergeWhole('ours')">${esc(t('mergeEditor.keepOurs'))}</button>` : ''}
+           ${textual && d.theirs != null ? `<button class="btn btn-ghost" onclick="Ext.git.mergeWhole('theirs')">${esc(t('mergeEditor.keepTheirs'))}</button>` : ''}
+           ${textual && (d.ours == null || d.theirs == null) ? `<button class="btn btn-danger" onclick="Ext.git.mergeWhole('delete')">${esc(t('mergeEditor.delete'))}</button>` : ''}`);
+        document.getElementById('modal')?.classList.add('modal-wide');
+        return;
+      }
+      const conflicts = mergeConflicts();
+      const done = v.choices.filter(Boolean).length;
+      const lines = arr => arr.length ? arr.map(l => esc(l)).join('\n') : `<span class="git-muted">${esc(t('mergeEditor.empty'))}</span>`;
+      const opts = [['ours', t('mergeEditor.useOurs')], ['theirs', t('mergeEditor.useTheirs')], ['ours-theirs', t('mergeEditor.both')], ['theirs-ours', t('mergeEditor.bothReverse')], ['none', t('mergeEditor.none')]];
+      const blocks = conflicts.map((c, i) => `
+        <div class="git-me-conflict ${v.choices[i] ? 'resolved' : ''}" id="git_me_${i}">
+          <div class="git-me-head"><strong>${esc(t('mergeEditor.conflict', { n: i + 1, total: conflicts.length }))}</strong>
+            ${v.choices[i] ? `<span class="git-me-chosen">✓ ${esc(opts.find(o => o[0] === v.choices[i])[1])}</span>` : ''}
+            <span class="git-me-opts">${opts.map(([k, label]) => `<button class="btn btn-sm ${v.choices[i] === k ? 'btn-git' : 'btn-ghost'}" onclick="Ext.git.mergeChoose(${i},${js(k)})">${esc(label)}</button>`).join('')}</span></div>
+          <div class="git-me-sides">
+            <div class="git-me-side git-me-ours"><div class="git-me-label">${esc(t('mergeEditor.ours', { name: d.oursLabel }))}</div><pre>${lines(c.ours)}</pre></div>
+            <div class="git-me-side git-me-theirs"><div class="git-me-label">${esc(t('mergeEditor.theirs', { name: d.theirsLabel }))}</div><pre>${lines(c.theirs)}</pre></div>
+          </div>
+          ${c.base ? `<details class="git-me-base"><summary>${esc(t('mergeEditor.base'))}</summary><pre>${lines(c.base)}</pre></details>` : ''}
+        </div>`).join('');
+      const result = mergeResult(v.parsed, v.choices);
+      openModal(title, `
+        <div class="git-me-bar">
+          <span class="git-mono">${esc(d.file)}</span>
+          <span class="${done === conflicts.length ? 'git-d-plus' : 'git-muted'}">${esc(t('mergeEditor.progress', { done, total: conflicts.length }))}</span>
+          <span class="git-me-all">
+            <button class="btn btn-ghost btn-sm" onclick="Ext.git.mergeAll('ours')">${esc(t('mergeEditor.allOurs'))}</button>
+            <button class="btn btn-ghost btn-sm" onclick="Ext.git.mergeAll('theirs')">${esc(t('mergeEditor.allTheirs'))}</button>
+          </span>
+        </div>
+        <div class="git-me-conflicts">${blocks}</div>
+        <div class="git-me-result-head"><h4>${esc(t('mergeEditor.result'))}</h4><span class="git-muted">${esc(t(v.manual ? 'mergeEditor.manual' : 'mergeEditor.resultHint'))}</span></div>
+        <textarea class="git-me-result" id="git_me_result" spellcheck="false" oninput="Ext.git.mergeEdited()">${esc(v.manual ? v.text : result)}</textarea>`,
+        `${close}<button class="btn btn-git" onclick="Ext.git.mergeSave()">✓ ${esc(t('mergeEditor.save'))}</button>`);
+      document.getElementById('modal')?.classList.add('modal-wide', 'git-me-modal');
+    }
+    async function mergeSave(body) {
+      const v = mergeView;
+      if (!v) return;
+      const payload = body || { content: document.getElementById('git_me_result')?.value ?? '' };
+      try {
+        await ctx.api.post(repoUrl('/conflict'), { file: v.file, ...payload });
+        mergeView = null;
+        closeModal();
+        toast(t('mergeEditor.saved', { file: v.file }), 'success');
+        await loadStatus();
+        const next = status?.conflicts?.[0];
+        if (next) openMerge(next); // il prossimo file in conflitto
+        else if (status?.merging) toast(t('mergeEditor.allDone'), 'success');
+      } catch (e) { toast(e.message, 'error'); }
+    }
+
     // ---- collegamenti ----
     const actions = {
+      diff: file => file && openDiff(file),
+      diffMode(mode) { diffView.mode = mode; try { localStorage.setItem(DIFF_MODE_KEY, mode); } catch { /* niente */ } renderDiff(); },
+      diffAll(all) { diffView.all = all; loadDiff(); },
+      resolve: file => openMerge(file),
+      mergeChoose(i, choice) {
+        const v = mergeView;
+        if (v.manual && !confirm(t('mergeEditor.dropManual'))) return;
+        v.manual = false;
+        v.choices[i] = v.choices[i] === choice ? null : choice;
+        const scroll = document.querySelector('.git-me-conflicts')?.scrollTop;
+        renderMerge();
+        const box = document.querySelector('.git-me-conflicts');
+        if (box && scroll != null) box.scrollTop = scroll;
+      },
+      mergeAll(side) {
+        const v = mergeView;
+        if (v.manual && !confirm(t('mergeEditor.dropManual'))) return;
+        v.manual = false;
+        v.choices = v.choices.map(() => side);
+        renderMerge();
+      },
+      mergeEdited() { const v = mergeView; v.manual = true; v.text = document.getElementById('git_me_result').value; },
+      mergeSave: () => mergeSave(),
+      mergeWhole(side) {
+        const d = mergeView.data;
+        if (side === 'delete') { if (confirm(t('mergeEditor.confirmDelete', { file: d.file }))) mergeSave({ delete: true }); return; }
+        mergeSave({ content: d[side] });
+      },
       async select(id) {
         activeRepo = id;
         status = null;

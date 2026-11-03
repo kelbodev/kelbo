@@ -50,6 +50,21 @@
         "handler": "commitMessage"
       },
       {
+        "method": "GET",
+        "path": "/repos/:id/diff",
+        "handler": "diff"
+      },
+      {
+        "method": "GET",
+        "path": "/repos/:id/conflict",
+        "handler": "conflict"
+      },
+      {
+        "method": "POST",
+        "path": "/repos/:id/conflict",
+        "handler": "resolve"
+      },
+      {
         "method": "POST",
         "path": "/repos/:id/action",
         "handler": "action",
