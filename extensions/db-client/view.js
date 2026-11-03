@@ -975,12 +975,20 @@ export default {
       const body = mode === 'create'
         ? { operations: [{ op: 'create_table', table: definition.name, definition }] }
         : { design: { table, definition, renames, newName: definition.name } };
-      migrateFlow(c, db, body, async result => {
-        const name = definition.name || table;
+      const name = definition.name || table;
+      migrateFlow(c, db, body, async () => {
         designer = null;
         open.add(nodeKey('d', c.id, db));
         await refreshDatabase(c, db);
         showStructure(c, db, name);
+      }, {
+        // dopo "Salva solo la migration" e lo script npm: di nuovo il designer, con la struttura riletta
+        back: async () => {
+          designer = null;
+          open.add(nodeKey('d', c.id, db));
+          await refreshDatabase(c, db);
+          await openDesigner(c, db, name);
+        },
       });
     }
 
@@ -1019,13 +1027,14 @@ export default {
     const migrateDoneText = r => r.ran === false ? t('migrate.savedOnly', { file: r.file })
       : r.file ? t('migrate.doneFile', { file: r.file }) : t('migrate.done');
 
-    async function migrateFlow(c, db, body, onDone) {
+    // opts.back: "torna alla modifica" dopo una migration solo salvata (designer)
+    async function migrateFlow(c, db, body, onDone, opts = {}) {
       const url = `/connections/${encodeURIComponent(c.id)}/databases/${encodeURIComponent(db)}/migrate`;
       try {
         const res = await fetch(ctx.api.url(url), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         const data = await res.json().catch(() => ({}));
         if (res.status !== 428) { toast(ctx.ui.errorText(data, `HTTP ${res.status}`), 'error'); return; }
-        pendingMigrate = { c, db, url, body, data, onDone };
+        pendingMigrate = { c, db, url, body, data, onDone, back: opts.back || null };
         renderMigrateModal();
       } catch (e) { toast(e.message, 'error'); }
     }
@@ -1123,8 +1132,110 @@ export default {
         pendingMigrate = null;
         toast(migrateDoneText(data), 'success');
         loadMigStatus(p.c);
+        // solo il file: si può lanciare uno script npm del progetto (es. "migrate") e tornare alla tabella
+        if (data.ran === false && await migRunOffer({ c: p.c, db: p.db, file: data.file, back: p.back, done: () => p.onDone?.(data) })) return;
         await p.onDone?.(data);
       } catch (e) { toast(e.message, 'error'); }
+    }
+
+    // ---- dopo "Salva solo la migration": script npm del progetto, output, poi esci o torna ----
+    // Ciclo: modifica → migration salvata → script (es. npm run migrate) → di nuovo la modifica.
+    // Il progetto è quello della cartella di migration (o il progetto della connessione).
+    let migRun = null; // { c, db, file, back, done, project, scripts, script, procId, state, exitCode, close }
+    const MIGRUN_KEY = id => `kelbo.db-client.migrationScript.${id}`;
+    const npmApi = () => ctx.apiFor('npm');
+
+    // true se la finestra è stata aperta (npm attivo, progetto con script)
+    async function migRunOffer({ c, db, file, back, done }) {
+      if (!ctx.hasExtension('npm')) return false;
+      const projectId = c.migrations?.repo || c.projectId;
+      if (!projectId) return false;
+      let pkg;
+      try { pkg = await npmApi().get(`/projects/${encodeURIComponent(projectId)}/package`); } catch { return false; }
+      const scripts = Object.keys(pkg.scripts || {});
+      if (!scripts.length) return false;
+      let saved = null;
+      try { saved = localStorage.getItem(MIGRUN_KEY(c.id)); } catch { /* niente */ }
+      const script = scripts.includes(saved) ? saved : scripts.find(s => /migrat/i.test(s)) || scripts[0];
+      const project = ctx.projects ? ((await ctx.projects.load().catch(() => null))?.projects || []).find(p => p.id === projectId) : null;
+      migRun = { c, db, file, back, done, projectId, projectLabel: project?.label || projectId, scripts, script, state: 'choose', procId: null, exitCode: null, close: null };
+      renderMigRun();
+      return true;
+    }
+
+    function renderMigRun() {
+      const r = migRun;
+      if (!r) return;
+      const backBtn = r.back ? `<button class="btn btn-ghost" onclick="Ext['db-client'].migRunBack()">↩ ${esc(t('mgrun.back'))}</button>` : '';
+      const closeBtn = `<button class="btn btn-ghost" onclick="Ext['db-client'].migRunClose()">${esc(t('core.action.close'))}</button>`;
+      const head = `<p class="db-ok db-mgrun-saved">✓ ${esc(t('migrate.savedOnly', { file: r.file }))}</p>`;
+      if (r.state === 'choose') {
+        openModal(t('mgrun.title'), `${head}
+          <div class="form-row"><label for="f_mgrun_script">${esc(t('mgrun.label', { project: r.projectLabel }))}</label>
+            <select class="form-input db-select" id="f_mgrun_script">${r.scripts.map(s => `<option value="${esc(s)}" ${s === r.script ? 'selected' : ''}>npm run ${esc(s)}</option>`).join('')}</select></div>
+          <p class="db-muted">${esc(t('mgrun.hint'))}</p>`,
+          `${closeBtn}${backBtn}<button class="btn btn-primary" onclick="Ext['db-client'].migRunStart()">▶ ${esc(t('mgrun.run'))}</button>`);
+        return;
+      }
+      const running = r.state === 'running';
+      const status = running ? `<span class="db-muted">⏳ ${esc(t('mgrun.running'))}</span>`
+        : r.exitCode === 0 ? `<span class="db-batch-ok">✓ ${esc(t('mgrun.ok'))}</span>`
+        : `<span class="db-batch-err">✖ ${esc(r.exitCode == null ? t('mgrun.stopped') : t('mgrun.failed', { code: String(r.exitCode) }))}</span>`;
+      openModal(t('mgrun.title'), `${head}
+        <div class="db-mgrun-head"><span class="db-mono">$ npm run ${esc(r.script)}</span> <span class="db-muted">· ${esc(r.projectLabel)}</span> <span data-role="mgrun-status">${status}</span></div>
+        <pre class="db-mgrun-out" id="db_mgrun_out"></pre>`,
+        running ? `<button class="btn btn-disconnect" onclick="Ext['db-client'].migRunStop()">■ ${esc(t('mgrun.stop'))}</button>`
+          : `${closeBtn}<button class="btn btn-ghost" onclick="Ext['db-client'].migRunStart()">↻ ${esc(t('mgrun.again'))}</button>${backBtn.replace('btn-ghost', 'btn-primary')}`);
+      document.getElementById('modal')?.classList.add('modal-wide');
+      const out = document.getElementById('db_mgrun_out');
+      if (out) { out.innerHTML = r.html || ''; out.scrollTop = out.scrollHeight; }
+    }
+
+    function migRunAppend(text, cls = '') {
+      const r = migRun;
+      if (!r) return;
+      const html = cls ? `<span class="${cls}">${esc(text)}</span>` : ctx.ui.ansiToHtml(text);
+      r.html = (r.html || '') + html;
+      const out = document.getElementById('db_mgrun_out');
+      if (!out) return;
+      const atEnd = out.scrollHeight - out.scrollTop - out.clientHeight < 40;
+      out.insertAdjacentHTML('beforeend', html);
+      if (atEnd) out.scrollTop = out.scrollHeight;
+    }
+
+    async function migRunStart() {
+      const r = migRun;
+      if (!r || r.state === 'running') return;
+      if (r.state === 'choose') r.script = document.getElementById('f_mgrun_script')?.value || r.script;
+      try { localStorage.setItem(MIGRUN_KEY(r.c.id), r.script); } catch { /* solo per ora */ }
+      let started;
+      try { started = await npmApi().post(`/projects/${encodeURIComponent(r.projectId)}/run`, { script: r.script }); }
+      catch (e) { toast(e.message, 'error'); return; }
+      Object.assign(r, { state: 'running', procId: started.id, exitCode: null, html: '' });
+      renderMigRun();
+      r.close?.();
+      r.close = npmApi().events(`/processes/${encodeURIComponent(started.id)}/stream`, ({ type, data }) => {
+        if (migRun !== r) return;
+        if (type !== 'exit') { migRunAppend(String(data ?? '')); return; }
+        r.close?.(); r.close = null;
+        r.state = 'ended';
+        r.exitCode = data?.removed ? null : data?.exitCode ?? null;
+        renderMigRun();
+      }, () => migRunAppend(`\n${t('mgrun.lost')}\n`, 'db-batch-err'));
+    }
+
+    async function migRunStop() {
+      const r = migRun;
+      if (!r?.procId) return;
+      try { await npmApi().del(`/processes/${encodeURIComponent(r.procId)}`); } catch (e) { toast(e.message, 'error'); }
+    }
+
+    function migRunEnd() {
+      const r = migRun;
+      migRun = null;
+      r?.close?.();
+      closeModal();
+      return r;
     }
 
     // ---- export (il server genera il file in streaming; qui si avvia solo il download) ----
@@ -2319,6 +2430,10 @@ export default {
         if (p) p.onConfirm(p.data.token);
       },
       // Istruzione di schema dall'editor: stessa anteprima del designer (SQL + file di migration)
+      migRunStart: () => migRunStart(),
+      migRunStop: () => migRunStop(),
+      async migRunClose() { const r = migRunEnd(); await r?.done?.(); },
+      async migRunBack() { const r = migRunEnd(); await r?.back?.(); },
       saveAsMigration() {
         const p = pendingConfirm;
         pendingConfirm = null;

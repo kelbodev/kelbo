@@ -19,6 +19,10 @@
     {
       "code": "git",
       "required": false
+    },
+    {
+      "code": "npm",
+      "required": false
     }
   ],
   "config": [

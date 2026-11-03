@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.21.0] - 2026-11-03
+
+### Added
+- **Database: npm script after *Save migration only*.** Once the migration file is written, a dialog offers to run an npm script of the project the migrations folder belongs to (or the connection's project) — e.g. `npm run migrate`, chosen from its `package.json` and remembered per connection — and shows its output live (colours included), with **Stop** while it runs. When it ends: **Close**, **Run again** or, when the change came from the table designer, **Back to editing the table**, which reopens the designer with the structure read again from the database, for the next change → migration → run cycle. Shown only when the NPM extension is active and the project has scripts; the process is a normal NPM process (header pill, NPM section).
+
 ## [2.20.0] - 2026-11-03
 
 ### Added

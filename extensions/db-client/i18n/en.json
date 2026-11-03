@@ -561,5 +561,17 @@
   "errors.batch_statement": "Statement {n}: {error}",
   "errors.batch_too_many": "At most {max} statements at a time",
   "confirm.textBatch": "These statements ({verb}) may change data or schema on {connection}.",
-  "confirm.textBatchDb": "These statements ({verb}) may change data or schema of the database {database} on {connection}."
+  "confirm.textBatchDb": "These statements ({verb}) may change data or schema of the database {database} on {connection}.",
+  "mgrun.title": "Migration saved",
+  "mgrun.label": "npm script of {project} to run now (optional)",
+  "mgrun.hint": "For example the script that applies the project's migrations. Its output shows here; when it ends you can close, run it again or go back to editing the table. The chosen script is remembered for this connection.",
+  "mgrun.run": "Run",
+  "mgrun.back": "Back to editing the table",
+  "mgrun.running": "running…",
+  "mgrun.ok": "finished successfully",
+  "mgrun.failed": "exited with code {code}",
+  "mgrun.stopped": "stopped",
+  "mgrun.stop": "Stop",
+  "mgrun.again": "Run again",
+  "mgrun.lost": "[connection to the output lost]"
 }
