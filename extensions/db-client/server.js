@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const mysqlCb = require('mysql2');
 const mysql = require('mysql2/promise');
-const { classify, schemaChange, describeParams, bindParams, countQuery } = require('./sql');
+const { classify, splitStatements, schemaChange, describeParams, bindParams, countQuery } = require('./sql');
 const ddl = require('./ddl');
 const mig = require('./migrations');
 const schemaOps = require('./ops');
@@ -403,9 +403,12 @@ module.exports = function createDbClient(ctx) {
 
   // Esegue l'istruzione: le righe arrivano in streaming e oltre il limite si interrompe.
   // readOnly: dentro una transazione READ ONLY (annullata alla fine), per gli agenti MCP
-  function execute(pool, sql, limit, { readOnly = false } = {}) {
+  // session: connessione già presa (più istruzioni sulla stessa sessione), non viene rilasciata;
+  // oltre il limite le righe si leggono e si scartano invece di chiudere la connessione
+  function execute(pool, sql, limit, { readOnly = false, session = null } = {}) {
     return new Promise((resolve, reject) => {
-      pool.getConnection((err, connection) => {
+      const take = session ? cb => cb(null, session) : cb => pool.getConnection(cb);
+      take((err, connection) => {
         if (err) return reject(err);
         if (!readOnly) return run(connection);
         connection.query('START TRANSACTION READ ONLY', e => (e ? (connection.release(), reject(e)) : run(connection)));
@@ -417,7 +420,8 @@ module.exports = function createDbClient(ctx) {
         const finish = (error, destroy) => {
           if (settled) return;
           settled = true;
-          if (destroy) connection.destroy();
+          if (session) { /* la rilascia chi l'ha presa */ }
+          else if (destroy) connection.destroy();
           else if (readOnly) connection.query('ROLLBACK', () => connection.release());
           else connection.release();
           if (error) return reject(error);
@@ -445,11 +449,76 @@ module.exports = function createDbClient(ctx) {
         q.on('fields', f => { fields = f; });
         q.on('result', r => {
           if (!fields) { header = r; return; }
-          if (rows.length >= limit) { truncated = true; finish(null, true); return; } // il resto non serve: si chiude la connessione
+          if (rows.length >= limit) {
+            truncated = true;
+            if (!session) finish(null, true); // il resto non serve: si chiude la connessione
+            return;
+          }
           rows.push(r.map(cell));
         });
         q.on('end', () => finish(null, false));
       }
+    });
+  }
+
+  // Righe totali senza il limite di Kelbo né il LIMIT della query: quelle restituite se non
+  // c'erano limiti, altrimenti un COUNT(*) della stessa SELECT (null se non riesce, es. colonne
+  // con lo stesso nome in una JOIN)
+  async function totalsOf(pool, sql, result, session = null) {
+    let total = null, queryLimit = null;
+    const counting = result.kind === 'rows' ? countQuery(sql) : null;
+    if (counting) {
+      queryLimit = counting.limit;
+      if (!result.truncated && !counting.limit) total = result.rowCount;
+      else {
+        try { total = Number((await execute(pool, counting.sql, 1, { session })).rows[0]?.[0]); } catch { total = null; }
+        if (!Number.isFinite(total)) total = null;
+      }
+    }
+    return { total, queryLimit };
+  }
+
+  // Più istruzioni in un testo: una conferma per tutto il gruppo se almeno una modifica qualcosa
+  // (firmata sull'intero testo), poi in ordine sulla stessa connessione (variabili di sessione,
+  // tabelle temporanee, START TRANSACTION … COMMIT), fermandosi al primo errore. Ogni istruzione
+  // va da sola in autocommit, come in un client SQL.
+  const MAX_STATEMENTS = 100;
+  async function runBatch(req, res, conn, statements, { sql, database, limit, confirm, bound }) {
+    if (statements.length > MAX_STATEMENTS) throw ctx.error(400, 'batch_too_many', { max: MAX_STATEMENTS });
+    const kinds = statements.map(s => classify(s.sql));
+    const bad = kinds.findIndex(k => k.kind === 'invalid' || k.kind === 'empty');
+    if (bad !== -1) throw ctx.error(400, 'batch_statement', { n: bad + 1, error: ctx.error(400, `sql_${kinds[bad].reason}`).message });
+    const writes = kinds.filter(k => k.kind === 'write');
+    if (writes.length) {
+      if (conn.readOnly) throw ctx.error(403, 'read_only_statement', { verb: writes[0].verb || '?' });
+      const token = confirmToken(conn, database, sql);
+      const given = typeof confirm === 'string' ? Buffer.from(confirm) : Buffer.alloc(0);
+      if (given.length !== token.length || !crypto.timingSafeEqual(given, Buffer.from(token))) {
+        const verbs = [...new Set(writes.map(k => k.verb || '?'))].join(', ');
+        return res.status(428).json({ needsConfirmation: true, token, verb: verbs, reason: null, word: null, database, sql, statements: statements.length, writes: writes.length, migration: null });
+      }
+    }
+    const pool = await poolFor(conn, database);
+    const session = await new Promise((resolve, reject) => pool.getConnection((e, c) => (e ? reject(e) : resolve(c))));
+    const started = Date.now();
+    const results = [];
+    let failed = null;
+    try {
+      for (const [i, s] of statements.entries()) {
+        try {
+          const result = await execute(pool, s.sql, limit, { session });
+          const totals = kinds[i].kind === 'read' ? await totalsOf(pool, s.sql, result, session) : { total: null, queryLimit: null };
+          results.push({ n: i + 1, sql: s.sql, start: s.start, statement: kinds[i].kind, verb: kinds[i].verb, ...result, ...totals, limit });
+        } catch (e) {
+          failed = i + 1;
+          results.push({ n: i + 1, sql: s.sql, start: s.start, statement: kinds[i].kind, verb: kinds[i].verb, kind: 'error', error: e?.message || String(e), ...(e?.code ? { mysqlCode: e.code } : {}) });
+          break;
+        }
+      }
+    } finally { session.release(); }
+    res.json({
+      kind: 'batch', ms: Date.now() - started, database, limit, statements: statements.length, failed,
+      skipped: failed ? statements.length - failed : 0, results, ...(bound ? { sql } : {}),
     });
   }
 
@@ -899,6 +968,9 @@ module.exports = function createDbClient(ctx) {
         if (database && !DB_NAME_RE.test(database)) throw ctx.error(400, 'database_invalid');
         const limit = Math.min(Math.max(parseInt(req.body.limit) || DEFAULT_ROW_LIMIT, 1), MAX_ROW_LIMIT);
 
+        const statements = splitStatements(sql);
+        if (statements.length > 1) return runBatch(req, res, conn, statements, { sql, database, limit, confirm, bound: wanted.length > 0 });
+
         const c = classify(sql);
         if (c.kind === 'invalid' || c.kind === 'empty') throw ctx.error(400, `sql_${c.reason}`);
         if (c.kind === 'write') {
@@ -915,20 +987,8 @@ module.exports = function createDbClient(ctx) {
         try {
           const pool = await poolFor(conn, database);
           const result = await execute(pool, sql, limit);
-          // righe totali senza il limite di Kelbo né il LIMIT della query: quelle restituite se
-          // non c'erano limiti, altrimenti un COUNT(*) della stessa SELECT (null se non riesce,
-          // es. colonne con lo stesso nome in una JOIN)
-          let total = null, queryLimit = null;
-          const counting = result.kind === 'rows' && c.kind === 'read' ? countQuery(sql) : null;
-          if (counting) {
-            queryLimit = counting.limit;
-            if (!result.truncated && !counting.limit) total = result.rowCount;
-            else {
-              try { total = Number((await execute(pool, counting.sql, 1)).rows[0]?.[0]); } catch { total = null; }
-              if (!Number.isFinite(total)) total = null;
-            }
-          }
-          res.json({ ...result, total, queryLimit, statement: c.kind, database, limit, ...(wanted.length ? { sql } : {}) });
+          const totals = c.kind === 'read' ? await totalsOf(pool, sql, result) : { total: null, queryLimit: null };
+          res.json({ ...result, ...totals, statement: c.kind, database, limit, ...(wanted.length ? { sql } : {}) });
         } catch (e) {
           sendFailure(res, e);
         }

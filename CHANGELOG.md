@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.20.0] - 2026-11-03
+
+### Added
+- **Database: several statements at once.** The editor runs the selection, if there is one, otherwise the whole text, now also with several statements separated by `;` (outside strings, quoted names and comments). They run in order on the same connection — session variables, temporary tables and `START TRANSACTION … COMMIT` carry over — each in autocommit, stopping at the first error. When any of them changes data or schema the whole text is shown and confirmed once (the confirmation lists the verbs and how many statements change something); read-only connections refuse it. Each SELECT gets its own result tab under the query tab (rows, total without limits, sort and inline edit as for a single query); the **Execution** tab lists every statement with its outcome — rows, rows affected, error — and how many were not run after an error. At most 100 statements per run; compound statements (`BEGIN … END` of procedures and triggers, `DELIMITER`) are not split correctly. The MCP `query` tool still takes one statement.
+- Session history: a run of several statements is shown with how many there were.
+
+### Changed
+- db-client tests run on MariaDB too (datadir created with `mariadb-install-db`); the three tests that check MySQL-specific types and values are skipped there.
+
 ## [2.19.0] - 2026-11-02
 
 ### Added

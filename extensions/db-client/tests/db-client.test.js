@@ -48,7 +48,9 @@ test('vault del core: le password delle connessioni già salvate restano leggibi
 });
 
 // ---- connessioni (con un MySQL usa e getta, se mysqld è installato) ----
-const { startMysql } = require('./mysql');
+const { startMysql, isMariaDb } = require('./mysql');
+// tipi e valori come li restituisce MySQL (MariaDB: int(11), JSON come longtext, COUNT come numero)
+const MYSQL_ONLY = { skip: isMariaDb() ? 'MariaDB: tipi e valori diversi da MySQL' : false };
 const path = require('path');
 const { tmpDir } = require('../../../lib/testkit');
 
@@ -206,7 +208,12 @@ test('query: letture subito, scritture solo con la conferma della stessa istruzi
     assert.equal((await q('ro', { sql: 'SELECT COUNT(*) FROM clienti' })).json.rows[0][0], '4');
 
     // istruzioni non accettate ed errori del server
-    assert.equal((await q('rw', { sql: 'SELECT 1; DELETE FROM clienti' })).status, 400);
+    // più istruzioni con una scrittura: conferma del gruppo intero, come per una sola
+    r = await q('rw', { sql: 'SELECT 1; DELETE FROM clienti' });
+    assert.deepEqual([r.status, r.json.verb, r.json.statements, r.json.writes, r.json.sql], [428, 'DELETE', 2, 1, 'SELECT 1; DELETE FROM clienti']);
+    assert.equal((await q('ro', { sql: 'SELECT 1; DELETE FROM clienti' })).status, 403);
+    r = await q('rw', { sql: 'SELECT 1; USE mysql' });
+    assert.deepEqual([r.status, r.json.code, r.json.params.n], [400, 'db-client.batch_statement', 2]);
     assert.equal((await q('rw', { sql: 'USE mysql' })).status, 400);
     r = await q('rw', { sql: 'SELECT * FROM tabella_inesistente' });
     assert.equal(r.status, 400);
@@ -216,13 +223,39 @@ test('query: letture subito, scritture solo con la conferma della stessa istruzi
     r = await api('GET', '/connections/rw/databases');
     assert.ok(r.json.databases.includes('app'));
     assert.equal(r.json.default, 'app');
+
+    // più istruzioni: solo letture subito, ciascuna con il suo risultato, stessa sessione
+    r = await q('rw', { sql: "SELECT id, nome FROM clienti ORDER BY id LIMIT 2;\n-- commento; con punto e virgola\nSELECT 'a;b' AS x;  SHOW TABLES LIKE 'clienti';", limit: 1 });
+    assert.equal(r.status, 200, r.text);
+    assert.deepEqual([r.json.kind, r.json.statements, r.json.failed], ['batch', 3, null]);
+    assert.deepEqual(r.json.results.map(x => [x.n, x.kind, x.rowCount]), [[1, 'rows', 1], [2, 'rows', 1], [3, 'rows', 1]]);
+    assert.deepEqual([r.json.results[0].truncated, r.json.results[0].total, r.json.results[0].queryLimit.count, r.json.results[1].rows], [true, 4, 2, [['a;b']]]);
+    assert.equal(r.json.results[1].sql, "-- commento; con punto e virgola\nSELECT 'a;b' AS x");
+
+    // scritture e letture insieme dopo la conferma, sulla stessa connessione (@variabile e
+    // tabella temporanea restano), fermandosi al primo errore
+    const batch = "SET @n := 'Lotto'; CREATE TEMPORARY TABLE tmp_b (v INT); INSERT INTO tmp_b VALUES (1),(2); INSERT INTO clienti (nome) VALUES (@n); SELECT COUNT(*) FROM tmp_b; SELECT nome FROM clienti WHERE nome = @n; SELECT * FROM non_esiste; DELETE FROM clienti";
+    r = await q('rw', { sql: batch });
+    assert.equal(r.status, 428);
+    assert.equal(r.json.verb, 'SET, CREATE, INSERT, DELETE');
+    r = await q('rw', { sql: batch, confirm: r.json.token });
+    assert.equal(r.status, 200, r.text);
+    assert.deepEqual([r.json.statements, r.json.failed, r.json.skipped], [8, 7, 1]);
+    assert.deepEqual(r.json.results.map(x => x.kind), ['result', 'result', 'result', 'result', 'rows', 'rows', 'error']);
+    assert.equal(r.json.results[2].affectedRows, 2);
+    assert.equal(String(r.json.results[4].rows[0][0]), '2');
+    assert.deepEqual(r.json.results[5].rows, [['Lotto']]);
+    assert.equal(r.json.results[6].mysqlCode, 'ER_NO_SUCH_TABLE');
+    assert.ok((await q('rw', { sql: 'SELECT COUNT(*) FROM clienti' })).json.rows[0][0] > 0); // il DELETE dopo l'errore non è partito
+    // il token vale per quel testo: un'istruzione in più chiede di nuovo la conferma
+    assert.equal((await q('rw', { sql: `${batch}; DELETE FROM clienti`, confirm: 'x' })).status, 428);
   } finally {
     await s.stop();
     await mysqlDb.stop();
   }
 });
 
-test('schema: tabelle e struttura di una tabella', async t => {
+test('schema: tabelle e struttura di una tabella', MYSQL_ONLY, async t => {
   const mysqlDb = await startMysql();
   if (!mysqlDb) return t.skip('mysqld non installato');
   const s = await startServer();
@@ -383,7 +416,7 @@ test('righe: insert, update e delete generati dal server e solo dopo conferma', 
   }
 });
 
-test('export CSV, JSON e SQL di tabelle (con filtri) e di SELECT', async t => {
+test('export CSV, JSON e SQL di tabelle (con filtri) e di SELECT', MYSQL_ONLY, async t => {
   const mysqlDb = await startMysql();
   if (!mysqlDb) return t.skip('mysqld non installato');
   const s = await startServer();
@@ -645,7 +678,7 @@ test('database predefinito inesistente: l\'elenco dei database arriva comunque',
   }
 });
 
-test('colonne JSON: mostrate come testo JSON, modificabili, esportate correttamente', async t => {
+test('colonne JSON: mostrate come testo JSON, modificabili, esportate correttamente', MYSQL_ONLY, async t => {
   const mysqlDb = await startMysql();
   if (!mysqlDb) return t.skip('mysqld non installato');
   const s = await startServer();
