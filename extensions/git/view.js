@@ -356,16 +356,18 @@ export default {
       }
       ctx.ui.patch(el, status.files.map(f => {
         const sel = selected.has(f.name);
-        const parts = f.name.split('/');
+        // cartella non tracciata intera (git status la mostra come "dir/"): niente diff
+        const isDir = f.name.endsWith('/');
+        const parts = (isDir ? f.name.slice(0, -1) : f.name).split('/');
         const label = xyLabel(f.xy);
         return `<div class="git-file ${sel ? 'selected' : ''}" onclick="Ext.git.toggleFile(${js(f.name)})" title="${esc(f.name)}">
           <span class="git-file-check">${sel ? '☑' : '☐'}</span>
           <span class="git-file-xy ${XY_CLASS[label] || ''}">${esc(label)}</span>
-          <span class="git-file-name">${esc(parts[parts.length - 1])}</span>
+          <span class="git-file-name">${isDir ? '📁 ' : ''}${esc(parts[parts.length - 1])}${isDir ? '/' : ''}</span>
           ${parts.length > 1 ? `<span class="git-file-dir">${esc(parts.slice(0, -1).join('/'))}/</span>` : ''}
           ${status.conflicts.includes(f.name)
             ? `<button class="git-file-act git-file-resolve" onclick="event.stopPropagation();Ext.git.resolve(${js(f.name)})" title="${esc(t('mergeEditor.open'))}">⚔ ${esc(t('mergeEditor.short'))}</button>`
-            : `<button class="git-file-act" onclick="event.stopPropagation();Ext.git.diff(${js(f.name)})" title="${esc(t('diff.open'))}">±</button>`}
+            : isDir ? '' : `<button class="git-file-act" onclick="event.stopPropagation();Ext.git.diff(${js(f.name)})" title="${esc(t('diff.open'))}">±</button>`}
         </div>`;
       }).join(''));
       toggle.textContent = `${status.files.every(f => selected.has(f.name)) ? '☑' : '☐'} ${allLabel}`;
@@ -654,9 +656,9 @@ export default {
     // il file modificato successivo (o la finestra si chiude)
     async function afterRevert(scroll) {
       const v = diffView;
-      const before = (status?.files || []).filter(f => !status.conflicts.includes(f.name)).map(f => f.name);
+      const before = (status?.files || []).filter(f => !status.conflicts.includes(f.name) && !f.name.endsWith('/')).map(f => f.name);
       await loadStatus();
-      const files = (status?.files || []).filter(f => !status.conflicts.includes(f.name)).map(f => f.name);
+      const files = (status?.files || []).filter(f => !status.conflicts.includes(f.name) && !f.name.endsWith('/')).map(f => f.name);
       if (files.includes(v.file)) {
         await loadDiff();
         const wrap = document.querySelector('.git-diff-wrap');
@@ -678,7 +680,7 @@ export default {
     function renderDiff() {
       const v = diffView;
       const d = v.data;
-      const files = (status?.files || []).filter(f => !status.conflicts.includes(f.name)).map(f => f.name);
+      const files = (status?.files || []).filter(f => !status.conflicts.includes(f.name) && !f.name.endsWith('/')).map(f => f.name);
       const at = files.indexOf(v.file);
       const hunks = parsePatch(d.patch);
       const plus = hunks.reduce((n, h) => n + h.lines.filter(l => l.t === '+').length, 0);
