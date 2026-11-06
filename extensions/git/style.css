@@ -172,3 +172,11 @@
 .git-me-result-head h4{margin:0;font-size:12px}
 .git-me-result-head span{font-size:11px}
 .git-me-result{width:100%;min-height:180px;height:24vh;resize:vertical;font-family:var(--font);font-size:12px;tab-size:4;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:8px}
+
+/* ripristino delle modifiche dal diff */
+.git-d-actcol{width:34px}
+.git-diff td.git-d-act{padding:0 4px;text-align:center;background:var(--surface)}
+.git-d-revert{background:none;border:1px solid var(--border);border-radius:4px;color:var(--muted);cursor:pointer;font-size:12px;line-height:1;padding:2px 5px}
+.git-d-revert:hover{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 60%,var(--border));background:color-mix(in srgb,var(--danger) 10%,transparent)}
+.git-d-revert-all{color:var(--danger)}
+.git-d-revert-all:hover{border-color:var(--danger)}

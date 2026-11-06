@@ -193,5 +193,19 @@
   "mergeEditor.saved": "{file} resolved and added",
   "mergeEditor.allDone": "Conflicts resolved: you can conclude the merge",
   "mergeEditor.dropManual": "The result was edited by hand: rebuild it from the choices?",
-  "mergeEditor.confirmDelete": "Delete {file} to resolve the conflict?"
+  "mergeEditor.confirmDelete": "Delete {file} to resolve the conflict?",
+  "diff.revertBlock": "Revert this change to the last commit",
+  "diff.revertAll": "↺ Discard all changes",
+  "diff.revertAllTitle": "Bring the file back to the last commit (staged changes too)",
+  "diff.deleteFile": "🗑 Delete the file",
+  "diff.deleteFileTitle": "The file is new and untracked: discarding its changes means deleting it",
+  "diff.confirmRevertAll": "Discard all the changes of {file}? The file goes back to the last commit and the changes are lost.",
+  "diff.confirmDelete": "Delete {file}? It is a new, untracked file: it can't be recovered.",
+  "diff.reverted": "{file} brought back to the last commit",
+  "diff.deleted": "{file} deleted",
+  "errors.conflicted": "The file {file} is in conflict: resolve it with the merge editor",
+  "errors.revert_block_unsupported": "For {file} only all the changes can be discarded (new, renamed or binary file)",
+  "errors.diff_changed": "{file} changed in the meantime: changes reloaded, try again",
+  "errors.block_invalid": "Change not found in the diff",
+  "errors.revert_failed": "The change can't be reverted: {output}"
 }

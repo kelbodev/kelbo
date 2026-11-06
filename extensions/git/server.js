@@ -248,6 +248,67 @@ module.exports = function createGit(ctx) {
     return { text: r.buf.toString('utf8') };
   }
 
+  // Diff del file rispetto a HEAD (indice e cartella insieme) con il contesto chiesto:
+  // { patch, header, hunks: [{ head, lines }], binary, blocksAllowed }
+  async function fileDiff(repo, entry, contextParam) {
+    const context = contextParam === 'all' ? 100000 : Math.min(Math.max(parseInt(contextParam) || 3, 0), 1000);
+    const base = ['--no-pager', '-c', 'core.quotepath=off', 'diff', '--no-color', '--no-ext-diff', `-U${context}`];
+    const hasHead = (await gitExec(repo.path, ['rev-parse', '--verify', '-q', 'HEAD'], { allowFail: true })).code === 0;
+    let r;
+    if (entry.xy === '??' || !hasHead) {
+      // non tracciato (o repository senza commit): tutto il file come aggiunto
+      r = await gitExec(repo.path, [...base, '--no-index', '--', process.platform === 'win32' ? 'NUL' : '/dev/null', entry.name], { allowFail: true });
+    } else {
+      r = await gitExec(repo.path, [...base, '-M', 'HEAD', '--', ...(entry.orig ? [entry.orig] : []), entry.name], { allowFail: true });
+    }
+    if (r.code > 1) throw ctx.error(500, 'command_failed', { output: r.err.trim() });
+    const patch = r.out;
+    const binary = /^Binary files .* differ$/m.test(patch) || /^GIT binary patch$/m.test(patch);
+    const lines = patch.split('\n');
+    const first = lines.findIndex(l => l.startsWith('@@ '));
+    const header = first === -1 ? '' : lines.slice(0, first).join('\n') + '\n';
+    const hunks = [];
+    for (const l of first === -1 ? [] : lines.slice(first)) {
+      if (l.startsWith('@@ ')) { hunks.push({ head: l, lines: [] }); continue; }
+      if (l === '' ) continue;
+      if (hunks.length) hunks[hunks.length - 1].lines.push(l);
+    }
+    const blocksAllowed = hasHead && !binary && entry.xy !== '??' && !entry.orig && !/^(new|deleted) file mode/m.test(header) && hunks.length > 0;
+    return { patch, header, hunks, binary, blocksAllowed };
+  }
+
+  // Patch con un solo blocco di modifiche di un hunk, da applicare al contrario sulla cartella:
+  // le altre modifiche del blocco restano come sono (le righe aggiunte diventano contesto,
+  // quelle tolte non ci sono più nel file). Le righe "\ No newline" seguono la loro riga.
+  function blockPatch(h, k) {
+    const m = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(h.head);
+    if (!m) return '';
+    const out = [];
+    let b = -1, inBlock = false, keep = false;
+    for (const l of h.lines) {
+      const t = l[0];
+      if (t === '\\') { if (keep) out.push(l); continue; }
+      if (t === ' ') { inBlock = false; out.push(l); keep = true; continue; }
+      if (!inBlock) { b++; inBlock = true; }
+      if (b === k) { out.push(l); keep = true; }
+      else if (t === '+') { out.push(' ' + l.slice(1)); keep = true; }
+      else keep = false; // riga tolta da un'altra modifica: nel file non c'è più
+    }
+    if (k < 0 || k > b) return '';
+    const oldCount = out.filter(l => l[0] === ' ' || l[0] === '-').length;
+    const newCount = out.filter(l => l[0] === ' ' || l[0] === '+').length;
+    return `@@ -${m[1]},${oldCount} +${m[1]},${newCount} @@\n${out.join('\n')}\n`;
+  }
+
+  // Una sola operazione alla volta per repository (come le azioni)
+  async function exclusive(repo, fn) {
+    if (busyRepos.has(repo.path)) throw ctx.error(409, 'busy');
+    busyRepos.add(repo.path);
+    try { return await fn(); }
+    catch (e) { if (e.status) throw e; throw ctx.error(500, 'command_failed', { output: e.message }); }
+    finally { busyRepos.delete(repo.path); }
+  }
+
   // Nome leggibile del commit che si sta unendo (branch, se c'è)
   async function mergeHeadName(cwd) {
     const r = await gitExec(cwd, ['name-rev', '--name-only', '--exclude=tags/*', 'MERGE_HEAD'], { allowFail: true });
@@ -448,23 +509,60 @@ module.exports = function createGit(ctx) {
       async diff(req, res) {
         const repo = repoOr404(req);
         const { entry } = await changedFile(repo, req.query.file);
-        const context = req.query.context === 'all' ? 100000 : Math.min(Math.max(parseInt(req.query.context) || 3, 0), 1000);
-        const base = ['--no-pager', '-c', 'core.quotepath=off', 'diff', '--no-color', '--no-ext-diff', `-U${context}`];
-        const hasHead = (await gitExec(repo.path, ['rev-parse', '--verify', '-q', 'HEAD'], { allowFail: true })).code === 0;
-        let r;
-        if (entry.xy === '??' || !hasHead) {
-          // non tracciato (o repository senza commit): tutto il file come aggiunto
-          r = await gitExec(repo.path, [...base, '--no-index', '--', process.platform === 'win32' ? 'NUL' : '/dev/null', entry.name], { allowFail: true });
-        } else {
-          r = await gitExec(repo.path, [...base, '-M', 'HEAD', '--', ...(entry.orig ? [entry.orig] : []), entry.name], { allowFail: true });
-        }
-        if (r.code > 1) throw ctx.error(500, 'command_failed', { output: r.err.trim() });
-        const patch = r.out;
+        const d = await fileDiff(repo, entry, req.query.context);
         res.json({
-          file: entry.name, orig: entry.orig || null, xy: entry.xy,
-          binary: /^Binary files .* differ$/m.test(patch) || /^GIT binary patch$/m.test(patch),
-          truncated: patch.length > MAX_DIFF, patch: patch.length > MAX_DIFF ? patch.slice(0, MAX_DIFF) : patch,
+          file: entry.name, orig: entry.orig || null, xy: entry.xy, binary: d.binary,
+          // si può riportare a HEAD una modifica alla volta: file tracciato, non rinominato, testo
+          blocks: d.blocksAllowed,
+          truncated: d.patch.length > MAX_DIFF, patch: d.patch.length > MAX_DIFF ? d.patch.slice(0, MAX_DIFF) : d.patch,
         });
+      },
+
+      // Tutte le modifiche del file tolte: com'è in HEAD (indice e cartella); un file nuovo viene
+      // eliminato, uno rinominato torna al nome di prima
+      async revertFile(req, res) {
+        const repo = repoOr404(req);
+        const { entry, abs } = await changedFile(repo, req.body?.file);
+        if (CONFLICT_XY.has(entry.xy)) throw ctx.error(409, 'conflicted', { file: entry.name });
+        await exclusive(repo, async () => {
+          const inHead = async f => (await gitExec(repo.path, ['cat-file', '-e', `HEAD:${f}`], { allowFail: true })).code === 0;
+          if (entry.xy === '??') { fs.rmSync(abs, { force: true }); return; }
+          if (entry.orig) {
+            await gitExec(repo.path, ['rm', '-q', '-f', '--', entry.name]);
+            await gitExec(repo.path, ['restore', '--source=HEAD', '--staged', '--worktree', '--', entry.orig]);
+            return;
+          }
+          if (await inHead(entry.name)) await gitExec(repo.path, ['restore', '--source=HEAD', '--staged', '--worktree', '--', entry.name]);
+          else { await gitExec(repo.path, ['rm', '-q', '-f', '--', entry.name]); } // aggiunto all'indice, non in HEAD
+        });
+        res.json({ ok: true, ...(await statusOf(repo)) });
+      },
+
+      // Una sola modifica (blocco di righe tolte/aggiunte consecutive) riportata a HEAD.
+      // { file, context, hunk, block, expect }: expect è il testo del blocco @@ come lo ha
+      // mostrato l'interfaccia; se il file è cambiato nel frattempo la richiesta è rifiutata
+      async revertBlock(req, res) {
+        const repo = repoOr404(req);
+        const { file, context, hunk, block, expect } = req.body || {};
+        const { entry } = await changedFile(repo, file);
+        if (CONFLICT_XY.has(entry.xy)) throw ctx.error(409, 'conflicted', { file: entry.name });
+        const d = await fileDiff(repo, entry, context);
+        if (!d.blocksAllowed) throw ctx.error(409, 'revert_block_unsupported', { file: entry.name });
+        const h = d.hunks[Number(hunk)];
+        if (!h || typeof expect !== 'string' || h.lines.join('\n') !== expect) throw ctx.error(409, 'diff_changed', { file: entry.name });
+        const patch = `${d.header}${blockPatch(h, Number(block))}`;
+        if (!patch) throw ctx.error(400, 'block_invalid');
+        const tmp = path.join(require('os').tmpdir(), `kelbo-revert-${process.pid}-${Date.now()}.patch`);
+        fs.writeFileSync(tmp, patch);
+        try {
+          await exclusive(repo, async () => {
+            const r = await gitExec(repo.path, ['apply', '-R', '--recount', '--whitespace=nowarn', tmp], { allowFail: true });
+            if (r.code !== 0) throw ctx.error(409, 'revert_failed', { output: (r.err || r.out).trim() });
+            // se la modifica era anche in stage, la si toglie anche dall'indice
+            await gitExec(repo.path, ['apply', '-R', '--recount', '--cached', '--whitespace=nowarn', tmp], { allowFail: true });
+          });
+        } finally { fs.rmSync(tmp, { force: true }); }
+        res.json({ ok: true });
       },
 
       // File in conflitto: base, nostra, loro (dall'indice) e il file com'è ora (con i marcatori)
