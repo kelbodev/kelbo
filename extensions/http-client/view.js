@@ -12,6 +12,94 @@ const AUTH_TYPES = ['none', 'basic', 'manual', 'login', 'oauth'];
 
 const INDENT = '  ';
 
+// ---- risposta JSON come albero richiudibile ----
+// Il testo viene letto così com'è (numeri compresi: niente cifre perse oltre 2^53).
+// Nodo: { t: 'obj', entries: [[chiave, nodo]] } | { t: 'arr', items } | { t: 'str'|'num'|'lit', raw }
+const JSON_TREE_MAX = 2 * 1024 * 1024; // oltre: testo colorato, senza albero
+export function parseJsonTree(text) {
+  let i = 0;
+  const ws = () => { while (i < text.length && ' \t\n\r'.includes(text[i])) i++; };
+  const fail = () => { throw new Error(`JSON @${i}`); };
+  const str = () => {
+    const start = i++;
+    while (i < text.length && text[i] !== '"') i += text[i] === '\\' ? 2 : 1;
+    if (text[i] !== '"') fail();
+    i++;
+    return text.slice(start, i);
+  };
+  const value = () => {
+    ws();
+    const c = text[i];
+    if (c === '{') {
+      i++; ws();
+      const entries = [];
+      if (text[i] === '}') { i++; return { t: 'obj', entries }; }
+      for (;;) {
+        ws(); if (text[i] !== '"') fail();
+        const key = str(); ws();
+        if (text[i++] !== ':') fail();
+        entries.push([key, value()]); ws();
+        if (text[i] === ',') { i++; continue; }
+        if (text[i] === '}') { i++; return { t: 'obj', entries }; }
+        fail();
+      }
+    }
+    if (c === '[') {
+      i++; ws();
+      const items = [];
+      if (text[i] === ']') { i++; return { t: 'arr', items }; }
+      for (;;) {
+        items.push(value()); ws();
+        if (text[i] === ',') { i++; continue; }
+        if (text[i] === ']') { i++; return { t: 'arr', items }; }
+        fail();
+      }
+    }
+    if (c === '"') return { t: 'str', raw: str() };
+    const m = /^(-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null)/.exec(text.slice(i, i + 400));
+    if (!m) fail();
+    i += m[0].length;
+    return { t: /^[-\d]/.test(m[0]) ? 'num' : 'lit', raw: m[0] };
+  };
+  const root = value(); ws();
+  if (i !== text.length) fail();
+  return root;
+}
+
+// Testo dall'albero: indent '' = su una riga (minificato), altrimenti formattato con quel rientro
+export function jsonTreeText(node, indent = '') {
+  const nl = indent ? '\n' : '', sep = indent ? ': ' : ':';
+  const walk = (n, pad) => {
+    if (n.t !== 'obj' && n.t !== 'arr') return n.raw;
+    const kids = n.t === 'obj' ? n.entries.map(([k, v]) => `${k}${sep}${walk(v, pad + indent)}`) : n.items.map(v => walk(v, pad + indent));
+    const [open, close] = n.t === 'obj' ? ['{', '}'] : ['[', ']'];
+    if (!kids.length) return open + close;
+    return `${open}${nl}${kids.map(k => pad + indent + k).join(`,${nl}`)}${nl}${pad}${close}`;
+  };
+  return walk(node, '');
+}
+
+// HTML dell'albero: ogni oggetto/array ha ▾ per chiuderlo (riassunto "… 3 chiavi }")
+export function jsonTreeHtml(node, esc, label) {
+  const scalar = n => n.t === 'str' ? `<span class="hc-j-str">${esc(n.raw)}</span>`
+    : n.t === 'num' ? `<span class="hc-j-num">${esc(n.raw)}</span>` : `<span class="hc-j-lit">${esc(n.raw)}</span>`;
+  const walk = (n, key, last, depth) => {
+    const k = key != null ? `<span class="hc-j-key">${esc(key)}</span>: ` : '';
+    const comma = last ? '' : ',';
+    if (n.t !== 'obj' && n.t !== 'arr') return `<div class="hc-jt-line">${k}${scalar(n)}${comma}</div>`;
+    const [open, close] = n.t === 'obj' ? ['{', '}'] : ['[', ']'];
+    const kids = n.t === 'obj' ? n.entries : n.items.map(v => [null, v]);
+    if (!kids.length) return `<div class="hc-jt-line">${k}${open}${close}${comma}</div>`;
+    const count = label(n.t, kids.length);
+    return `<div class="hc-jt-node" data-depth="${depth}">
+      <div class="hc-jt-line"><button class="hc-jt-toggle" data-jt aria-expanded="true" tabindex="-1"></button>${k}${open}<span class="hc-jt-more"> <button class="hc-jt-count" data-jt>${esc(count)}</button> ${close}${comma}</span></div>
+      <div class="hc-jt-body">${kids.map(([kk, v], idx) => walk(v, kk, idx === kids.length - 1, depth + 1)).join('')}</div>
+      <div class="hc-jt-line hc-jt-close">${close}${comma}</div>
+    </div>`;
+  };
+  return walk(node, null, true, 0);
+}
+
 // Variabili fuori dalle stringhe JSON ({{nome}}, :nome come valore) → fn(testo, indice):
 // per controllare o formattare un corpo che contiene "id": {{id}} senza che sia JSON valido
 function replaceBareVars(text, fn) {
@@ -525,6 +613,9 @@ export default {
       if (!response) { el.innerHTML = `<p class="hc-muted hc-pad">${esc(t('response.none'))}</p>`; return; }
       if (response.error) { el.innerHTML = `<div class="hc-resp-error">${esc(response.error)}</div>`; return; }
       const r = response;
+      // JSON letto una volta per risposta (albero e copie formattata/minificata)
+      if (r.json && !r.binary && r.body && r.jsonNode === undefined) { try { r.jsonNode = parseJsonTree(r.body.trim()); } catch { r.jsonNode = null; } }
+      const jsonNode = r.jsonNode || null;
       let body;
       if (r.binary) body = r.base64
         ? `<p class="hc-pad">${esc(t('response.downloaded', { name: r.fileName, size: fmt.bytes(r.size) }))}
@@ -532,9 +623,17 @@ export default {
         : `<p class="hc-muted hc-pad">${esc(t(r.truncated ? 'response.binaryTooLarge' : 'response.binary', { size: fmt.bytes(r.size) }))}</p>`;
       else if (!r.body) body = `<p class="hc-muted hc-pad">${esc(t('response.empty'))}</p>`;
       else {
-        let text = r.body;
-        if (r.json) { try { text = JSON.stringify(JSON.parse(r.body), null, 2); } catch { /* lascia il testo */ } }
-        body = `<pre class="hc-resp-body ${r.json ? 'hc-json' : ''}">${r.json ? highlightJson(text) : esc(text)}</pre>`;
+        let text = r.body, tree = null;
+        if (jsonNode && r.body.length <= JSON_TREE_MAX) {
+          tree = jsonTreeHtml(jsonNode, esc, (kind, n) => t(kind === 'obj' ? 'response.jsonKeys' : 'response.jsonItems', { count: n }));
+        }
+        if (r.json && !tree) { try { text = JSON.stringify(JSON.parse(r.body), null, 2); } catch { /* lascia il testo */ } }
+        body = tree ? `<div class="hc-resp-body hc-json hc-jt" data-role="json-tree">${tree}</div>`
+          : `<pre class="hc-resp-body ${r.json ? 'hc-json' : ''}">${r.json ? highlightJson(text) : esc(text)}</pre>`;
+        if (tree) body = `<div class="hc-jt-tools">
+            <button class="btn btn-ghost btn-sm" data-jt-all="expand" title="${esc(t('response.expandAllTitle'))}">⊞ ${esc(t('response.expandAll'))}</button>
+            <button class="btn btn-ghost btn-sm" data-jt-all="collapse" title="${esc(t('response.collapseAllTitle'))}">⊟ ${esc(t('response.collapseAll'))}</button>
+            <span class="hc-muted">${esc(t('response.jsonTreeHint'))}</span></div>${body}`;
       }
       el.innerHTML = `<div class="hc-resp-meta">
           <span class="hc-status ${statusClass(r.status)}">${esc(r.status)} ${esc(r.statusText)}</span>
@@ -546,7 +645,9 @@ export default {
           <div class="hc-tabs hc-resp-tabs">
             <button class="hc-tab ${respTab === 'body' ? 'active' : ''}" data-resp-tab="body">${esc(t('response.body'))}</button>
             <button class="hc-tab ${respTab === 'headers' ? 'active' : ''}" data-resp-tab="headers">${esc(t('response.headers'))} <span class="hc-tab-count">${esc(fmt.number(r.headers.length))}</span></button>
-            ${r.body ? `<button class="btn btn-ghost btn-sm" data-action="copy-body">${esc(t('response.copy'))}</button>` : ''}
+            ${r.body && jsonNode ? `<button class="btn btn-ghost btn-sm" data-action="copy-body" data-format="pretty" title="${esc(t('response.copyPrettyTitle'))}">${esc(t('response.copyPretty'))}</button>
+              <button class="btn btn-ghost btn-sm" data-action="copy-body" data-format="min" title="${esc(t('response.copyMinTitle'))}">${esc(t('response.copyMin'))}</button>`
+              : r.body ? `<button class="btn btn-ghost btn-sm" data-action="copy-body">${esc(t('response.copy'))}</button>` : ''}
           </div>
         </div>
         ${respTab === 'body' ? body : `<table class="data-table hc-resp-headers"><tbody>${r.headers.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join('')}</tbody></table>`}`;
@@ -1127,9 +1228,31 @@ export default {
       } else if (a === 'download-body') {
         downloadResponse();
       } else if (a === 'copy-body') {
-        navigator.clipboard?.writeText(response?.body || '').then(() => toast(t('response.copied'), 'success'), () => {});
+        const node = response?.jsonNode;
+        const text = node && el.dataset.format ? jsonTreeText(node, el.dataset.format === 'pretty' ? INDENT : '') : response?.body || '';
+        navigator.clipboard?.writeText(text).then(() => toast(t(el.dataset.format === 'min' ? 'response.copiedMin' : el.dataset.format ? 'response.copiedPretty' : 'response.copied'), 'success'), () => toast(t('response.copyFailed'), 'error'));
       }
     });
+
+    // Albero JSON: ▾ chiude/apre un nodo, Alt+clic anche tutti quelli dentro; ⊞/⊟ tutto
+    // (sotto il primo livello, così resta visibile la struttura di base)
+    ctx.root.addEventListener('click', e => {
+      const all = e.target.closest('[data-jt-all]')?.dataset.jtAll;
+      if (all) {
+        for (const n of ctx.root.querySelectorAll('[data-role="json-tree"] .hc-jt-node')) setNode(n, all === 'collapse' && n.dataset.depth !== '0');
+        return;
+      }
+      if (!e.target.closest('[data-jt]')) return;
+      const node = e.target.closest('.hc-jt-node');
+      if (!node) return;
+      const collapse = !node.classList.contains('collapsed');
+      setNode(node, collapse);
+      if (e.altKey) for (const n of node.querySelectorAll('.hc-jt-node')) setNode(n, collapse);
+    });
+    function setNode(n, collapsed) {
+      n.classList.toggle('collapsed', collapsed);
+      n.querySelector(':scope > .hc-jt-line > .hc-jt-toggle')?.setAttribute('aria-expanded', String(!collapsed));
+    }
 
     ctx.root.addEventListener('input', e => {
       const el = e.target;

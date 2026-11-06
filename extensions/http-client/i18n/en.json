@@ -326,5 +326,25 @@
   "widget.openTitle": "Open the request in the HTTP section",
   "widget.sending": "sending…",
   "widget.lastTitle": "Last answer: {status} in {ms} ms ({when})",
-  "links.section": "Section \"{name}\""
+  "links.section": "Section \"{name}\"",
+  "response.jsonKeys": {
+    "one": "{count} key",
+    "other": "{count} keys"
+  },
+  "response.jsonItems": {
+    "one": "{count} item",
+    "other": "{count} items"
+  },
+  "response.expandAll": "Expand",
+  "response.collapseAll": "Collapse",
+  "response.expandAllTitle": "Open every level",
+  "response.collapseAllTitle": "Close everything below the first level",
+  "response.jsonTreeHint": "▾ closes a level, Alt+click the ones inside too",
+  "response.copyPretty": "Copy formatted",
+  "response.copyMin": "Copy minified",
+  "response.copyPrettyTitle": "Copy the JSON with indentation",
+  "response.copyMinTitle": "Copy the JSON on one line, without spaces",
+  "response.copiedPretty": "Formatted JSON copied",
+  "response.copiedMin": "Minified JSON copied",
+  "response.copyFailed": "Copy failed"
 }

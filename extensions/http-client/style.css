@@ -120,3 +120,20 @@
 .hcw-last{margin-inline-start:auto;font-family:var(--font);font-size:11px}
 .hcw-status{padding:0 5px;border-radius:4px;font-weight:600}
 .hcw-2{color:#3fb950}.hcw-3{color:#58a6ff}.hcw-4{color:#d29922}.hcw-5{color:#f85149}
+
+/* risposta JSON come albero richiudibile */
+.hc-jt-tools{display:flex;align-items:center;gap:6px;padding:6px 16px 0;font-size:11px}
+.hc-jt{white-space:normal}
+.hc-jt-line{white-space:pre-wrap;overflow-wrap:anywhere;position:relative}
+.hc-jt-body{padding-inline-start:2ch;margin-inline-start:.45ch;border-inline-start:1px dotted color-mix(in srgb,var(--muted) 35%,transparent)}
+.hc-jt-node > .hc-jt-line:first-child{margin-inline-start:-1.6ch}
+.hc-jt > .hc-jt-node > .hc-jt-line:first-child{margin-inline-start:0}
+.hc-jt-toggle{display:inline-block;width:1.6ch;padding:0;margin:0;background:none;border:none;color:var(--muted);cursor:pointer;font:inherit;text-align:left}
+.hc-jt-toggle::before{content:'▾'}
+.hc-jt-node.collapsed > .hc-jt-line > .hc-jt-toggle::before{content:'▸'}
+.hc-jt-toggle:hover{color:var(--text)}
+.hc-jt-more{display:none}
+.hc-jt-node.collapsed > .hc-jt-line > .hc-jt-more{display:inline}
+.hc-jt-node.collapsed > .hc-jt-body,.hc-jt-node.collapsed > .hc-jt-close{display:none}
+.hc-jt-count{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--muted);font:inherit;font-size:10px;padding:0 6px;cursor:pointer}
+.hc-jt-count:hover{color:var(--text)}
