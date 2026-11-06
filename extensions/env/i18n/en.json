@@ -1,6 +1,6 @@
 {
   "sidebar.title": ".env files",
-  "sidebar.none": "No projects with .env files: add projects from the 📁 Projects panel in the header.",
+  "sidebar.none": "No projects with .env files: add projects from the Projects panel in the header.",
   "issues": {
     "one": "{count} missing",
     "other": "{count} missing"
@@ -10,7 +10,7 @@
     "other": "{count} template keys are missing from the .env files"
   },
   "empty": "Select a project in the sidebar",
-  "newFile": "＋ New .env file",
+  "newFile": "New .env file",
   "templateIs": "Template: {file}",
   "noTemplate": "No template (.env.example): no comparison",
   "noFiles": "No .env files in this project.",
@@ -18,10 +18,10 @@
   "value": "Value",
   "template": "template",
   "addMissing": {
-    "one": "＋ {count} missing",
-    "other": "＋ {count} missing"
+    "one": "{count} missing",
+    "other": "{count} missing"
   },
-  "addKey": "＋ Key",
+  "addKey": "Key",
   "notInTemplate": "not in template",
   "missing": "missing",
   "add": "Add",

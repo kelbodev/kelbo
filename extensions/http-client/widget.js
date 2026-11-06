@@ -18,7 +18,7 @@ function render(ctx, el) {
   const { t } = ctx;
   const st = states.get(el);
   const errors = [...st.last.values()].filter(x => x?.error || x?.status >= 400).length;
-  ctx.widget.setBadge(errors ? `✖ ${fmt.number(errors)}` : null);
+  ctx.widget.setBadge(errors ? { icon: 'circle-x', text: fmt.number(errors) } : null);
   if (!st.sections.length) { ctx.ui.patch(el, `<p class="hc-muted">${esc(t('widget.none'))}</p>`); return; }
   ctx.ui.patch(el, st.sections.map(s => `
     <div class="hcw-section">${esc(s.label)}</div>
@@ -28,11 +28,11 @@ function render(ctx, el) {
       return `<div class="hcw-req">
         <span class="hc-badge" style="--m:${cssColor(METHOD_COLORS[r.method])}">${esc(r.method)}</span>
         <button class="hcw-label" data-hcw="open" data-section="${esc(s.id)}" data-request="${esc(r.id)}" title="${esc(t('widget.openTitle'))}">${esc(r.label)}</button>
-        ${user ? `<span class="hc-muted hcw-user">👤 ${esc(user.label)}</span>` : ''}
+        ${user ? `<span class="hc-muted hcw-user"><i data-icon="user"></i> ${esc(user.label)}</span>` : ''}
         <span class="hcw-last">${last === 'sending' ? `<span class="hc-muted">${esc(t('widget.sending'))}</span>`
-          : last?.error ? `<span class="hcw-5" title="${esc(last.error)}">✖</span>`
+          : last?.error ? `<span class="hcw-5" title="${esc(last.error)}"><i data-icon="circle-x"></i></span>`
           : last ? `<span class="hcw-status ${statusClass(last.status)}" title="${esc(t('widget.lastTitle', { status: last.status, ms: fmt.number(last.ms), when: fmt.relative(last.at) }))}">${esc(last.status)}</span>` : ''}</span>
-        <button class="btn btn-ghost btn-sm" data-hcw="send" data-section="${esc(s.id)}" data-request="${esc(r.id)}" ${last === 'sending' ? 'disabled' : ''} title="${esc(t('widget.sendTitle'))}">▶</button>
+        <button class="btn btn-ghost btn-sm" data-hcw="send" data-section="${esc(s.id)}" data-request="${esc(r.id)}" ${last === 'sending' ? 'disabled' : ''} title="${esc(t('widget.sendTitle'))}"><i data-icon="play"></i></button>
       </div>`;
     }).join('') : `<p class="hc-muted">${esc(t('widget.noRequests'))}</p>`}`).join(''));
 }

@@ -99,7 +99,7 @@ window.Shell = (() => {
 
   function warningMark(meta) {
     return meta.warnings?.length
-      ? `<span class="ext-warning" title="${esc((meta.warningInfo || meta.warnings).map(w => window.I18n.errorText(w)).join('\n'))}">⚠</span>` : '';
+      ? `<span class="ext-warning" title="${esc((meta.warningInfo || meta.warnings).map(w => window.I18n.errorText(w)).join('\n'))}">${UI.icon('triangle-alert')}</span>` : '';
   }
 
   function createTab(meta) {
@@ -108,7 +108,7 @@ window.Shell = (() => {
     btn.id = `ext-tab-${meta.code}`;
     btn.style.setProperty('--tab-color', cssColor(meta.color));
     btn.innerHTML = `
-      <span class="section-tab-icon">${esc(meta.icon || '◆')}</span>
+      <span class="section-tab-icon">${UI.iconOrText(meta.icon)}</span>
       <span class="section-tab-name">${esc(pick(meta.name))}</span>${warningMark(meta)}
       <span class="section-tab-badge" style="display:none"></span>`;
     btn.dataset.order = meta.order;
@@ -205,7 +205,7 @@ window.Shell = (() => {
     nav.addEventListener('contextmenu', e => {
       e.preventDefault();
       contextMenu(e.clientX, e.clientY, [
-        { label: t('core.tabs.restore'), icon: '↺', disabled: !customTabOrder, action: restoreTabOrder },
+        { label: t('core.tabs.restore'), icon: 'rotate-ccw', disabled: !customTabOrder, action: restoreTabOrder },
       ]);
     });
   }
@@ -216,7 +216,7 @@ window.Shell = (() => {
     btn.id = `ext-tab-${meta.code}`;
     btn.title = pick(meta.name);
     btn.style.setProperty('--tab-color', cssColor(meta.color));
-    btn.innerHTML = `${esc(meta.icon || pick(meta.name))}${warningMark(meta)}<span class="section-tab-badge" style="display:none"></span>`;
+    btn.innerHTML = `${meta.icon ? UI.iconOrText(meta.icon) : esc(pick(meta.name))}${warningMark(meta)}<span class="section-tab-badge" style="display:none"></span>`;
     btn.addEventListener('click', () => open(meta.code));
     const actions = document.querySelector('.header-actions');
     actions.insertBefore(btn, actions.querySelector('#stopAllBtn'));
@@ -237,8 +237,8 @@ window.Shell = (() => {
         <div class="sse-panel-header">
           <span class="sse-title" data-i18n="core.output.title"></span>
           <div style="display:flex;gap:8px;align-items:center">
-            <button class="btn btn-ghost btn-sm" data-sse="clear" data-i18n-title="core.output.clear">🗑</button>
-            <button class="btn btn-ghost btn-sm" data-sse="close" data-i18n-aria-label="core.action.close">✕</button>
+            <button class="btn btn-ghost btn-sm" data-sse="clear" data-i18n-title="core.output.clear"><i data-icon="trash-2"></i></button>
+            <button class="btn btn-ghost btn-sm" data-sse="close" data-i18n-aria-label="core.action.close"><i data-icon="x"></i></button>
           </div>
         </div>
         <div class="sse-body"></div>
@@ -299,7 +299,7 @@ window.Shell = (() => {
     entry.loading.catch(e => {
       entry.loading = null;
       entry.panel.querySelector('.ext-root').innerHTML =
-        `<div class="empty-state"><div class="icon">⚠</div><p>${esc(t('core.extensions.loadError', { name: pick(meta.name), error: e.message }))}</p></div>`;
+        `<div class="empty-state"><div class="icon">${UI.icon('triangle-alert')}</div><p>${esc(t('core.extensions.loadError', { name: pick(meta.name), error: e.message }))}</p></div>`;
     });
     return entry.loading;
   }
@@ -395,7 +395,7 @@ window.Shell = (() => {
         pick,
         apply: (root) => window.I18n.apply(root, meta.code),
       },
-      ui: { esc, js, cssColor, ansiToHtml, toast, openModal, closeModal, patch: UI.patch, output, formatUptime, toolNotice, notify, contextMenu, t, fmt, errorText: window.I18n.errorText },
+      ui: { esc, js, cssColor, ansiToHtml, toast, openModal, closeModal, patch: UI.patch, output, formatUptime, toolNotice, notify, contextMenu, t, fmt, errorText: window.I18n.errorText, icon: UI.icon, iconOrText: UI.iconOrText, badgeHtml: UI.badgeHtml },
       bus: {
         on(name, fn) { const h = e => fn(e.detail); bus.addEventListener(name, h); return () => bus.removeEventListener(name, h); },
         emit(name, detail) { bus.dispatchEvent(new CustomEvent(name, { detail })); },
@@ -409,7 +409,7 @@ window.Shell = (() => {
         if (!badge) return;
         const empty = value === null || value === undefined || value === '';
         badge.style.display = empty ? 'none' : '';
-        badge.textContent = empty ? '' : String(value);
+        badge.innerHTML = empty ? '' : UI.badgeHtml(value); // testo o { icon, text }
       },
       // HTML delle pill nell'header per questa estensione ('' le rimuove)
       setPills(html) { UI.patch(pillsContainer(meta.code), html || ''); },
@@ -451,9 +451,9 @@ window.Shell = (() => {
   // [{ ext, item }] nell'ordine delle estensioni; item = { id, label, description, sections }
   // Prima la casella del core: progetti e cartelle (condivisi dalle estensioni)
   const exportItems = () => [
-    { ext: { icon: '🗂', name: t('core.projects.owner') },
+    { ext: { icon: 'folder-git-2', name: t('core.projects.owner') },
       item: { id: 'projects', label: t('core.projects.exportLabel'), description: t('core.projects.exportDescription'), sections: ['projects', 'projectFolders'] } },
-    { ext: { icon: '🧩', name: t('core.ext.owner') },
+    { ext: { icon: 'puzzle', name: t('core.ext.owner') },
       item: { id: 'extensions', label: t('core.ext.exportLabel'), description: t('core.ext.exportDescription'), sections: ['extensions'] } },
     ...extList
       .filter(e => e.state !== 'disabled')
@@ -464,7 +464,7 @@ window.Shell = (() => {
     <label class="export-item">
       <input type="checkbox" value="${esc(item.sections.join(','))}" checked>
       <div>
-        <div class="export-name">${esc(pick(item.label))} <span class="export-keys">· ${esc(ext.icon ? ext.icon + ' ' : '')}${esc(pick(ext.name))}</span></div>
+        <div class="export-name">${esc(pick(item.label))} <span class="export-keys">· ${ext.icon ? `${UI.iconOrText(ext.icon)} ` : ''}${esc(pick(ext.name))}</span></div>
         <div class="export-keys">${esc(detail(item))}</div>
       </div>
     </label>`).join('');
@@ -480,7 +480,7 @@ window.Shell = (() => {
         ${checkboxList(entries, item => pick(item.description) || item.sections.join(', '))}
       </div>`,
       `<button class="btn btn-ghost" onclick="UI.closeModal()">${esc(t('core.action.cancel'))}</button>
-       <button class="btn btn-primary" onclick="Shell.doExport()">↓ ${esc(t('core.export.submit'))}</button>`);
+       <button class="btn btn-primary" onclick="Shell.doExport()">${UI.icon('download')} ${esc(t('core.export.submit'))}</button>`);
   }
 
   function doExport() {
@@ -516,7 +516,7 @@ window.Shell = (() => {
             <div><div class="export-name">${esc(t('core.import.replace'))}</div><div class="export-keys">${esc(t('core.import.replaceHint'))}</div></div></label>
         </div>`,
         `<button class="btn btn-ghost" onclick="UI.closeModal()">${esc(t('core.action.cancel'))}</button>
-         <button class="btn btn-primary" onclick="Shell.doImport()">↑ ${esc(t('core.import.submit'))}</button>`);
+         <button class="btn btn-primary" onclick="Shell.doImport()">${UI.icon('upload')} ${esc(t('core.import.submit'))}</button>`);
     } catch (e) { toast(t('core.import.error', { error: e.message }), 'error'); }
   }
 
@@ -561,7 +561,7 @@ window.Shell = (() => {
     const hide = text => (mcpShowToken ? text : text.split(mcpData.token).join(masked));
     const block = (id, text) => `<div class="mcp-row"><pre class="mcp-code">${esc(hide(text))}</pre>
       <button class="btn btn-ghost btn-sm" onclick="Shell.mcpCopy(${js(id)})">${esc(t('core.mcp.copy'))}</button></div>`;
-    const names = new Map(extList.map(e => [e.code, `${e.icon ? e.icon + ' ' : ''}${pick(e.name)}`]));
+    const names = new Map(extList.map(e => [e.code, `${e.icon ? `${UI.iconOrText(e.icon)} ` : ''}${esc(pick(e.name))}`]));
     const byExt = new Map();
     for (const tool of mcpData.tools) byExt.set(tool.extension, [...(byExt.get(tool.extension) || []), tool]);
     openModal(t('core.mcp.title'), `
@@ -589,7 +589,7 @@ window.Shell = (() => {
           <h4>${esc(t('core.mcp.tools', { count: mcpData.tools.length }))}</h4>
           <p class="mcp-muted">${esc(t('core.mcp.toolsHint'))}</p>
           <div class="mcp-tools">${[...byExt].map(([ext, tools]) => `
-            <div class="mcp-ext">${esc(names.get(ext) || ext)}</div>
+            <div class="mcp-ext">${names.get(ext) || esc(ext)}</div>
             ${tools.map(tool => `<div class="mcp-tool-name">${esc(tool.name)}<span class="mcp-badge ${tool.readOnly ? '' : 'write'}">${esc(t(tool.readOnly ? 'core.mcp.read' : 'core.mcp.write'))}</span></div>
               <div class="mcp-muted">${esc(tool.description)}</div>`).join('')}`).join('')}
           </div>
@@ -625,7 +625,7 @@ window.Shell = (() => {
   function chooseLanguage(event) {
     const r = event.currentTarget.getBoundingClientRect();
     contextMenu(r.left, r.bottom + 4, window.I18n.languages.map(l => ({
-      icon: l.tag === window.I18n.lang ? '●' : '',
+      icon: l.tag === window.I18n.lang ? 'check' : '',
       label: l.completeness < 100 ? `${l.nativeName} · ${fmt.number(l.completeness / 100, { style: 'percent' })}` : l.nativeName,
       action: () => window.I18n.setLanguage(l.tag),
     })));
@@ -835,7 +835,7 @@ window.Shell = (() => {
   function listWidgets(scope = 'project', project = null) {
     return extList.filter(usable).filter(meta => !project || withTraits(meta, project)).flatMap(meta => (meta.widgets || []).filter(w => w.scope === scope).map(w => ({
       key: `${meta.code}/${w.id}`, code: meta.code, id: w.id, title: pick(w.title), description: pick(w.description || ''),
-      size: w.size, icon: meta.icon || '◆', color: meta.color, extension: pick(meta.name),
+      size: w.size, icon: meta.icon || 'box', color: meta.color, extension: pick(meta.name),
     })));
   }
 
@@ -849,7 +849,7 @@ window.Shell = (() => {
       core: apiClient('/api/core'),
       t: window.I18n.scoped(meta.code),
       i18n: { get lang() { return window.I18n.lang; }, pick, apply: root => window.I18n.apply(root, meta.code) },
-      ui: { esc, js, cssColor, ansiToHtml, toast, openModal, closeModal, patch: UI.patch, formatUptime, toolNotice, notify, contextMenu, t, fmt, errorText: window.I18n.errorText },
+      ui: { esc, js, cssColor, ansiToHtml, toast, openModal, closeModal, patch: UI.patch, formatUptime, toolNotice, notify, contextMenu, t, fmt, errorText: window.I18n.errorText, icon: UI.icon, iconOrText: UI.iconOrText, badgeHtml: UI.badgeHtml },
       bus: {
         on(name, fn) { const h = e => fn(e.detail); bus.addEventListener(name, h); return () => bus.removeEventListener(name, h); },
         emit(name, detail) { bus.dispatchEvent(new CustomEvent(name, { detail })); },
@@ -877,7 +877,7 @@ window.Shell = (() => {
     const w = meta?.widgets?.find(x => x.id === id);
     const fail = e => {
       console.error(`[widget ${key}]`, e);
-      el.innerHTML = `<div class="widget-error">⚠ ${esc(t('core.widgets.failed', { error: e?.message || String(e) }))}</div>`;
+      el.innerHTML = `<div class="widget-error">${UI.icon('triangle-alert')} ${esc(t('core.widgets.failed', { error: e?.message || String(e) }))}</div>`;
     };
     if (!w) { el.innerHTML = `<div class="widget-error">${esc(t('core.widgets.unavailable', { widget: key }))}</div>`; return { refresh() {}, unmount() {} }; }
     let mod = null, ctx = null;
@@ -900,7 +900,7 @@ window.Shell = (() => {
     const first = firstSection();
     if (first) activate(first);
     else document.querySelector('main.main').innerHTML =
-      `<div class="empty-state"><div class="icon">🧩</div><p>${esc(t('core.extensions.none'))}</p></div>`;
+      `<div class="empty-state"><div class="icon">${UI.icon('puzzle')}</div><p>${esc(t('core.extensions.none'))}</p></div>`;
   })();
 
   return {

@@ -26,7 +26,7 @@ export default {
       const el = $(ctx.sidebar, 'projects');
       el.innerHTML = (!projects.length ? `<p class="env-muted" style="padding:12px">${esc(t('sidebar.none'))}</p>`
         : ctx.projects.tree(folders, projects, p => `<button class="sb-item ${p.id === active ? 'active' : ''}" onclick="Ext.env.select(${js(p.id)})">
-            <span class="sb-icon">${p.files.length ? '🔑' : '·'}</span><span>${esc(p.label)}</span>
+            <span class="sb-icon">${p.files.length ? ctx.ui.icon('key-round') : '·'}</span><span>${esc(p.label)}</span>
             ${p.issues ? `<span class="sb-env-issues" title="${esc(t('issuesTitle', { count: p.issues }))}">${esc(t('issues', { count: p.issues }))}</span>`
               : `<span class="sb-count">${esc(ctx.ui.fmt.number(p.files.length))}</span>`}
           </button>`)) + ctx.projects.hiddenNote(hidden);
@@ -58,8 +58,8 @@ export default {
         <table class="data-table env-table">
           <thead><tr><th>${esc(t('key'))}</th>${files.map(f => `<th><div class="env-file-head">
             <span>${esc(f.name)}${f.name === data.template ? ` <span class="env-template">${esc(t('template'))}</span>` : ''}</span>
-            ${f.missing?.length ? `<button class="btn btn-ghost btn-sm" onclick="Ext.env.addMissing(${js(f.name)})">${esc(t('addMissing', { count: f.missing.length }))}</button>` : ''}
-            <button class="btn btn-ghost btn-sm" onclick="Ext.env.addKey(${js(f.name)})">${esc(t('addKey'))}</button>
+            ${f.missing?.length ? `<button class="btn btn-ghost btn-sm" onclick="Ext.env.addMissing(${js(f.name)})">${ctx.ui.icon('plus')} ${esc(t('addMissing', { count: f.missing.length }))}</button>` : ''}
+            <button class="btn btn-ghost btn-sm" onclick="Ext.env.addKey(${js(f.name)})">${ctx.ui.icon('plus')} ${esc(t('addKey'))}</button>
           </div></th>`).join('')}</tr></thead>
           <tbody>${order.map(key => `<tr>
             <td class="env-key">${esc(key)}${tpl && !tplKeys.has(key) ? `<span class="env-extra">${esc(t('notInTemplate'))}</span>` : ''}</td>
@@ -67,15 +67,15 @@ export default {
               const k = has(f, key);
               if (!k) {
                 return tpl && tplKeys.has(key) && f !== tpl
-                  ? `<td><div class="env-cell"><span class="env-missing">${esc(t('missing'))}</span><button class="env-icon" title="${esc(t('add'))}" onclick="Ext.env.addFromTemplate(${js(f.name)}, ${js(key)})">＋</button></div></td>`
+                  ? `<td><div class="env-cell"><span class="env-missing">${esc(t('missing'))}</span><button class="env-icon" title="${esc(t('add'))}" onclick="Ext.env.addFromTemplate(${js(f.name)}, ${js(key)})"><i data-icon="plus"></i></button></div></td>`
                   : '<td><span class="env-muted">—</span></td>';
               }
               const shown = revealed && revealed.file === f.name && revealed.key === key;
               return `<td><div class="env-cell">
                 ${k.empty ? `<span class="env-empty">${esc(t('emptyValue'))}</span>`
                   : shown ? `<span class="env-value" title="${esc(revealed.value)}">${esc(revealed.value)}</span>` : '<span class="env-mask">••••••</span>'}
-                ${k.empty ? '' : `<button class="env-icon" title="${esc(t(shown ? 'hide' : 'show'))}" onclick="Ext.env.toggle(${js(f.name)}, ${js(key)})">${shown ? '🙈' : '👁'}</button>`}
-                <button class="env-icon" title="${esc(t('edit'))}" onclick="Ext.env.edit(${js(f.name)}, ${js(key)})">✎</button>
+                ${k.empty ? '' : `<button class="env-icon" title="${esc(t(shown ? 'hide' : 'show'))}" onclick="Ext.env.toggle(${js(f.name)}, ${js(key)})">${ctx.ui.icon(shown ? 'eye-off' : 'eye')}</button>`}
+                <button class="env-icon" title="${esc(t('edit'))}" onclick="Ext.env.edit(${js(f.name)}, ${js(key)})"><i data-icon="pencil"></i></button>
               </div></td>`;
             }).join('')}
           </tr>`).join('')}</tbody>

@@ -83,7 +83,7 @@ Only `setting.json` is mandatory: an extension can be frontend-only (`swagger`, 
 | `kelbo` | yes | Kelbo versions the extension works with, as an npm range (`^2.0`, `>=2.1 <3`, `^2.0 \|\| ^3.0`). Before 2.13 the field was called `devdock`, which is still accepted (if both are there they must be equal); an extension that must also load on Kelbo before 2.13 keeps `devdock` too, with the same range. The loader refuses an extension whose range does not include the running core version: it is listed as disabled with the reason (`richiede Kelbo ^3.0, questa è la 2.0.0`) |
 | `description` | no | One line; a string or a map by language tag |
 | `color` | yes | Accent colour (`#rrggbb`) for tab, badges, pills and `--ext-color` |
-| `icon` | no | Emoji or short text for the tab / header button |
+| `icon` | no | Icon of the tab / header button, the catalog and the widgets: a [Lucide](https://lucide.dev/icons) icon name (`"database"`, `"git-branch"`; Kelbo ≥ 2.25), drawn in the extension's colour; an emoji or short text still works |
 | `position` | yes | `"tab"`: entry in the section bar with its own panel · `"header"`: button in the header bar that opens its panel. It is the default: the user can move the extension from the Extensions panel (saved in `layout.positions`), so the UI must work in both places; `GET /api/core/extensions` reports the `position` in use and the `manifestPosition` |
 | `order` | no | Sort order among tabs and among header buttons (default 100); it is the default order: the user can reorder the tabs (saved in `layout.tabs`), and extensions not in that list go after the others in `order`. The first tab opens at startup |
 | `dependencies` | no | `required: true` → the extension is not loaded if the dependency is missing or disabled · `required: false` → it loads with a warning icon and must cope with the dependency being absent |
@@ -421,12 +421,12 @@ export default {
 | `ctx.hasExtension(code)` | Whether another extension is loaded (for features that rely on it) |
 | `ctx.t(key, params)` | Translation of a key of the extension's catalogs (keys are relative: `t('branches.title')` reads `git.branches.title`; keys starting with `core.` are the core's). See *Translations* |
 | `ctx.i18n` | `lang` (active tag), `pick(value)` (text of a string-or-map manifest field), `apply(element)` (translates `data-i18n…` attributes in markup the extension creates) |
-| `ctx.ui` | `t` (global keys), `fmt` (locale-aware formatting, see *Translations*), `toast`, `openModal`, `closeModal`, `patch(el, html)` (updates a container that is redrawn on its own — polling, `change`, `blur` — only when the HTML changes, and after the click when the mouse is pressed inside it, so a click is never lost because its button was replaced; Kelbo ≥ 2.3), `esc`, `js`, `cssColor`, `ansiToHtml`, `formatUptime`, `toolNotice(message, installCmd, recheckHandler)`, `contextMenu(x, y, items)` (items: `{ label, icon, action, danger, disabled }` or `'separator'`), `notify(title, body, icon)` (desktop notification, if enabled with 🔔), `output` (the panel's output drawer: `open(title)`, `append(text, 'out'\|'err'\|'sys')`, `clear()`, `close()`; the user resizes it by dragging its top edge, and the height is remembered per section) |
+| `ctx.ui` | `t` (global keys), `fmt` (locale-aware formatting, see *Translations*), `toast`, `openModal`, `closeModal`, `patch(el, html)` (updates a container that is redrawn on its own — polling, `change`, `blur` — only when the HTML changes, and after the click when the mouse is pressed inside it, so a click is never lost because its button was replaced; Kelbo ≥ 2.3), `esc`, `js`, `cssColor`, `ansiToHtml`, `formatUptime`, `toolNotice(message, installCmd, recheckHandler)`, `contextMenu(x, y, items)` (items: `{ label, icon, action, danger, disabled }` or `'separator'`; `icon` a Lucide name or a short text), `icon(name, { cls, title })` (an inline SVG of the Lucide icon `name`, sized and coloured like the text around it; Kelbo ≥ 2.25), `iconOrText(value)` (Lucide name → icon, anything else escaped text), `badgeHtml(value)`, `notify(title, body, icon)` (desktop notification, if enabled with 🔔), `output` (the panel's output drawer: `open(title)`, `append(text, 'out'\|'err'\|'sys')`, `clear()`, `close()`; the user resizes it by dragging its top edge, and the height is remembered per section) |
 | `ctx.bus.on(name, fn)` / `ctx.bus.emit(name, detail)` | Events between extensions; the core emits `core:projects-changed` after any change to projects or folders |
 | `ctx.projects` | Projects and folders of the core, see *Projects and folders* |
 | `ctx.vault` | `ensure()`: resolves `true` when the master password vault is unlocked, asking for the password (or to create it) first; `isVaultError(err)`: whether an API error is a locked or missing vault (`core.vault_locked`, `core.vault_missing`); `status()` |
 | `ctx.expose(obj)` | Publishes functions as `window.Ext.<code>` for inline handlers |
-| `ctx.setBadge(value)` | Number or text on the tab or header button (`null` hides it) |
+| `ctx.setBadge(value)` | Number or text on the tab or header button, or `{ icon, text }` with a Lucide icon before the text (Kelbo ≥ 2.25); `null` hides it |
 | `ctx.setPills(html)` | The extension's pills in the header bar (`''` removes them) |
 | `ctx.open(code, params)`, `ctx.isActive()` | Open a section; with `params` (e.g. `{ project }`) the opened module's `focus(params, ctx)` is called after it loads (Kelbo ≥ 2.17); whether this panel is visible |
 | `ctx.widgets` | `list(scope)`: widgets of the active extensions (`{ key: "<code>/<id>", code, id, title, description, size, icon, color, extension }`); `mount(key, el, params, { onTitle, onBadge })` → `{ refresh(), unmount() }` — for extensions that show widgets (the dashboard) (Kelbo ≥ 2.17) |
@@ -463,11 +463,22 @@ The widget `ctx` is the extension's own frontend context — `api`, `apiFor`, `c
 
 | Member | Purpose |
 |---|---|
-| `setBadge(value)` | Badge next to the widget title (`null` hides it) |
+| `setBadge(value)` | Badge next to the widget title: text or `{ icon, text }` (`null` hides it) |
 | `setTitle(text)` | Replaces the title of the widget box |
 | `openFull(params)` | Opens the extension's section with `params` (e.g. `{ project }`, `{ process }`): the panel module receives them in `focus(params, ctx)` |
 
 Widgets handle their events with `addEventListener` on `el` (not `ctx.expose`, which belongs to the panel), redraw with `ctx.ui.patch` and get the same click feedback as the panels. A widget whose module fails to load or throws in `mount` shows the error in its own box; the other widgets are not touched. Keep widgets light: no long polling (5–15 s at most), no action that opens connections by itself (e.g. a database test through an SSH tunnel waits for a click), and never secret values.
+
+## Icons
+
+Kelbo ships the whole [Lucide](https://lucide.dev/icons) icon set (ISC license) as one SVG sprite in the core, `/core/vendor/lucide/sprite.svg`, so every extension uses the same icons without bundling its own, also offline. Use the icon names of lucide.dev:
+
+- in HTML files and in generated HTML, `<i data-icon="trash-2"></i>`: the core fills it with the icon as soon as the element is in the page (also when added later by `innerHTML` or `ctx.ui.patch`);
+- in code, `ctx.ui.icon('trash-2')` returns the `<svg>` string, for templates;
+- for context menus and badges just the name: `{ icon: 'trash-2', label, action }`, `ctx.setBadge({ icon: 'play', text: '2' })`;
+- the manifest `icon` is a name too.
+
+Icons take the colour and size of the text around them (`currentColor`, about 1.15em): a button in the extension's colour gets an icon in that colour. They are icons, not text: for meaning use a `title` on the button, and keep symbols that belong to a sentence (✓, →) in the translated text. Before Kelbo 2.25 there is no sprite: an extension for older versions keeps emoji.
 
 ## Translations
 

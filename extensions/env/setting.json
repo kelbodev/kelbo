@@ -11,7 +11,7 @@
     "en": "Project .env files: comparison with .env.example, hidden values shown one at a time, editing that keeps comments and order"
   },
   "color": "#56d364",
-  "icon": "🔑",
+  "icon": "key-round",
   "position": "tab",
   "order": 22,
   "backend": {

@@ -333,10 +333,10 @@ export default {
     function tabMenu(ev, tab) {
       const i = tabs.indexOf(tab);
       ctx.ui.contextMenu(ev.clientX, ev.clientY, [
-        { icon: '✕', label: t('tabs.close'), action: () => closeTabs([tab]) },
-        { icon: '⊟', label: t('tabs.closeOthers'), disabled: tabs.length < 2, action: () => { switchTab(tab); closeTabs(tabs.filter(x => x !== tab)); } },
-        { icon: '⇥', label: t('tabs.closeRight'), disabled: i === tabs.length - 1, action: () => closeTabs(tabs.slice(i + 1)) },
-        { icon: '⇤', label: t('tabs.closeLeft'), disabled: i === 0, action: () => closeTabs(tabs.slice(0, i)) },
+        { icon: 'x', label: t('tabs.close'), action: () => closeTabs([tab]) },
+        { icon: 'chevrons-up-down', label: t('tabs.closeOthers'), disabled: tabs.length < 2, action: () => { switchTab(tab); closeTabs(tabs.filter(x => x !== tab)); } },
+        { icon: 'arrow-right-to-line', label: t('tabs.closeRight'), disabled: i === tabs.length - 1, action: () => closeTabs(tabs.slice(i + 1)) },
+        { icon: 'arrow-left-to-line', label: t('tabs.closeLeft'), disabled: i === 0, action: () => closeTabs(tabs.slice(0, i)) },
       ]);
     }
     // Tab già aperta con la stessa connessione, database e contenuto (query o tabella), o null
@@ -384,16 +384,19 @@ export default {
       const line = tabSql(tb).split('\n').map(x => x.trim()).find(Boolean);
       return line ? (line.length > 28 ? line.slice(0, 28) + '…' : line) : t('tabs.untitled', { n: tabs.indexOf(tb) + 1 });
     };
+    // icona della tab dal tipo (chiave "grid:", "structure:", "alter:")
+    const TAB_ICONS = { grid: 'table-2', structure: 'list-tree', alter: 'pencil-ruler' };
+    const tabIcon = tb => { const kind = /^(\w+):/.exec(tb.key || '')?.[1]; return TAB_ICONS[kind] ? `${ctx.ui.icon(TAB_ICONS[kind])} ` : ''; };
     function renderTabs() {
       const el = $(ctx.root, 'tabs');
       el.innerHTML = tabs.map(tb => {
         const c = connections.find(x => x.id === tb.connId);
         const where = c ? `${c.label}${tb.db ? ` / ${tb.db}` : ''}` : t('tabs.noConnection');
         return `<div class="db-tab ${tb === current ? 'active' : ''}" role="tab" aria-selected="${tb === current}" data-tab="${tb.id}" title="${esc(where)}">
-          ${tb.running ? `<span class="db-tab-run" title="${esc(t('run.running'))}"></span>` : ''}<span class="db-tab-label">${esc(tabTitle(tb))}</span>
+          ${tb.running ? `<span class="db-tab-run" title="${esc(t('run.running'))}"></span>` : ''}<span class="db-tab-label">${tabIcon(tb)}${esc(tabTitle(tb))}</span>
           <span class="db-tab-where">${esc(c ? (tb.db || c.label) : '—')}</span>
-          <button class="db-tab-close" data-tab-close="${tb.id}" title="${esc(t('tabs.close'))}" aria-label="${esc(t('tabs.close'))}">✕</button></div>`;
-      }).join('') + `<button class="db-tab-new" data-action="new-tab" title="${esc(t('tabs.newTitle'))}">＋</button>`;
+          <button class="db-tab-close" data-tab-close="${tb.id}" title="${esc(t('tabs.close'))}" aria-label="${esc(t('tabs.close'))}"><i data-icon="x"></i></button></div>`;
+      }).join('') + `<button class="db-tab-new" data-action="new-tab" title="${esc(t('tabs.newTitle'))}"><i data-icon="plus"></i></button>`;
     }
 
     // Albero della sidebar: connessione ▸ database ▸ tabelle ▸ colonne (caricati all'apertura)
@@ -418,7 +421,7 @@ export default {
       $(ctx.sidebar, 'import-btn').hidden = !unlocked;
       $(ctx.sidebar, 'tree-search').hidden = !unlocked;
       if (!unlocked) {
-        $(ctx.sidebar, 'connections').innerHTML = `<p class="db-muted db-pad">${esc(t('sidebar.locked'))}</p>`;
+        $(ctx.sidebar, 'connections').innerHTML = `<p class="db-muted db-pad">${ctx.ui.icon('lock')} ${esc(t('sidebar.locked'))}</p>`;
         renderGate();
         return;
       }
@@ -472,9 +475,9 @@ export default {
         return `<div class="db-node">
           <div class="db-row db-row-folder" data-tree="folder" data-folder="${esc(f.id)}" title="${esc(t('folders.hint'))}">
             <span class="db-caret"><svg class="db-chevron ${isOpen ? 'open' : ''}" viewBox="0 0 10 10" aria-hidden="true"><path d="M3.5 1.5 7 5 3.5 8.5" /></svg></span>
-            <span class="db-row-icon">📁</span><span class="db-row-label">${esc(f.label)}</span>
+            <span class="db-row-icon"><i data-icon="folder"></i></span><span class="db-row-label">${esc(f.label)}</span>
             <span class="db-folder-count">${esc(fmt.number(list.length))}</span>
-            <button class="db-folder-more" data-act="folder-menu" title="${esc(t('folders.actions'))}">⋯</button>
+            <button class="db-folder-more" data-act="folder-menu" title="${esc(t('folders.actions'))}"><i data-icon="ellipsis"></i></button>
           </div>
           ${isOpen ? `<div class="db-children">${list.map(connNode).join('')}</div>` : ''}
         </div>`;
@@ -488,8 +491,8 @@ export default {
     function folderMenu(e, id) {
       const r = e.target.closest('[data-act="folder-menu"]')?.getBoundingClientRect();
       ctx.ui.contextMenu(e.clientX || r?.left || 0, e.clientY || r?.bottom || 0, [
-        { icon: '✎', label: t('folders.rename'), action: () => folderDialog(id) },
-        { icon: '🗑', label: t('folders.delete'), danger: true, action: () => actions.deleteFolder(id) },
+        { icon: 'pencil', label: t('folders.rename'), action: () => folderDialog(id) },
+        { icon: 'trash-2', label: t('folders.delete'), danger: true, action: () => actions.deleteFolder(id) },
       ]);
     }
     // Nuova cartella (id assente) o rinomina
@@ -522,8 +525,8 @@ export default {
       const entry = cache.get(k);
       return `<div class="db-node">
         <div class="db-row db-row-conn ${c.id === activeId ? 'active' : ''}" ${attrs('conn', c)} title="${esc(target(c))}">
-          ${caret(k)}<span class="db-row-icon">${c.readOnly ? '🔒' : '🗄️'}</span><span class="db-row-label">${esc(c.label)}</span>
-          ${c.tunnelMissing ? `<span class="db-row-warn" title="${esc(t('conn.tunnelMissing', { tunnel: c.tunnel }))}">⚠</span>` : ''}
+          ${caret(k)}<span class="db-row-icon">${ctx.ui.icon(c.readOnly ? 'lock' : 'database')}</span><span class="db-row-label">${esc(c.label)}</span>
+          ${c.tunnelMissing ? `<span class="db-row-warn" title="${esc(t('conn.tunnelMissing', { tunnel: c.tunnel }))}"><i data-icon="triangle-alert"></i></span>` : ''}
         </div>
         ${open.has(k) ? `<div class="db-children">${loading(entry) || [
           entry.defaultMissing ? `<div class="db-tree-msg db-tree-err">${esc(t('conn.dbMissing', { db: entry.default }))}</div>` : '',
@@ -538,7 +541,7 @@ export default {
       const isActive = c.id === activeId && tabDb() === db;
       return `<div class="db-node">
         <div class="db-row db-row-db ${isActive ? 'active' : ''}" ${attrs('db', c, db)}>
-          ${caret(k)}<span class="db-row-icon">🛢️</span><span class="db-row-label">${esc(db)}</span>
+          ${caret(k)}<span class="db-row-icon">${ctx.ui.icon('cylinder')}</span><span class="db-row-label">${esc(db)}</span>
         </div>
         ${open.has(k) ? `<div class="db-children">${loading(entry) || tablesOf(entry).map(tb => tableNode(c, db, tb)).join('')
           || `<div class="db-tree-msg">${esc(t(entry.length ? 'tree.noMatch' : 'tree.noTables'))}</div>`}</div>` : ''}
@@ -556,24 +559,24 @@ export default {
       const entry = cache.get(k);
       return `<div class="db-node">
         <div class="db-row db-row-table" ${attrs('table', c, db, tb.name)} title="${esc(tb.comment || tb.name)}${tb.rowsEstimate != null ? ` · ${esc(t('tree.rowsEstimate', { count: tb.rowsEstimate }))}` : ''}">
-          ${caret(k)}<span class="db-row-icon">${tb.view ? '👁' : '▦'}</span><span class="db-row-label">${esc(tb.name)}</span>
+          ${caret(k)}<span class="db-row-icon">${ctx.ui.icon(tb.view ? 'eye' : 'table-2')}</span><span class="db-row-label">${esc(tb.name)}</span>
         </div>
         ${open.has(k) ? `<div class="db-children">${loading(entry) || [
           group(c, db, tb.name, 'fields', entry.columns, col => `
             <div class="db-row db-row-col" ${attrs('col', c, db, tb.name)} data-col="${esc(col.name)}" title="${esc(col.comment || '')}">
-              <span class="db-caret"></span><span class="db-row-icon">${col.key === 'PRI' ? '🔑' : col.key ? '◆' : '·'}</span>
+              <span class="db-caret"></span><span class="db-row-icon">${col.key === 'PRI' ? ctx.ui.icon('key-round', { cls: 'db-i-key' }) : col.key ? ctx.ui.icon('diamond', { cls: 'db-i-uni' }) : '·'}</span>
               <span class="db-row-label">${esc(col.name)}</span><span class="db-col-type">${esc(col.type)}${col.nullable ? '' : ' NN'}</span>
             </div>`),
           group(c, db, tb.name, 'indexes', [...(entry.indexes || [])].sort((x, y) => (y.name === 'PRIMARY') - (x.name === 'PRIMARY')), ix => `
             <div class="db-row db-row-col" title="${esc(ix.columns.join(', '))}">
-              <span class="db-caret"></span><span class="db-row-icon">${ix.name === 'PRIMARY' ? '🔑' : ix.unique ? '◆' : '·'}</span>
+              <span class="db-caret"></span><span class="db-row-icon">${ix.name === 'PRIMARY' ? ctx.ui.icon('key-round', { cls: 'db-i-key' }) : ix.unique ? ctx.ui.icon('diamond', { cls: 'db-i-uni' }) : '·'}</span>
               <span class="db-row-label">${esc(ix.name)}</span><span class="db-col-type">${esc(ix.columns.join(', '))}${ix.unique && ix.name !== 'PRIMARY' ? ' UQ' : ''}</span>
             </div>`),
           group(c, db, tb.name, 'fks', entry.foreignKeys || [], fk => {
             const ref = `${fk.refDatabase && fk.refDatabase !== db ? `${fk.refDatabase}.` : ''}${fk.refTable}(${fk.refColumns.join(', ')})`;
             return `
             <div class="db-row db-row-col" title="${esc(`${fk.name}: ${fk.columns.join(', ')} → ${ref}`)}">
-              <span class="db-caret"></span><span class="db-row-icon">↗</span>
+              <span class="db-caret"></span><span class="db-row-icon"><i data-icon="arrow-up-right"></i></span>
               <span class="db-row-label">${esc(fk.columns.join(', '))}</span><span class="db-col-type">→ ${esc(ref)}</span>
             </div>`;
           }),
@@ -583,7 +586,7 @@ export default {
 
     // Cartelle di una tabella aperta: campi (aperta finché non la si chiude), indici e foreign key
     // (chiuse finché non le si apre); lo stato resta per la sessione della pagina
-    const GROUP_ICONS = { fields: '▤', indexes: '⚡', fks: '↗' };
+    const GROUP_ICONS = { fields: 'columns-3', indexes: 'zap', fks: 'link' };
     const groupOpen = new Map(); // "g|conn|db|tabella|tipo" → aperta?
     const isGroupOpen = (key, kind) => groupOpen.get(key) ?? kind === 'fields';
     function group(c, db, table, kind, list, item) {
@@ -592,7 +595,7 @@ export default {
       return `<div class="db-node">
         <div class="db-row db-row-group" data-tree="group" data-group="${esc(key)}" data-kind="${kind}" data-conn="${esc(c.id)}" title="${esc(t(opened ? 'tree.collapse' : 'tree.expand'))}">
           <span class="db-caret"><svg class="db-chevron ${opened ? 'open' : ''}" viewBox="0 0 10 10" aria-hidden="true"><path d="M3.5 1.5 7 5 3.5 8.5" /></svg></span>
-          <span class="db-row-icon">${GROUP_ICONS[kind]}</span><span class="db-row-label">${esc(t(`tree.${kind}`))}</span>
+          <span class="db-row-icon">${ctx.ui.icon(GROUP_ICONS[kind])}</span><span class="db-row-label">${esc(t(`tree.${kind}`))}</span>
           <span class="db-folder-count">${esc(fmt.number(list.length))}</span>
         </div>
         ${opened ? `<div class="db-children">${list.map(item).join('') || `<div class="db-tree-msg">${esc(t(`tree.${kind}None`))}</div>`}</div>` : ''}
@@ -775,11 +778,11 @@ export default {
           <input class="form-input db-grid-search" data-grid="search" placeholder="${esc(t('grid.search'))}" value="${esc(grid.search)}">
           <button class="btn btn-ghost btn-sm" data-grid="add-filter">${esc(t('grid.addFilter'))}</button>
           ${canInsert ? `<button class="btn btn-ghost btn-sm" data-grid="insert-dialog">${esc(t('grid.addRow'))}</button>` : ''}
-          <button class="btn btn-ghost btn-sm" data-grid="export">${esc(t('grid.export'))}</button>
-          ${editable ? `<button class="btn btn-danger btn-sm" data-grid="delete-selected" ${grid.selected.size ? '' : 'hidden'}>${esc(t('grid.deleteSelected', { count: grid.selected.size }))}</button>` : ''}
+          <button class="btn btn-ghost btn-sm" data-grid="export">${ctx.ui.icon('download')} ${esc(t('grid.export'))}</button>
+          ${editable ? `<button class="btn btn-danger btn-sm" data-grid="delete-selected" ${grid.selected.size ? '' : 'hidden'}>${ctx.ui.icon('trash-2')} ${esc(t('grid.deleteSelected', { count: grid.selected.size }))}</button>` : ''}
           ${editsBar(data)}
           ${!data.primaryKey.length ? `<span class="db-badge db-badge-warn" title="${esc(t('grid.noPkTitle'))}">${esc(t('grid.noPk'))}</span>` : ''}
-          ${grid.filters.map((f, i) => `<span class="db-chip">${esc(f.column)} ${esc(filterLabel(f.op))}${f.op === 'null' || f.op === 'notnull' ? '' : ` <b>${esc(f.value)}</b>`}<button data-grid="remove-filter" data-i="${i}" title="${esc(t('grid.removeFilter'))}">✕</button></span>`).join('')}
+          ${grid.filters.map((f, i) => `<span class="db-chip">${esc(f.column)} ${esc(filterLabel(f.op))}${f.op === 'null' || f.op === 'notnull' ? '' : ` <b>${esc(f.value)}</b>`}<button data-grid="remove-filter" data-i="${i}" title="${esc(t('grid.removeFilter'))}"><i data-icon="x"></i></button></span>`).join('')}
           <div class="db-pager">
             <button class="btn btn-ghost btn-sm" data-grid="page" data-p="1" ${grid.page <= 1 ? 'disabled' : ''}>«</button>
             <button class="btn btn-ghost btn-sm" data-grid="page" data-p="${grid.page - 1}" ${grid.page <= 1 ? 'disabled' : ''}>‹</button>
@@ -790,16 +793,16 @@ export default {
           </div>
         </div>
         <div class="db-table-wrap"><table class="data-table db-table">
-          <thead><tr>${editable ? `<th class="db-row-actions"><input type="checkbox" data-grid="select-all" title="${esc(t('grid.selectAll'))}" ${data.rows.length && grid.selected.size === data.rows.length ? 'checked' : ''}></th>` : ''}${data.columns.map(col => `<th data-grid="sort" data-col="${esc(col.name)}" title="${esc(col.type)}${col.key === 'PRI' ? ` · ${esc(t('grid.primaryKey'))}` : ''}">${col.key === 'PRI' ? '🔑 ' : ''}${esc(col.name)}${sort?.column === col.name ? (sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}</th>`).join('')}</tr></thead>
+          <thead><tr>${editable ? `<th class="db-row-actions"><input type="checkbox" data-grid="select-all" title="${esc(t('grid.selectAll'))}" ${data.rows.length && grid.selected.size === data.rows.length ? 'checked' : ''}></th>` : ''}${data.columns.map(col => `<th data-grid="sort" data-col="${esc(col.name)}" title="${esc(col.type)}${col.key === 'PRI' ? ` · ${esc(t('grid.primaryKey'))}` : ''}">${col.key === 'PRI' ? `${ctx.ui.icon('key-round', { cls: 'db-i-key' })} ` : ''}${esc(col.name)}${sort?.column === col.name ? (sort.dir === 'desc' ? ` ${ctx.ui.icon('arrow-down-wide-narrow')}` : ` ${ctx.ui.icon('arrow-up-narrow-wide')}`) : ''}</th>`).join('')}</tr></thead>
           <tbody>${data.rows.map((row, r) => `<tr data-r="${r}" class="${grid.selected.has(r) ? 'db-selected' : ''}">${editable ? `<td class="db-row-actions">
-              <input type="checkbox" data-grid="select" data-r="${r}" ${grid.selected.has(r) ? 'checked' : ''}><button data-grid="edit-dialog" data-r="${r}" title="${esc(t('grid.edit'))}">✏️</button><button data-grid="delete-row" data-r="${r}" title="${esc(t('grid.delete'))}">🗑</button></td>` : ''}${row.map((_, c) => {
+              <input type="checkbox" data-grid="select" data-r="${r}" ${grid.selected.has(r) ? 'checked' : ''}><button data-grid="edit-dialog" data-r="${r}" title="${esc(t('grid.edit'))}"><i data-icon="pencil"></i></button><button data-grid="delete-row" data-r="${r}" title="${esc(t('grid.delete'))}"><i data-icon="trash-2"></i></button></td>` : ''}${row.map((_, c) => {
               const v = shown(data, r, c), dirty = pendingOf(data).has(`${r}|${c}`);
               return `<td data-c="${c}" class="${v === null ? 'db-null' : ''}${editable ? ' db-editable' : ''}${dirty ? ' db-dirty' : ''}" title="${esc(dirty ? t('edits.was', { value: data.rows[r][c] ?? 'NULL' }) : v ?? 'NULL')}">${v === null ? 'NULL' : esc(v)}</td>`;
             }).join('')}</tr>`).join('')
             || `<tr><td class="db-muted" colspan="${data.columns.length + (editable ? 1 : 0)}">${esc(t('grid.noRows'))}</td></tr>`}
-            ${canInsert ? `<tr class="db-new-row">${editable ? `<td class="db-row-actions"><button data-grid="insert-inline" title="${esc(t('grid.insertTitle'))}">＋</button></td>` : ''}${data.columns.map(col =>
+            ${canInsert ? `<tr class="db-new-row">${editable ? `<td class="db-row-actions"><button data-grid="insert-inline" title="${esc(t('grid.insertTitle'))}"><i data-icon="plus"></i></button></td>` : ''}${data.columns.map(col =>
               `<td><input class="db-cell-input" data-new="${esc(col.name)}" placeholder="${isAuto(col) ? esc(t('grid.auto')) : esc(col.default ?? (col.nullable ? 'NULL' : ''))}"></td>`).join('')}
-              ${editable ? '' : `<td><button class="btn btn-ghost btn-sm" data-grid="insert-inline">${esc(t('grid.insert'))}</button></td>`}</tr>` : ''}</tbody>
+              ${editable ? '' : `<td><button class="btn btn-ghost btn-sm" data-grid="insert-inline">${ctx.ui.icon('plus')} ${esc(t('grid.insert'))}</button></td>`}</tr>` : ''}</tbody>
         </table></div>`);
       if (hadFocus) { const i = el.querySelector('[data-grid="search"]'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
     }
@@ -870,11 +873,11 @@ export default {
         <td>${chk('autoIncrement', c.autoIncrement)}</td>
         <td>${chk('pk', c.pk)}</td>
         <td>${txt('comment', c.comment)}</td>
-        <td class="db-dz-row-actions">${moveButtons(i, count)}<button class="btn btn-ghost btn-sm" data-dz-act="del-col" title="${esc(t('designer.remove'))}">✕</button></td>
+        <td class="db-dz-row-actions">${moveButtons(i, count)}<button class="btn btn-ghost btn-sm" data-dz-act="del-col" title="${esc(t('designer.remove'))}"><i data-icon="x"></i></button></td>
       </tr>`;
     }
     const moveButtons = (i, count) =>
-      `<button class="btn btn-ghost btn-sm" data-dz-act="up" ${i ? '' : 'disabled'} title="${esc(t('designer.moveUp'))}">↑</button><button class="btn btn-ghost btn-sm" data-dz-act="down" ${i < count - 1 ? '' : 'disabled'} title="${esc(t('designer.moveDown'))}">↓</button>`;
+      `<button class="btn btn-ghost btn-sm" data-dz-act="up" ${i ? '' : 'disabled'} title="${esc(t('designer.moveUp'))}">${ctx.ui.icon('arrow-up')}</button><button class="btn btn-ghost btn-sm" data-dz-act="down" ${i < count - 1 ? '' : 'disabled'} title="${esc(t('designer.moveDown'))}">${ctx.ui.icon('arrow-down')}</button>`;
 
     function renderDesigner() {
       if (!designer) return;
@@ -901,7 +904,7 @@ export default {
             ${txt('name', ix.name, `placeholder="${esc(t('designer.indexName'))}"`)}
             ${txt('columns', ix.columns.join(','), `placeholder="${esc(t('designer.indexColumns', { columns: colNames.join(',') }))}"`)}
             <label class="db-check">${chk('unique', ix.unique)} ${esc(t('designer.unique'))}</label>
-            <button class="btn btn-ghost btn-sm" data-dz-act="del-index">✕</button></div>`).join('') || `<p class="db-muted db-pad">${esc(t('designer.noIndexes'))}</p>`}
+            <button class="btn btn-ghost btn-sm" data-dz-act="del-index"><i data-icon="x"></i></button></div>`).join('') || `<p class="db-muted db-pad">${esc(t('designer.noIndexes'))}</p>`}
           <h4>${esc(t('designer.foreignKeys'))} <button class="btn btn-ghost btn-sm" data-dz-act="add-fk">${esc(t('designer.addFk'))}</button></h4>
           ${def.foreignKeys.map((fk, i) => `<div class="db-dz-line" data-fk="${i}">
             ${txt('name', fk.name, `placeholder="${esc(t('designer.fkName'))}" style="width:120px"`)}
@@ -910,7 +913,7 @@ export default {
             ${txt('refColumns', fk.refColumns.join(','), `placeholder="${esc(t('designer.fkRefColumns'))}"`)}
             ON DELETE ${sel('onDelete', ['', ...ddlInfo.fkActions], fk.onDelete || '')}
             ON UPDATE ${sel('onUpdate', ['', ...ddlInfo.fkActions], fk.onUpdate || '')}
-            <button class="btn btn-ghost btn-sm" data-dz-act="del-fk">✕</button></div>`).join('') || `<p class="db-muted db-pad">${esc(t('designer.noFks'))}</p>`}
+            <button class="btn btn-ghost btn-sm" data-dz-act="del-fk"><i data-icon="x"></i></button></div>`).join('') || `<p class="db-muted db-pad">${esc(t('designer.noFks'))}</p>`}
           <div class="db-dz-actions">
             <button class="btn btn-primary btn-sm" data-dz-act="apply">${esc(t(mode === 'alter' ? 'designer.applyAlter' : 'designer.create'))}</button>
             <button class="btn btn-ghost btn-sm" data-dz-act="cancel">${esc(t('core.action.cancel'))}</button>
@@ -1077,12 +1080,12 @@ export default {
           </div>
         </div>
         ${warnings.length ? `<div class="db-mg-warnings">
-          <strong>⚠ ${esc(t('migrate.warningsTitle'))}</strong>
+          <strong><i data-icon="triangle-alert"></i> ${esc(t('migrate.warningsTitle'))}</strong>
           <ul>${warnings.map(w => `<li>${esc(t(`migrate.warn.${w.key}`, w.params))}</li>`).join('')}</ul>
           <label class="db-check"><input type="checkbox" id="f_mg_ack" onchange="Ext['db-client'].migRefresh()"> ${esc(t('migrate.acknowledge'))}</label>
         </div>` : ''}`,
         `<button class="btn btn-ghost" onclick="UI.closeModal();Ext['db-client'].migCancel()">${esc(t('core.action.cancel'))}</button>
-         ${m ? `<button class="btn btn-ghost" data-role="mg-save-only" onclick="Ext['db-client'].migApply(false)" title="${esc(t('migrate.saveOnlyTitle'))}">${esc(t('migrate.saveOnly'))}</button>` : ''}
+         ${m ? `<button class="btn btn-ghost" data-role="mg-save-only" onclick="Ext['db-client'].migApply(false)" title="${esc(t('migrate.saveOnlyTitle'))}">${ctx.ui.icon('save')} ${esc(t('migrate.saveOnly'))}</button>` : ''}
          <button class="btn ${warnings.length ? 'btn-danger' : 'btn-primary'}" data-role="mg-apply" onclick="Ext['db-client'].migApply()" ${warnings.length ? 'disabled' : ''}>${esc(t('migrate.apply'))}</button>`);
       document.getElementById('modal')?.classList.add('modal-wide');
     }
@@ -1166,26 +1169,26 @@ export default {
     function renderMigRun() {
       const r = migRun;
       if (!r) return;
-      const backBtn = r.back ? `<button class="btn btn-ghost" onclick="Ext['db-client'].migRunBack()">↩ ${esc(t('mgrun.back'))}</button>` : '';
+      const backBtn = r.back ? `<button class="btn btn-ghost" onclick="Ext['db-client'].migRunBack()">${ctx.ui.icon('undo-2')} ${esc(t('mgrun.back'))}</button>` : '';
       const closeBtn = `<button class="btn btn-ghost" onclick="Ext['db-client'].migRunClose()">${esc(t('core.action.close'))}</button>`;
-      const head = `<p class="db-ok db-mgrun-saved">✓ ${esc(t('migrate.savedOnly', { file: r.file }))}</p>`;
+      const head = `<p class="db-ok db-mgrun-saved"><i data-icon="check"></i> ${esc(t('migrate.savedOnly', { file: r.file }))}</p>`;
       if (r.state === 'choose') {
         openModal(t('mgrun.title'), `${head}
           <div class="form-row"><label for="f_mgrun_script">${esc(t('mgrun.label', { project: r.projectLabel }))}</label>
             <select class="form-input db-select" id="f_mgrun_script">${r.scripts.map(s => `<option value="${esc(s)}" ${s === r.script ? 'selected' : ''}>npm run ${esc(s)}</option>`).join('')}</select></div>
           <p class="db-muted">${esc(t('mgrun.hint'))}</p>`,
-          `${closeBtn}${backBtn}<button class="btn btn-primary" onclick="Ext['db-client'].migRunStart()">▶ ${esc(t('mgrun.run'))}</button>`);
+          `${closeBtn}${backBtn}<button class="btn btn-primary" onclick="Ext['db-client'].migRunStart()"><i data-icon="play"></i> ${esc(t('mgrun.run'))}</button>`);
         return;
       }
       const running = r.state === 'running';
-      const status = running ? `<span class="db-muted">⏳ ${esc(t('mgrun.running'))}</span>`
-        : r.exitCode === 0 ? `<span class="db-batch-ok">✓ ${esc(t('mgrun.ok'))}</span>`
-        : `<span class="db-batch-err">✖ ${esc(r.exitCode == null ? t('mgrun.stopped') : t('mgrun.failed', { code: String(r.exitCode) }))}</span>`;
+      const status = running ? `<span class="db-muted">${ctx.ui.icon('loader')} ${esc(t('mgrun.running'))}</span>`
+        : r.exitCode === 0 ? `<span class="db-batch-ok"><i data-icon="check"></i> ${esc(t('mgrun.ok'))}</span>`
+        : `<span class="db-batch-err"><i data-icon="circle-x"></i> ${esc(r.exitCode == null ? t('mgrun.stopped') : t('mgrun.failed', { code: String(r.exitCode) }))}</span>`;
       openModal(t('mgrun.title'), `${head}
         <div class="db-mgrun-head"><span class="db-mono">$ npm run ${esc(r.script)}</span> <span class="db-muted">· ${esc(r.projectLabel)}</span> <span data-role="mgrun-status">${status}</span></div>
         <pre class="db-mgrun-out" id="db_mgrun_out"></pre>`,
-        running ? `<button class="btn btn-disconnect" onclick="Ext['db-client'].migRunStop()">■ ${esc(t('mgrun.stop'))}</button>`
-          : `${closeBtn}<button class="btn btn-ghost" onclick="Ext['db-client'].migRunStart()">↻ ${esc(t('mgrun.again'))}</button>${backBtn.replace('btn-ghost', 'btn-primary')}`);
+        running ? `<button class="btn btn-disconnect" onclick="Ext['db-client'].migRunStop()"><i data-icon="square"></i> ${esc(t('mgrun.stop'))}</button>`
+          : `${closeBtn}<button class="btn btn-ghost" onclick="Ext['db-client'].migRunStart()"><i data-icon="refresh-cw"></i> ${esc(t('mgrun.again'))}</button>${backBtn.replace('btn-ghost', 'btn-primary')}`);
       document.getElementById('modal')?.classList.add('modal-wide');
       const out = document.getElementById('db_mgrun_out');
       if (out) { out.innerHTML = r.html || ''; out.scrollTop = out.scrollHeight; }
@@ -1257,8 +1260,8 @@ export default {
       const filtered = withFilters && (grid.search || grid.filters.length);
       const src = all => ({ type: 'table', db, table, ...(all ? {} : { search: grid.search, filters: grid.filters, sort: grid.sort }) });
       exportMenu(anchor, [
-        ...formats().map(([f, label]) => ({ icon: '⤓', label: filtered ? t('export.filtered', { format: label }) : label, action: () => startExport(c, f, src(!withFilters)) })),
-        ...(filtered ? ['separator', ...formats().map(([f, label]) => ({ icon: '⤓', label: t('export.whole', { format: label }), action: () => startExport(c, f, src(true)) }))] : []),
+        ...formats().map(([f, label]) => ({ icon: 'download', label: filtered ? t('export.filtered', { format: label }) : label, action: () => startExport(c, f, src(!withFilters)) })),
+        ...(filtered ? ['separator', ...formats().map(([f, label]) => ({ icon: 'download', label: t('export.whole', { format: label }), action: () => startExport(c, f, src(true)) }))] : []),
       ]);
     }
 
@@ -1267,7 +1270,7 @@ export default {
       const sql = statement();
       if (!c || !sql) { toast(t('export.needSelect'), 'error'); return; }
       exportMenu(anchor, formats().map(([f, label]) => ({
-        icon: '⤓', label, action: () => startExport(c, f, { type: 'query', sql, database: tabDb() }),
+        icon: 'download', label, action: () => startExport(c, f, { type: 'query', sql, database: tabDb() }),
       })));
     }
 
@@ -1428,7 +1431,7 @@ export default {
           ? `<textarea class="form-input" id="${id}" rows="3">${esc(v ?? '')}</textarea>`
           : `<input class="form-input" id="${id}" value="${esc(v ?? '')}" placeholder="${!editing && isAuto(col) ? esc(t('row.autoPlaceholder')) : esc(col.type)}">`;
         return `<div class="form-row">
-          <label>${col.key === 'PRI' ? '🔑 ' : ''}${esc(col.name)} <span class="db-muted">${esc(col.type)}</span></label>
+          <label>${col.key === 'PRI' ? `${ctx.ui.icon('key-round', { cls: 'db-i-key' })} ` : ''}${esc(col.name)} <span class="db-muted">${esc(col.type)}</span></label>
           ${input}
           ${col.nullable ? `<label class="db-check"><input type="checkbox" id="${id}_null" ${editing && v === null ? 'checked' : ''}> NULL</label>` : ''}
         </div>`;
@@ -1525,37 +1528,37 @@ export default {
       const ro = c.readOnly;
       const sqlTab = sql => runSql(sql, { c, db, title: name });
       ctx.ui.contextMenu(ev.clientX, ev.clientY, [
-        { icon: '▤', label: t('menu.openData'), action: () => openTableData(c, db, name) },
-        { icon: '▶', label: t('menu.first100'), action: () => sqlTab(`SELECT * FROM ${full} LIMIT 100;`) },
+        { icon: 'table-2', label: t('menu.openData'), action: () => openTableData(c, db, name) },
+        { icon: 'play', label: t('menu.first100'), action: () => sqlTab(`SELECT * FROM ${full} LIMIT 100;`) },
         { icon: '#', label: t('menu.count'), action: () => sqlTab(`SELECT COUNT(*) AS ${quoteId(t('menu.countAlias'))} FROM ${full};`) },
-        { icon: '▦', label: t('menu.structure'), action: () => openInTab(c, db, `structure:${name}`, `▦ ${name}`, () => showStructure(c, db, name)) },
-        ...(tb?.view ? [] : [{ icon: '✎', label: t('menu.alter'), disabled: ro, action: () => openInTab(c, db, `alter:${name}`, `✎ ${name}`, () => openDesigner(c, db, name)) }]),
-        ...formats().map(([f, label]) => ({ icon: '⤓', label: t('menu.export', { format: label }), action: () => startExport(c, f, { type: 'table', db, table: name }) })),
-        { icon: '⌘', label: tb?.view ? 'SHOW CREATE VIEW' : 'SHOW CREATE TABLE', action: () => sqlTab(`SHOW CREATE ${tb?.view ? 'VIEW' : 'TABLE'} ${full};`) },
+        { icon: 'table-2', label: t('menu.structure'), action: () => openInTab(c, db, `structure:${name}`, name, () => showStructure(c, db, name)) },
+        ...(tb?.view ? [] : [{ icon: 'pencil', label: t('menu.alter'), disabled: ro, action: () => openInTab(c, db, `alter:${name}`, name, () => openDesigner(c, db, name)) }]),
+        ...formats().map(([f, label]) => ({ icon: 'download', label: t('menu.export', { format: label }), action: () => startExport(c, f, { type: 'table', db, table: name }) })),
+        { icon: 'code', label: tb?.view ? 'SHOW CREATE VIEW' : 'SHOW CREATE TABLE', action: () => sqlTab(`SHOW CREATE ${tb?.view ? 'VIEW' : 'TABLE'} ${full};`) },
         'separator',
-        { icon: '↳', label: t('menu.insertName'), action: () => {
+        { icon: 'text-cursor-input', label: t('menu.insertName'), action: () => {
           sqlInput.setRangeText(full, sqlInput.selectionStart, sqlInput.selectionEnd, 'end');
           sqlInput.dispatchEvent(new Event('input'));
           sqlInput.focus();
         } },
-        { icon: '⧉', label: t('menu.copyName'), action: () => navigator.clipboard?.writeText(name).then(() => toast(t('menu.copied'))) },
+        { icon: 'copy', label: t('menu.copyName'), action: () => navigator.clipboard?.writeText(name).then(() => toast(t('menu.copied'))) },
         'separator',
-        ...(tb?.view ? [] : [{ icon: '⌫', label: t('menu.truncate'), danger: true, disabled: ro, action: () => sqlTab(`TRUNCATE TABLE ${full};`) }]),
-        { icon: '✕', label: t(tb?.view ? 'menu.dropView' : 'menu.dropTable'), danger: true, disabled: ro, action: () => sqlTab(`DROP ${tb?.view ? 'VIEW' : 'TABLE'} ${full};`) },
+        ...(tb?.view ? [] : [{ icon: 'eraser', label: t('menu.truncate'), danger: true, disabled: ro, action: () => sqlTab(`TRUNCATE TABLE ${full};`) }]),
+        { icon: 'x', label: t(tb?.view ? 'menu.dropView' : 'menu.dropTable'), danger: true, disabled: ro, action: () => sqlTab(`DROP ${tb?.view ? 'VIEW' : 'TABLE'} ${full};`) },
       ]);
     }
 
     // Menu di una colonna (tasto destro nell'albero): nome negli appunti, valori distinti in una tab
     function columnMenu(ev, c, db, table, column) {
       ctx.ui.contextMenu(ev.clientX, ev.clientY, [
-        { icon: '⧉', label: t('menu.copyName'), action: () => navigator.clipboard?.writeText(column).then(() => toast(t('menu.copied'))) },
-        { icon: '≡', label: t('menu.distinct'), action: () => runSql(
+        { icon: 'copy', label: t('menu.copyName'), action: () => navigator.clipboard?.writeText(column).then(() => toast(t('menu.copied'))) },
+        { icon: 'menu', label: t('menu.distinct'), action: () => runSql(
           `SELECT DISTINCT ${quoteId(column)} FROM ${quoteId(db)}.${quoteId(table)} ORDER BY ${quoteId(column)};`,
           { c, db, title: `${table}.${column}` }) },
       ]);
     }
 
-    const openTableData = (c, db, name) => openInTab(c, db, `grid:${name}`, `▤ ${name}`, () => openGrid(c, db, name));
+    const openTableData = (c, db, name) => openInTab(c, db, `grid:${name}`, name, () => openGrid(c, db, name));
 
     async function showStructure(c, db, name) {
       grid = null;
@@ -1598,17 +1601,17 @@ export default {
       renderTarget();
       if (!c) { $(ctx.root, 'conn-header').innerHTML = `<span class="db-muted">${esc(t('tabs.chooseConnection'))}</span>`; return; }
       $(ctx.root, 'conn-header').innerHTML = `
-        <h3>🗄️ ${esc(c.label)}</h3>
+        <h3><i data-icon="database"></i> ${esc(c.label)}</h3>
         <span class="db-conn-meta">${esc(c.user)}@${esc(target(c))}${c.database ? ` / ${esc(c.database)}` : ''}</span>
         ${c.readOnly ? `<span class="db-badge">${esc(t('conn.readOnly'))}</span>` : ''}
         ${c.hasPassword ? '' : `<span class="db-badge db-badge-warn">${esc(t('conn.noPassword'))}</span>`}
         ${c.tunnelMissing ? `<span class="db-badge db-badge-danger">${esc(t('conn.tunnelMissing', { tunnel: c.tunnel }))}</span>` : ''}
         <span class="db-mig-badge" data-role="mig-badge"></span>
         <div class="db-conn-actions">
-          <button class="btn btn-ghost btn-sm" onclick="Ext['db-client'].migrationsDialog(${js(c.id)})" title="${esc(t('mig.buttonTitle'))}">${esc(t('mig.button'))}</button>
-          <button class="btn btn-ghost btn-sm" onclick="Ext['db-client'].testConnection(${js(c.id)})">${esc(t('conn.test'))}</button>
-          <button class="btn btn-ghost btn-sm" onclick="Ext['db-client'].editConnection(${js(c.id)})">${esc(t('conn.edit'))}</button>
-          <button class="btn btn-ghost btn-sm db-danger" onclick="Ext['db-client'].deleteConnection(${js(c.id)})" title="${esc(t('core.action.delete'))}">🗑</button>
+          <button class="btn btn-ghost btn-sm" onclick="Ext['db-client'].migrationsDialog(${js(c.id)})" title="${esc(t('mig.buttonTitle'))}">${ctx.ui.icon('folder-git-2')} ${esc(t('mig.button'))}</button>
+          <button class="btn btn-ghost btn-sm" onclick="Ext['db-client'].testConnection(${js(c.id)})">${ctx.ui.icon('zap')} ${esc(t('conn.test'))}</button>
+          <button class="btn btn-ghost btn-sm" onclick="Ext['db-client'].editConnection(${js(c.id)})">${ctx.ui.icon('pencil')} ${esc(t('conn.edit'))}</button>
+          <button class="btn btn-ghost btn-sm db-danger" onclick="Ext['db-client'].deleteConnection(${js(c.id)})" title="${esc(t('core.action.delete'))}"><i data-icon="trash-2"></i></button>
         </div>`;
       renderMigBadge();
     }
@@ -1630,7 +1633,7 @@ export default {
       if (!st) { el.innerHTML = ''; loadMigStatus(c); return; }
       if (!st.linked) { el.innerHTML = `<span class="db-muted">${esc(t('mig.notLinked'))}</span>`; return; }
       if (st.repo?.missing) { el.innerHTML = `<span class="db-badge db-badge-warn">${esc(t('mig.repoMissing', { repo: st.repo.id }))}</span>`; return; }
-      el.innerHTML = `<span class="db-badge" title="${esc(`${st.repo.label} / ${st.dir || '.'}`)}">📁 ${esc(st.repo.label)}/${esc(st.dir || '.')} · ${esc(t('mig.next', { prefix: st.nextPrefix }))}</span>`;
+      el.innerHTML = `<span class="db-badge" title="${esc(`${st.repo.label} / ${st.dir || '.'}`)}"><i data-icon="folder"></i> ${esc(st.repo.label)}/${esc(st.dir || '.')} · ${esc(t('mig.next', { prefix: st.nextPrefix }))}</span>`;
     }
 
     // Stato del dialog: connessione, repository e cartella in esame
@@ -1688,21 +1691,21 @@ export default {
         <div class="form-row"><label>${esc(t('mig.folder'))}</label>
           <div class="db-mig-crumbs">${crumbs}</div>
           <div class="db-mig-folders">
-            ${d.dir ? `<button class="db-mig-folder" onclick="Ext['db-client'].migNav(${js(parts.slice(0, -1).join('/'))})">↑ ..</button>` : ''}
+            ${d.dir ? `<button class="db-mig-folder" onclick="Ext['db-client'].migNav(${js(parts.slice(0, -1).join('/'))})">${ctx.ui.icon('corner-left-up')} ..</button>` : ''}
             ${d.error ? `<div class="db-error">${esc(d.error)}</div>` : ''}
-            ${(d.folders?.folders || []).map(f => `<button class="db-mig-folder" onclick="Ext['db-client'].migNav(${js(d.dir ? `${d.dir}/${f}` : f)})">📁 ${esc(f)}</button>`).join('')
+            ${(d.folders?.folders || []).map(f => `<button class="db-mig-folder" onclick="Ext['db-client'].migNav(${js(d.dir ? `${d.dir}/${f}` : f)})"><i data-icon="folder"></i> ${esc(f)}</button>`).join('')
               || (d.error ? '' : `<span class="db-muted">${esc(t('mig.noSubfolders'))}</span>`)}
           </div>
           <div class="db-mig-new">
             <input class="form-input" id="f_mig_folder" placeholder="${esc(t('mig.newFolderPlaceholder'))}">
-            <button class="btn btn-ghost btn-sm" onclick="Ext['db-client'].migNewFolder()">${esc(t('mig.newFolder'))}</button>
+            <button class="btn btn-ghost btn-sm" onclick="Ext['db-client'].migNewFolder()">${ctx.ui.icon('folder-plus')} ${esc(t('mig.newFolder'))}</button>
           </div>
         </div>
         ${sc ? `<div class="db-mig-scan">
           <div><strong>${esc(t('mig.selected', { dir: d.dir || '.' }))}</strong></div>
           <div>${esc(t('mig.found', { count: sc.files.length }))}${sc.files.length ? ` · ${esc(t('mig.last', { name: sc.files[sc.files.length - 1].name }))}` : ''}</div>
           <div>${esc(t('mig.nextFile', { prefix: sc.nextPrefix }))} <code>${esc(sc.nextPrefix)}_${esc(t('mig.example'))}.sql</code></div>
-          ${sc.duplicates.length ? `<div class="db-mig-warn">⚠ ${esc(t('mig.duplicates', { numbers: sc.duplicates.map(n => String(n)).join(', ') }))}</div>` : ''}
+          ${sc.duplicates.length ? `<div class="db-mig-warn"><i data-icon="triangle-alert"></i> ${esc(t('mig.duplicates', { numbers: sc.duplicates.map(n => String(n)).join(', ') }))}</div>` : ''}
           ${sc.ignored.length ? `<div class="db-muted">${esc(t('mig.ignored', { files: sc.ignored.join(', ') }))}</div>` : ''}
         </div>` : ''}`;
     }
@@ -1876,7 +1879,7 @@ export default {
       openModal(t('history.title'), list.length ? `
         <div class="db-history">${list.map((h, i) => `
           <button class="db-history-item" onclick="Ext['db-client'].useHistory(${i})" title="${esc(t('history.load'))}">
-            <span class="db-history-meta">${esc(fmt.date(h.at, { timeStyle: 'medium' }))} · ${esc(label(h.connId))}${h.db ? ` / ${esc(h.db)}` : ''} · ${h.ok ? `✓ ${esc(summary(h.summary))}` : esc(t('history.error'))}</span>
+            <span class="db-history-meta">${esc(fmt.date(h.at, { timeStyle: 'medium' }))} · ${esc(label(h.connId))}${h.db ? ` / ${esc(h.db)}` : ''} · ${h.ok ? `${ctx.ui.icon('check')} ${esc(summary(h.summary))}` : esc(t('history.error'))}</span>
             <code>${esc(h.sql.length > 300 ? h.sql.slice(0, 300) + '…' : h.sql)}</code>
           </button>`).join('')}</div>` : `<p class="db-muted">${esc(t('history.none'))}</p>`,
         `${list.length ? `<button class="btn btn-ghost" onclick="Ext['db-client'].clearHistory()">${esc(t('history.clear'))}</button>` : ''}<button class="btn btn-primary" onclick="UI.closeModal()">${esc(t('core.action.close'))}</button>`);
@@ -2071,7 +2074,7 @@ export default {
         return `${p.kind === 'named' ? ':' : ''}${p.name} = ${typeof text === 'number' ? text : text === 'NULL' ? 'NULL' : `'${text}'`}`;
       }).join(', ');
       return `<div class="db-params-used"><span class="db-muted">${esc(t('params.used'))}</span> <span class="db-mono" title="${esc(shown)}">${esc(shown)}</span>
-        <button class="btn btn-ghost btn-sm" data-action="change-params">✎ ${esc(t('params.change'))}</button></div>`;
+        <button class="btn btn-ghost btn-sm" data-action="change-params"><i data-icon="pencil"></i> ${esc(t('params.change'))}</button></div>`;
     }
     let lastParamInfo = null;
     function showParamsUsed(info) {
@@ -2127,18 +2130,18 @@ export default {
       const { data, sel } = batch;
       const tabsHtml = data.results.map((r, i) => (r.kind !== 'rows' ? '' : `
         <button class="db-subtab ${sel === i ? 'active' : ''}" data-batch="${i}" title="${esc(r.sql)}">
-          ▦ ${esc(t('batch.result', { n: r.n }))} <span class="db-subtab-count">${esc(fmt.number(r.rowCount))}${r.truncated ? '+' : ''}</span></button>`)).join('');
+          ${ctx.ui.icon('table-2')} ${esc(t('batch.result', { n: r.n }))} <span class="db-subtab-count">${esc(fmt.number(r.rowCount))}${r.truncated ? '+' : ''}</span></button>`)).join('');
       const done = data.results.filter(r => r.kind !== 'error').length;
       return `<div class="db-subtabs" role="tablist">${tabsHtml}
         <button class="db-subtab ${sel === 'summary' ? 'active' : ''} ${data.failed ? 'db-subtab-error' : ''}" data-batch="summary">
-          ${data.failed ? '✖' : '✔'} ${esc(t('batch.summary'))} <span class="db-subtab-count">${esc(fmt.number(done))}/${esc(fmt.number(data.statements))}</span></button>
+          ${ctx.ui.icon(data.failed ? 'circle-x' : 'circle-check')} ${esc(t('batch.summary'))} <span class="db-subtab-count">${esc(fmt.number(done))}/${esc(fmt.number(data.statements))}</span></button>
         <span class="db-muted db-subtabs-ms">${esc(t('result.ms', { ms: data.ms }))}</span></div>`;
     }
     function batchSummary() {
       const { data } = batch;
       const outcome = r => {
-        if (r.kind === 'error') return `<span class="db-batch-err">✖ ${esc(r.error)}</span>`;
-        if (r.kind === 'rows') return `<button class="btn btn-ghost btn-sm" data-batch="${data.results.indexOf(r)}">▦ ${esc(t('result.rows', { count: r.rowCount }))}${r.truncated ? ` ${esc(t('result.truncated', { limit: r.limit }))}` : ''}</button>`;
+        if (r.kind === 'error') return `<span class="db-batch-err"><i data-icon="circle-x"></i> ${esc(r.error)}</span>`;
+        if (r.kind === 'rows') return `<button class="btn btn-ghost btn-sm" data-batch="${data.results.indexOf(r)}"><i data-icon="table-2"></i> ${esc(t('result.rows', { count: r.rowCount }))}${r.truncated ? ` ${esc(t('result.truncated', { limit: r.limit }))}` : ''}</button>`;
         return `<span class="db-batch-ok">${esc(t('result.affected', { count: r.affectedRows }))}${r.insertId ? ` · insertId ${esc(r.insertId)}` : ''}${r.info ? ` · ${esc(r.info)}` : ''}</span>`;
       };
       const skipped = data.skipped ? `<p class="db-muted db-pad">${esc(t('batch.skipped', { count: data.skipped }))}</p>` : '';
@@ -2152,7 +2155,7 @@ export default {
     }
 
     function renderError(message, sql) {
-      $(ctx.root, 'results').innerHTML = `<div class="db-error">✖ ${esc(message)}</div>`;
+      $(ctx.root, 'results').innerHTML = `<div class="db-error"><i data-icon="circle-x"></i> ${esc(message)}</div>`;
     }
 
     // Ordinamento lato client dei risultati dell'editor (numeri come numeri, NULL in fondo):
@@ -2247,10 +2250,10 @@ export default {
       ctx.ui.patch(el, `
         ${head}
         <div class="db-result-meta">${esc(t('result.rows', { count: data.rowCount }))}${data.truncated ? ` ${esc(t('result.truncated', { limit: data.limit }))}` : ''}${totalText(data)} · ${esc(t('result.ms', { ms: data.ms }))}
-          ${target ? `<span class="db-badge" title="${esc(t('result.editableHint'))}">✎ ${esc(t('result.editable', { table: target.table }))}</span>` : ''}
+          ${target ? `<span class="db-badge" title="${esc(t('result.editableHint'))}"><i data-icon="pencil"></i> ${esc(t('result.editable', { table: target.table }))}</span>` : ''}
           ${target ? editsBar(data) : ''}</div>
         <div class="db-table-wrap"><table class="data-table db-table db-result-table">
-          <thead><tr>${data.columns.map((col, i) => `<th data-result-sort="${i}" title="${esc(t('result.sortTitle', { type: col.type }))}">${esc(col.name)}${resultSort?.col === i ? (resultSort.dir === 'desc' ? ' ▼' : ' ▲') : ''}</th>`).join('')}</tr></thead>
+          <thead><tr>${data.columns.map((col, i) => `<th data-result-sort="${i}" title="${esc(t('result.sortTitle', { type: col.type }))}">${esc(col.name)}${resultSort?.col === i ? (resultSort.dir === 'desc' ? ` ${ctx.ui.icon('arrow-down-wide-narrow')}` : ` ${ctx.ui.icon('arrow-up-narrow-wide')}`) : ''}</th>`).join('')}</tr></thead>
           <tbody>${sortedIndexes(data).map(r => `<tr data-r="${r}">${data.rows[r].map((_, i) => {
             const v = shown(data, r, i), dirty = pendingOf(data).has(`${r}|${i}`);
             const cls = [v === null ? 'db-null' : '', editable(i) ? 'db-editable' : '', /^json$/i.test(data.columns[i].type) ? 'db-json-cell' : '', dirty ? 'db-dirty' : ''].filter(Boolean).join(' ');
@@ -2306,7 +2309,7 @@ export default {
         <div class="form-row"><label>${esc(t('vault.repeatPassword'))}</label><input class="form-input" type="password" id="f_vault_new2" autocomplete="off"></div>
         <div class="form-row"><label>${esc(t('vault.lockAfter'))}</label><input class="form-input" type="number" min="1" max="1440" id="f_vault_minutes" value="${esc(vault.lockAfterMinutes)}"></div>`,
         `<button class="btn btn-ghost" onclick="UI.closeModal()">${esc(t('core.action.cancel'))}</button>
-         <button class="btn btn-ghost" onclick="Ext['db-client'].lock()">${esc(t('vault.lockNow'))}</button>
+         <button class="btn btn-ghost" onclick="Ext['db-client'].lock()">${ctx.ui.icon('lock')} ${esc(t('vault.lockNow'))}</button>
          <button class="btn btn-primary" onclick="Ext['db-client'].saveVault()">${esc(t('core.action.save'))}</button>`);
     }
 
@@ -2444,7 +2447,7 @@ export default {
         const { table, operation } = migration.proposal;
         migrateFlow(c, database, { operations: [{ op: 'raw', sql, table, operation }], migration: { table: fileSlug(table) || undefined, operation } }, result => {
           if (result.ran !== false) addHistory({ sql, connId: c.id, db: database, at: Date.now(), ok: true, summary: { affected: 0 } });
-          $(ctx.root, 'results').innerHTML = `<div class="db-ok">✓ ${esc(migrateDoneText(result))}</div>`;
+          $(ctx.root, 'results').innerHTML = `<div class="db-ok"><i data-icon="check"></i> ${esc(migrateDoneText(result))}</div>`;
           if (result.ran !== false) refreshDatabase(c, database);
         });
         if (!p.keepResults) $(ctx.root, 'results').innerHTML = '';
@@ -2619,8 +2622,8 @@ export default {
       const c = connections.find(x => x.id === dbRow.dataset.conn);
       const db = dbRow.dataset.db;
       ctx.ui.contextMenu(e.clientX, e.clientY, [
-        { icon: '＋', label: t('menu.newTable'), disabled: c.readOnly, action: () => { setActiveDb(c, db); openDesigner(c, db); } },
-        { icon: '↻', label: t('menu.refreshTables'), action: () => { open.add(nodeKey('d', c.id, db)); refreshDatabase(c, db); } },
+        { icon: 'plus', label: t('menu.newTable'), disabled: c.readOnly, action: () => { setActiveDb(c, db); openDesigner(c, db); } },
+        { icon: 'refresh-cw', label: t('menu.refreshTables'), action: () => { open.add(nodeKey('d', c.id, db)); refreshDatabase(c, db); } },
       ]);
     });
     ctx.sidebar.addEventListener('click', e => {

@@ -8,7 +8,7 @@
     "en": "Local mock servers: predefined responses per route, CORS, log of the incoming calls with their payload"
   },
   "color": "#39c5cf",
-  "icon": "🎭",
+  "icon": "drama",
   "position": "tab",
   "order": 39,
   "config": ["mockServers"],

@@ -11,7 +11,7 @@
     "en": "SSH port forwarding (ssh -L / autossh) for groups of servers, with automatic reconnection"
   },
   "color": "#388bfd",
-  "icon": "🔗",
+  "icon": "cable",
   "position": "tab",
   "order": 10,
   "config": [

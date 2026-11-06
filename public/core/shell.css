@@ -396,3 +396,11 @@
   .mcp-ext{grid-column:1/-1;margin-top:6px;font-weight:600}
   .mcp-badge{font-size:10px;padding:1px 6px;border-radius:8px;border:1px solid var(--border);color:var(--muted);margin-inline-start:6px}
   .mcp-badge.write{color:var(--warning,#d29922);border-color:var(--warning,#d29922)}
+
+/* icone Lucide (ui.icon / <i data-icon>): colore e dimensione del testo intorno */
+.i{width:1.15em;height:1.15em;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.2em;display:inline-block}
+.i-wrap{display:inline-flex;align-items:center;font-style:normal;line-height:1}
+.btn .i,.btn .i-wrap{margin-inline-end:.1em}
+
+.section-tab-badge,.dash-w-badge{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.section-tab-badge .i,.dash-w-badge .i{width:1em;height:1em;vertical-align:0}

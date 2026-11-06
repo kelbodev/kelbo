@@ -13,7 +13,7 @@ function render(ctx, el) {
   const { esc, fmt } = ctx.ui;
   const { t } = ctx;
   const { files, template, issues } = states.get(el).data;
-  ctx.widget.setBadge(issues ? `⚠ ${fmt.number(issues)}` : null);
+  ctx.widget.setBadge(issues ? { icon: 'triangle-alert', text: fmt.number(issues) } : null);
   if (!files.length) { ctx.ui.patch(el, `<p class="env-muted">${esc(t('widget.noFiles'))}</p>`); return; }
   ctx.ui.patch(el, `<div class="envw-files">${files.map(f => {
     if (f.error) return `<div class="envw-file"><code>${esc(f.name)}</code><span class="envw-err">${esc(f.error)}</span></div>`;
@@ -22,7 +22,7 @@ function render(ctx, el) {
     return `<div class="envw-file">
       <div class="envw-row"><code>${esc(f.name)}</code>
         ${isTpl ? `<span class="env-muted">${esc(t('widget.template'))}</span>` : !template ? '' : problems ? '' : `<span class="envw-ok">${esc(t('widget.ok'))}</span>`}
-        ${f.missing?.length ? `<button class="btn btn-ghost btn-sm" data-envw="add" data-file="${esc(f.name)}">${esc(t('addMissing', { count: f.missing.length }))}</button>` : ''}
+        ${f.missing?.length ? `<button class="btn btn-ghost btn-sm" data-envw="add" data-file="${esc(f.name)}">${ctx.ui.icon('plus')} ${esc(t('addMissing', { count: f.missing.length }))}</button>` : ''}
       </div>
       ${f.missing?.length ? `<div class="envw-err">${esc(t('widget.missingKeys', { list: fmt.list(f.missing) }))}</div>` : ''}
       ${!isTpl && f.empty?.length ? `<div class="envw-warn">${esc(t('widget.emptyKeys', { list: fmt.list(f.empty) }))}</div>` : ''}

@@ -24,7 +24,7 @@ function render(ctx, el) {
   const { t } = ctx;
   const { scripts, procs, usage } = states.get(el).data;
   const running = procs.filter(p => p.running);
-  ctx.widget.setBadge(running.length ? `▶ ${fmt.number(running.length)}` : null);
+  ctx.widget.setBadge(running.length ? { icon: 'play', text: fmt.number(running.length) } : null);
   if (!scripts.length && !procs.length) { ctx.ui.patch(el, `<p class="npw-muted">${esc(t('widget.noScripts'))}</p>`); return; }
   // più usati per numero di avvii, poi nell'ordine di package.json
   const ranked = [...scripts].sort((a, b) => (usage[b]?.count || 0) - (usage[a]?.count || 0)).slice(0, MAX_SCRIPTS);
@@ -37,9 +37,9 @@ function render(ctx, el) {
         ${(p.ports || []).map(port => `<span class="proc-port">:${esc(port)}</span>`).join('')}
         <span class="npw-muted">${p.running && p.startedAt ? esc(formatUptime(p.startedAt)) : p.running ? '' : esc(t('widget.exited', { code: String(p.exitCode) }))}</span>
         <span class="npw-actions">
-          <button class="btn btn-ghost btn-sm" data-npw="logs" data-id="${esc(p.id)}" title="${esc(t('widget.logs'))}">≡</button>
-          ${p.running ? `<button class="btn btn-ghost btn-sm" data-npw="restart" data-id="${esc(p.id)}" title="${esc(t('widget.restart'))}">↻</button>
-            <button class="btn btn-ghost btn-sm" data-npw="stop" data-id="${esc(p.id)}" title="${esc(t('widget.stop'))}">■</button>` : ''}
+          <button class="btn btn-ghost btn-sm" data-npw="logs" data-id="${esc(p.id)}" title="${esc(t('widget.logs'))}"><i data-icon="menu"></i></button>
+          ${p.running ? `<button class="btn btn-ghost btn-sm" data-npw="restart" data-id="${esc(p.id)}" title="${esc(t('widget.restart'))}"><i data-icon="refresh-cw"></i></button>
+            <button class="btn btn-ghost btn-sm" data-npw="stop" data-id="${esc(p.id)}" title="${esc(t('widget.stop'))}"><i data-icon="square"></i></button>` : ''}
         </span>
       </div>`).join('')}</div>` : ''}
     ${ranked.length ? `<div class="npw-head">${esc(t('widget.mostUsed'))}</div>
@@ -47,7 +47,7 @@ function render(ctx, el) {
         <div class="npw-script">
           <span class="npw-name">${esc(s)}</span>
           <span class="npw-muted">${usage[s]?.count ? esc(t('widget.runs', { count: usage[s].count })) : ''}</span>
-          <button class="btn btn-ghost btn-sm" data-npw="run" data-script="${esc(s)}" ${isRunning(s) ? 'disabled' : ''} title="${esc(t('widget.run', { script: scriptLabel(s) }))}">▶</button>
+          <button class="btn btn-ghost btn-sm" data-npw="run" data-script="${esc(s)}" ${isRunning(s) ? 'disabled' : ''} title="${esc(t('widget.run', { script: scriptLabel(s) }))}"><i data-icon="play"></i></button>
         </div>`).join('')}</div>` : ''}`);
 }
 

@@ -1,6 +1,6 @@
 {
   "sidebar.title": "File .env",
-  "sidebar.none": "Nessun progetto con file .env: aggiungi i progetti dal pannello 📁 Progetti nell'header.",
+  "sidebar.none": "Nessun progetto con file .env: aggiungi i progetti dal pannello Progetti nell'header.",
   "issues": {
     "one": "{count} mancante",
     "other": "{count} mancanti"
@@ -10,7 +10,7 @@
     "other": "{count} chiavi del modello mancano nei file .env"
   },
   "empty": "Seleziona un progetto dalla sidebar",
-  "newFile": "＋ Nuovo file .env",
+  "newFile": "Nuovo file .env",
   "templateIs": "Modello: {file}",
   "noTemplate": "Nessun modello (.env.example): nessun confronto",
   "noFiles": "Nessun file .env in questo progetto.",
@@ -18,10 +18,10 @@
   "value": "Valore",
   "template": "modello",
   "addMissing": {
-    "one": "＋ {count} mancante",
-    "other": "＋ {count} mancanti"
+    "one": "{count} mancante",
+    "other": "{count} mancanti"
   },
-  "addKey": "＋ Chiave",
+  "addKey": "Chiave",
   "notInTemplate": "non nel modello",
   "missing": "manca",
   "add": "Aggiungi",

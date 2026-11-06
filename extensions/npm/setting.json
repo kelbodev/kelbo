@@ -8,7 +8,7 @@
     "en": "package.json scripts of the projects as tracked processes, listening ports, dependencies and updates"
   },
   "color": "#f0883e",
-  "icon": "📦",
+  "icon": "package",
   "position": "tab",
   "order": 20,
   "backend": {

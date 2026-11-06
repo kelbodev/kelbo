@@ -91,7 +91,7 @@ function openBrowser(url, container, browserPath) {
 // scheda centrata con il nome di Kelbo, icona, titolo, messaggio ed eventuale dettaglio
 const htmlEsc = v => String(v).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 function oauthPage({ kind, lang, title, text, detail, hint, script = '' }) {
-  const icon = kind === 'done' ? '<div class="icon ok">✓</div>' : kind === 'failed' ? '<div class="icon err">!</div>' : '<div class="icon spin"></div>';
+  const icon = kind === 'done' ? '<div class="icon ok"><i data-icon="check"></i></div>' : kind === 'failed' ? '<div class="icon err">!</div>' : '<div class="icon spin"></div>';
   return `<!doctype html><html lang="${htmlEsc(/^[a-z]{2,3}$/i.test(lang) ? lang : 'it')}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>${htmlEsc(title)} · Kelbo</title>
 <style>

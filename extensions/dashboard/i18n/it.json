@@ -2,7 +2,7 @@
   "sidebar.title": "Dashboard",
   "empty.choose": "Scegli un progetto nella sidebar.",
   "empty.noProjects": "Nessun progetto: aggiungine uno dalla sezione NPM o Git.",
-  "board.add": "＋ Widget",
+  "board.add": "Widget",
   "board.reset": "Tutti i widget",
   "board.resetTitle": "Torna a mostrare tutti i widget disponibili, con la dimensione iniziale",
   "board.confirmReset": "Tornare a tutti i widget, con la dimensione iniziale? La scelta fatta per questo progetto si perde.",

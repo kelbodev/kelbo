@@ -39,7 +39,7 @@ export default {
             <span class="sb-dot" style="background:${m.running ? 'var(--success,#3fb950)' : 'var(--border)'}" title="${esc(t(m.running ? 'state.running' : 'state.stopped'))}"></span>
             <span class="ms-item-label">${esc(m.label)}</span>
             <span class="ms-port">:${esc(m.port)}</span>
-            <button class="sb-item-act ms-visible" onclick="event.stopPropagation();Ext['mock-server'].toggle(${js(m.id)})" title="${esc(t(m.running ? 'header.stop' : 'header.start'))}">${m.running ? '■' : '▶'}</button>
+            <button class="sb-item-act ms-visible" onclick="event.stopPropagation();Ext['mock-server'].toggle(${js(m.id)})" title="${esc(t(m.running ? 'header.stop' : 'header.start'))}">${ctx.ui.icon(m.running ? 'square' : 'play')}</button>
           </div>`).join('');
       ctx.setBadge(mocks.filter(m => m.running).length || null);
       renderPills();
@@ -51,7 +51,7 @@ export default {
         <span class="pill pill-mock" onclick="Ext['mock-server'].openMock(${js(m.id)})" title="${esc(t('pill.title', { name: m.label, url: `http://127.0.0.1:${m.port}` }))}">
           <span class="pill-dot"></span>
           ${esc(m.label)}<span class="pill-port">:${esc(m.port)}</span>
-          <span class="pill-close" onclick="event.stopPropagation();Ext['mock-server'].toggle(${js(m.id)})" title="${esc(t('header.stop'))}">✕</span>
+          <span class="pill-close" onclick="event.stopPropagation();Ext['mock-server'].toggle(${js(m.id)})" title="${ctx.ui.icon('square')} ${esc(t('header.stop'))}"><i data-icon="x"></i></span>
         </span>`).join(''));
     }
 
@@ -80,9 +80,9 @@ export default {
         <span class="ms-pill">${esc(t(m.cors ? 'header.corsOn' : 'header.corsOff'))}</span>
         ${m.running ? `<span class="ms-muted" data-uptime="${esc(m.startedAt)}"></span>` : ''}
         <div class="ms-header-actions">
-          <button class="btn ${m.running ? 'btn-ghost' : 'btn-primary'} btn-sm" onclick="Ext['mock-server'].toggle(${js(m.id)})">${esc(t(m.running ? 'header.stop' : 'header.start'))}</button>
-          <button class="btn btn-ghost btn-sm" onclick="Ext['mock-server'].editMock(${js(m.id)})">✎</button>
-          <button class="btn btn-ghost btn-sm ms-danger" onclick="Ext['mock-server'].removeMock(${js(m.id)})" title="${esc(t('core.action.delete'))}">🗑</button>
+          <button class="btn ${m.running ? 'btn-ghost' : 'btn-primary'} btn-sm" onclick="Ext['mock-server'].toggle(${js(m.id)})">${ctx.ui.icon(m.running ? 'square' : 'play')} ${esc(t(m.running ? 'header.stop' : 'header.start'))}</button>
+          <button class="btn btn-ghost btn-sm" onclick="Ext['mock-server'].editMock(${js(m.id)})"><i data-icon="pencil"></i></button>
+          <button class="btn btn-ghost btn-sm ms-danger" onclick="Ext['mock-server'].removeMock(${js(m.id)})" title="${esc(t('core.action.delete'))}"><i data-icon="trash-2"></i></button>
         </div>`;
       $(ctx.root, 'tab-routes').innerHTML = `${esc(t('tabs.routes'))} <span class="ms-count">${esc(fmt.number(m.routes.length))}</span>`;
       renderCallsTab();
@@ -105,8 +105,8 @@ export default {
             <th></th><th>${esc(t('routes.method'))}</th><th>${esc(t('routes.path'))}</th><th>${esc(t('routes.status'))}</th><th>${esc(t('routes.response'))}</th><th>${esc(t('routes.delay'))}</th><th></th></tr></thead><tbody>
           ${m.routes.map((r, i) => `<tr ondblclick="Ext['mock-server'].editRoute(${js(r.id)})">
             <td class="ms-order">
-              <button class="sb-item-act ms-visible" ${i === 0 ? 'disabled' : ''} onclick="Ext['mock-server'].move(${i}, -1)" title="${esc(t('routes.up'))}">↑</button>
-              <button class="sb-item-act ms-visible" ${i === m.routes.length - 1 ? 'disabled' : ''} onclick="Ext['mock-server'].move(${i}, 1)" title="${esc(t('routes.down'))}">↓</button>
+              <button class="sb-item-act ms-visible" ${i === 0 ? 'disabled' : ''} onclick="Ext['mock-server'].move(${i}, -1)" title="${esc(t('routes.up'))}">${ctx.ui.icon('arrow-up')}</button>
+              <button class="sb-item-act ms-visible" ${i === m.routes.length - 1 ? 'disabled' : ''} onclick="Ext['mock-server'].move(${i}, 1)" title="${esc(t('routes.down'))}">${ctx.ui.icon('arrow-down')}</button>
             </td>
             <td>${badge(r.method)}</td>
             <td><code>${esc(r.path)}</code>${r.label ? `<div class="ms-muted">${esc(r.label)}</div>` : ''}</td>
@@ -114,11 +114,11 @@ export default {
             <td class="ms-muted ms-preview">${esc(r.bodyType === 'none' || !r.body ? t('routes.noBody') : r.body.slice(0, 80))}</td>
             <td class="ms-muted">${r.delayMs ? esc(t('routes.delayValue', { ms: fmt.number(r.delayMs) })) : ''}</td>
             <td class="ms-row-actions">
-              <button class="btn btn-ghost btn-sm" onclick="Ext['mock-server'].editRoute(${js(r.id)})">✎</button>
-              <button class="btn btn-ghost btn-sm ms-danger" onclick="Ext['mock-server'].deleteRoute(${js(r.id)})">🗑</button>
+              <button class="btn btn-ghost btn-sm" onclick="Ext['mock-server'].editRoute(${js(r.id)})"><i data-icon="pencil"></i></button>
+              <button class="btn btn-ghost btn-sm ms-danger" onclick="Ext['mock-server'].deleteRoute(${js(r.id)})"><i data-icon="trash-2"></i></button>
             </td></tr>`).join('')}
         </tbody></table>` : `<p class="ms-muted">${esc(t('routes.none'))}</p>`}
-        <button class="btn btn-ghost btn-sm" onclick="Ext['mock-server'].newRoute()">＋ ${esc(t('routes.add'))}</button>`;
+        <button class="btn btn-ghost btn-sm" onclick="Ext['mock-server'].newRoute()"><i data-icon="plus"></i> ${esc(t('routes.add'))}</button>`;
     }
 
     const statusClass = s => (s >= 500 ? 'ms-st-5' : s >= 400 ? 'ms-st-4' : s >= 300 ? 'ms-st-3' : 'ms-st-2');

@@ -8,7 +8,7 @@
     "en": "Status, commits, commit graph and remote operations for the repositories of the projects"
   },
   "color": "#3fb950",
-  "icon": "🌿",
+  "icon": "git-branch",
   "position": "tab",
   "order": 30,
   "backend": {

@@ -75,7 +75,7 @@ export default {
       const el = $(ctx.sidebar, 'projects');
       el.innerHTML = projects.length
         ? ctx.projects.tree(folders, projects, p => `<button class="sb-item ${p.id === active ? 'active' : ''}" onclick="Ext.dashboard.select(${js(p.id)})">
-            <span class="sb-icon">📁</span><span>${esc(p.label)}</span></button>`)
+            <span class="sb-icon"><i data-icon="folder"></i></span><span>${esc(p.label)}</span></button>`)
         : `<p class="dash-muted" style="padding:12px">${esc(t('empty.noProjects'))}</p>`;
     }
 
@@ -90,11 +90,11 @@ export default {
         const w = info.get(item.key);
         return `<section class="dash-w dash-${item.size}" data-key="${esc(item.key)}" style="--w-color:${ctx.ui.cssColor(w.color)}">
           <header class="dash-w-head" draggable="true" title="${esc(t('widget.drag'))}">
-            <span class="dash-w-icon">${esc(w.icon)}</span>
+            <span class="dash-w-icon">${ctx.ui.iconOrText(w.icon)}</span>
             <span class="dash-w-title" data-title>${esc(w.title)}</span>
             <span class="dash-w-badge" data-badge hidden></span>
-            <button class="dash-w-btn" data-act="open" title="${esc(t('widget.open', { name: w.extension }))}">↗</button>
-            <button class="dash-w-btn" data-act="menu" title="${esc(t('widget.actions'))}">⋯</button>
+            <button class="dash-w-btn" data-act="open" title="${esc(t('widget.open', { name: w.extension }))}"><i data-icon="arrow-up-right"></i></button>
+            <button class="dash-w-btn" data-act="menu" title="${esc(t('widget.actions'))}"><i data-icon="ellipsis"></i></button>
           </header>
           <div class="dash-w-body" data-body></div>
         </section>`;
@@ -109,7 +109,7 @@ export default {
             const b = box.querySelector('[data-badge]');
             const empty = value === null || value === undefined || value === '';
             b.hidden = empty;
-            b.textContent = empty ? '' : String(value);
+            b.innerHTML = empty ? '' : ctx.ui.badgeHtml(value); // testo o { icon, text }
           },
         }).then(h => { if (gen !== generation || !grid.contains(box)) h.unmount(); else handles.set(item.key, h); });
       }
@@ -140,10 +140,10 @@ export default {
       const item = layout.find(w => w.key === key);
       const r = ev.target.getBoundingClientRect();
       ctx.ui.contextMenu(r.left, r.bottom, [
-        ...SIZES.map(s => ({ label: t(`widget.size.${s}`), icon: item.size === s ? '●' : '○', action: () => setSize(key, s) })),
+        ...SIZES.map(s => ({ label: t(`widget.size.${s}`), icon: item.size === s ? 'circle-dot' : 'circle', action: () => setSize(key, s) })),
         'separator',
-        { label: t('widget.refresh'), icon: '↻', action: () => handles.get(key)?.refresh() },
-        { label: t('widget.remove'), icon: '✕', danger: true, action: () => removeWidget(key) },
+        { label: t('widget.refresh'), icon: 'refresh-cw', action: () => handles.get(key)?.refresh() },
+        { label: t('widget.remove'), icon: 'x', danger: true, action: () => removeWidget(key) },
       ]);
     }
 
@@ -152,7 +152,7 @@ export default {
       const list = available().filter(w => !shown.has(w.key));
       openModal(t('add.title'), list.length ? `<div class="dash-add">${list.map(w => `
           <button class="dash-add-item" onclick="Ext.dashboard.addWidget(${js(w.key)})" style="--w-color:${ctx.ui.cssColor(w.color)}">
-            <span class="dash-w-icon">${esc(w.icon)}</span>
+            <span class="dash-w-icon">${ctx.ui.iconOrText(w.icon)}</span>
             <span class="dash-add-text"><strong>${esc(w.title)}</strong><span class="dash-muted">${esc(w.extension)}${w.description ? ` · ${esc(w.description)}` : ''}</span></span>
           </button>`).join('')}</div>` : `<p class="dash-muted">${esc(t('add.none'))}</p>`,
         `<button class="btn btn-ghost" onclick="UI.closeModal()">${esc(t('core.action.close'))}</button>`);

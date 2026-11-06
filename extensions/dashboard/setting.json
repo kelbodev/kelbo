@@ -8,7 +8,7 @@
     "en": "Project dashboard: the widgets of the extensions (npm scripts, Git, databases, .env, HTTP requests, tunnels…) together, chosen, ordered and sized per project"
   },
   "color": "#a371f7",
-  "icon": "📊",
+  "icon": "layout-dashboard",
   "position": "tab",
   "order": 5,
   "config": ["dashboards"],
