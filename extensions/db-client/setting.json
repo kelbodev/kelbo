@@ -8,7 +8,7 @@
     "en": "MySQL/MariaDB client: connections with passwords encrypted by a master password, queries and results in a table"
   },
   "color": "#d29922",
-  "icon": "🗄️",
+  "icon": "database",
   "position": "tab",
   "order": 25,
   "dependencies": [

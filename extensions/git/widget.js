@@ -27,13 +27,13 @@ function render(ctx, el) {
   if (!st.repo) { ctx.widget.setBadge(null); ctx.ui.patch(el, `<p class="gw-muted">${esc(t('widget.noRepo'))}</p>`); return; }
   const { status: s, summary } = st.data;
   const changed = s.files.length;
-  ctx.widget.setBadge(changed ? `● ${fmt.number(changed)}` : null);
+  ctx.widget.setBadge(changed ? { icon: 'file-diff', text: fmt.number(changed) } : null);
   const busy = st.busy;
   ctx.ui.patch(el, `
     <div class="gw-top">
-      <span class="gw-branch">⎇ ${esc(s.branch || '?')}</span>
-      ${s.ahead ? `<span class="gw-ab" title="${esc(t('widget.aheadTitle'))}">↑${esc(fmt.number(s.ahead))}</span>` : ''}
-      ${s.behind ? `<span class="gw-ab" title="${esc(t('widget.behindTitle'))}">↓${esc(fmt.number(s.behind))}</span>` : ''}
+      <span class="gw-branch"><i data-icon="git-branch"></i> ${esc(s.branch || '?')}</span>
+      ${s.ahead ? `<span class="gw-ab" title="${esc(t('widget.aheadTitle'))}">${ctx.ui.icon('arrow-up')}${esc(fmt.number(s.ahead))}</span>` : ''}
+      ${s.behind ? `<span class="gw-ab" title="${esc(t('widget.behindTitle'))}">${ctx.ui.icon('arrow-down')}${esc(fmt.number(s.behind))}</span>` : ''}
       ${s.merging ? `<span class="gw-warn">${esc(t('widget.merging'))}</span>` : ''}
       <span class="gw-actions">
         <button class="btn btn-ghost btn-sm" data-gw="fetch" ${busy ? 'disabled' : ''}>${esc(t('widget.fetch'))}</button>

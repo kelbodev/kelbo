@@ -79,7 +79,7 @@ window.Extensions = (() => {
       const duplicate = e.duplicate;
       const upd = e.update;
       return `<div class="ext-row">
-        <div class="ext-icon" style="--c:${cssColor(e.color)}">${esc(e.icon || '◆')}</div>
+        <div class="ext-icon" style="--c:${cssColor(e.color)}">${UI.iconOrText(e.icon)}</div>
         <div class="ext-info">
           <div class="ext-name">${esc(pick(e.name))} <span class="ext-muted">${esc(e.code)} · ${esc(e.version || '?')}</span> ${stateLabel(e)}
             ${upd?.available ? `<span class="ext-pill ext-pill-upd">${esc(t('core.ext.updateAvailable', { version: upd.latest || '' }))}</span>` : ''}
@@ -109,7 +109,7 @@ window.Extensions = (() => {
     const installed = data.extensions.filter(e => e.source !== 'builtin');
     return `
       ${data.pending.length ? `<div class="ext-section"><h4>${esc(t('core.ext.pendingTitle'))}</h4><p class="ext-muted">${esc(t('core.ext.pendingHint'))}</p>
-        ${data.pending.map(p => `<div class="ext-row"><div class="ext-icon">⤓</div><div class="ext-info"><div class="ext-name">${esc(p.code)}</div>
+        ${data.pending.map(p => `<div class="ext-row"><div class="ext-icon">${UI.icon('download')}</div><div class="ext-info"><div class="ext-name">${esc(p.code)}</div>
           <div class="ext-muted ext-source">${esc(p.repo)}${p.path ? ` · ${esc(p.path)}` : ''}${p.tag ? ` @ ${esc(p.tag)}` : ''}</div></div>
           <div class="ext-actions"><button class="btn btn-primary btn-sm" onclick="Extensions.previewPending(${js(p.code)})">${esc(t('core.ext.install'))}</button></div></div>`).join('')}</div>` : ''}
       <div class="ext-section"><h4>${esc(t('core.ext.installedTitle'))} <span class="ext-muted">(${esc(fmt.number(installed.length))})</span></h4>
@@ -145,10 +145,10 @@ window.Extensions = (() => {
     const failed = catalog.catalogs.filter(c => !c.ok);
     return `
       <div class="ext-search"><input class="form-input" type="search" value="${esc(search)}" placeholder="${esc(t('core.ext.search'))}" oninput="Extensions.search(this.value)">
-        <button class="btn btn-ghost btn-sm" onclick="Extensions.reloadCatalog()" title="${esc(t('core.action.refresh'))}">↻</button></div>
+        <button class="btn btn-ghost btn-sm" onclick="Extensions.reloadCatalog()" title="${esc(t('core.action.refresh'))}">${UI.icon('refresh-cw')}</button></div>
       ${failed.map(c => `<p class="ext-warn">${esc(t('core.ext.catalogFailed', { url: c.url, error: c.error }))}</p>`).join('')}
       ${list.length ? list.map(e => `<div class="ext-row">
-          <div class="ext-icon">${esc(e.icon || '◆')}</div>
+          <div class="ext-icon">${UI.iconOrText(e.icon)}</div>
           <div class="ext-info"><div class="ext-name">${esc(pick(e.name))} <span class="ext-muted">${esc(e.code)}${e.version ? ` · ${esc(e.version)}` : ''}</span>
             ${e.installed ? `<span class="ext-pill ext-pill-ok">${esc(t('core.ext.alreadyInstalled', { version: e.installed.version || '' }))}</span>` : ''}
             ${e.update?.available ? `<span class="ext-pill ext-pill-upd">${esc(t('core.ext.updateAvailable', { version: e.update.latest || '' }))}</span>` : ''}</div>
@@ -203,7 +203,7 @@ window.Extensions = (() => {
     return `
       <div class="ext-preview">
         <div class="ext-row ext-row-head">
-          <div class="ext-icon" style="--c:${cssColor(p.color)}">${esc(p.icon || '◆')}</div>
+          <div class="ext-icon" style="--c:${cssColor(p.color)}">${UI.iconOrText(p.icon)}</div>
           <div class="ext-info"><div class="ext-name">${esc(pick(p.name))} <span class="ext-muted">${esc(p.code)}</span></div>
             <div class="ext-muted ext-desc">${esc(pick(p.description))}</div>
             <div class="ext-muted ext-source">${esc(p.repo)}${p.path ? ` · ${esc(p.path)}` : ''} · ${esc(p.commit.slice(0, 10))}</div></div>
@@ -220,7 +220,7 @@ window.Extensions = (() => {
         ${p.hasNpmDependencies ? `<p class="ext-muted">${esc(t('core.ext.npmHint'))}</p>` : ''}
         ${p.reloadable ? '' : `<p class="ext-warn">${esc(t('core.ext.restartHint'))}</p>`}
         ${p.changelog ? `<div class="form-row"><label>${esc(t('core.ext.changelog'))}</label><pre class="ext-changelog">${esc(p.changelog)}</pre></div>` : ''}
-        <p class="ext-warn ext-security">⚠ ${esc(t('core.ext.security'))}</p>
+        <p class="ext-warn ext-security">${UI.icon('triangle-alert')} ${esc(t('core.ext.security'))}</p>
         <div class="ext-preview-actions">
           <button class="btn btn-ghost" onclick="Extensions.back()">${esc(t('core.action.cancel'))}</button>
           <button class="btn btn-primary" onclick="Extensions.install()" ${blocked ? 'disabled' : ''}>${esc(t(p.isUpdate ? 'core.ext.updateTo' : 'core.ext.installVersion', { version: p.version }))}</button>
@@ -233,7 +233,7 @@ window.Extensions = (() => {
     return `
       <div class="ext-progress">
         <h4>${esc(t('core.ext.installing', { name: pick(preview?.name || progress.code) }))}</h4>
-        <ul class="ext-steps">${progress.steps.map(s => `<li>✓ ${esc(t(`core.ext.steps.${s}`))}</li>`).join('')}${done || progress.error ? '' : '<li class="ext-muted">…</li>'}</ul>
+        <ul class="ext-steps">${progress.steps.map(s => `<li>${UI.icon('check')} ${esc(t(`core.ext.steps.${s}`))}</li>`).join('')}${done || progress.error ? '' : '<li class="ext-muted">…</li>'}</ul>
         ${progress.log ? `<pre class="ext-changelog">${esc(progress.log.slice(-6000))}</pre>` : ''}
         ${progress.error ? `<p class="ext-error">${esc(progress.error)}</p>` : ''}
         ${done ? `<p class="${done.restartRequired ? 'ext-warn' : 'ext-ok'}">${esc(done.restartRequired ? t('core.ext.restartNeeded') : done.state === 'ok' || done.state === 'warning' ? t('core.ext.installed', { name: pick(preview?.name || done.code), version: done.version }) : t('core.ext.installedNotLoaded', { error: done.error || '' }))}</p>` : ''}

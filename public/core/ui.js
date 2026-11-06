@@ -221,7 +221,7 @@ window.UI = (() => {
   // Avviso per uno strumento esterno mancante; recheck è l'handler inline del pulsante (es. "Ext.pm2.recheck()")
   function toolNotice(message, installCmd, recheck) {
     return `<div class="tool-notice">
-      <span>⚠️ ${esc(message)}</span>
+      <span>${icon('triangle-alert')} ${esc(message)}</span>
       ${installCmd ? `<code>${esc(installCmd)}</code>` : ''}
       ${recheck ? `<button class="btn btn-ghost btn-sm" onclick="${esc(recheck)}">${esc(I18n.t('core.tools.recheck'))}</button>` : ''}
     </div>`;
@@ -241,7 +241,7 @@ window.UI = (() => {
       b.className = 'ctx-item' + (it.danger ? ' danger' : '');
       b.disabled = !!it.disabled;
       b.setAttribute('role', 'menuitem');
-      b.innerHTML = `<span class="ctx-icon">${esc(it.icon || '')}</span>${esc(it.label)}`;
+      b.innerHTML = `<span class="ctx-icon">${it.icon ? iconOrText(it.icon) : ''}</span>${esc(it.label)}`;
       b.addEventListener('click', () => { closeContextMenu(); it.action(); });
       menuEl.appendChild(b);
     }
@@ -256,8 +256,45 @@ window.UI = (() => {
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeContextMenu(); });
   window.addEventListener('blur', closeContextMenu);
 
+  // ---- icone (Lucide, https://lucide.dev, ISC): sprite del core in /core/vendor/lucide ----
+  // icon('database') → <svg> che prende il colore e la dimensione del testo intorno.
+  // Nell'HTML statico (o generato) basta <i data-icon="database"></i>: viene riempito da solo.
+  // Le icone delle estensioni nel manifest possono essere un nome Lucide o, come prima, un'emoji.
+  const ICON_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+  const SPRITE = '/core/vendor/lucide/sprite.svg';
+  const isIconName = v => typeof v === 'string' && ICON_RE.test(v);
+  function icon(name, { cls = '', title = '' } = {}) {
+    if (!isIconName(name)) return '';
+    return `<svg class="i${cls ? ` ${esc(cls)}` : ''}" aria-hidden="${title ? 'false' : 'true'}"${title ? ` role="img" aria-label="${esc(title)}"` : ''} focusable="false"><use href="${SPRITE}#${name}"/></svg>`;
+  }
+  // Contenuto di un badge: testo, oppure { icon, text } (icona Lucide prima del testo)
+  function badgeHtml(value) {
+    if (value === null || value === undefined || value === '') return '';
+    if (typeof value === 'object') return `${value.icon ? icon(value.icon) : ''}${value.text != null && value.text !== '' ? `<span>${esc(String(value.text))}</span>` : ''}`;
+    return esc(String(value));
+  }
+  // Icona del manifest: nome Lucide → svg, altrimenti il testo (emoji) escapato
+  const iconOrText = (v, fallback = 'box') => (isIconName(v) ? icon(v) : v ? esc(v) : icon(fallback));
+  function hydrateIcons(root) {
+    const list = root.matches?.('i[data-icon]') ? [root] : root.querySelectorAll ? root.querySelectorAll('i[data-icon]') : [];
+    for (const el of list) {
+      const name = el.dataset.icon;
+      if (el.dataset.iconDone === name) continue;
+      el.dataset.iconDone = name;
+      el.innerHTML = icon(name);
+      el.classList.add('i-wrap');
+    }
+  }
+  hydrateIcons(document);
+  if (typeof MutationObserver === 'function' && document.documentElement) new MutationObserver(records => {
+    for (const r of records) {
+      if (r.type === 'attributes') { hydrateIcons(r.target); continue; }
+      for (const n of r.addedNodes) if (n.nodeType === 1) hydrateIcons(n);
+    }
+  }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-icon'] });
+
   // click fuori dal modal lo chiude
   document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
 
-  return { t: I18n.t, fmt: I18n.fmt, errorText: I18n.errorText, esc, js, cssColor, ansiToHtml, ansiState, toast, openModal, closeModal, patch, apiClient, formatUptime, toolNotice, contextMenu, closeContextMenu };
+  return { t: I18n.t, fmt: I18n.fmt, errorText: I18n.errorText, esc, js, cssColor, ansiToHtml, ansiState, toast, openModal, closeModal, patch, apiClient, formatUptime, toolNotice, contextMenu, closeContextMenu, icon, iconOrText, isIconName, badgeHtml };
 })();

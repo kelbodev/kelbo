@@ -253,6 +253,10 @@ npm run i18n:report  # translation completeness per language and extension
 
 Roadmap and progress: [ROADMAP.md](ROADMAP.md) · Changes: [CHANGELOG.md](CHANGELOG.md)
 
+## Credits
+
+Icons: [Lucide](https://lucide.dev) (ISC license), bundled in `public/core/vendor/lucide/`.
+
 ## License
 
 Copyright 2026 The Kelbo authors. Licensed under the [Apache License, Version 2.0](LICENSE).

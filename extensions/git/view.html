@@ -1,17 +1,17 @@
-<div class="empty-state" data-role="empty"><div class="icon">🌿</div><p data-i18n="empty"></p></div>
+<div class="empty-state" data-role="empty"><div class="icon"><i data-icon="git-branch"></i></div><p data-i18n="empty"></p></div>
 <div class="git-area" data-role="repo" hidden>
   <div class="git-repo-header" data-role="header"></div>
   <div class="git-action-bar">
     <input class="remote-input" data-role="remote" value="origin" placeholder="remote" title="Remote">
-    <button class="btn btn-git btn-sm" data-git="pull" title="git pull">⬇ Pull</button>
-    <button class="btn btn-ghost btn-sm" data-git="push" title="git push">⬆ Push</button>
-    <button class="btn btn-ghost btn-sm" data-git="pull_push" title="git pull + push">⬇⬆ Pull &amp; Push</button>
-    <button class="btn btn-ghost btn-sm" data-git="fetch" title="git fetch --all --prune">🔄 Fetch</button>
-    <button class="btn btn-ghost btn-sm" data-action="merge" title="git merge">⑃ Merge</button>
-    <button class="btn btn-ghost btn-sm" data-git="stash" title="git stash">📦 Stash</button>
-    <button class="btn btn-ghost btn-sm" data-git="stash_pop" title="git stash pop">📤 Pop</button>
+    <button class="btn btn-git btn-sm" data-git="pull" title="git pull"><i data-icon="arrow-down"></i> Pull</button>
+    <button class="btn btn-ghost btn-sm" data-git="push" title="git push"><i data-icon="arrow-up"></i> Push</button>
+    <button class="btn btn-ghost btn-sm" data-git="pull_push" title="git pull + push"><i data-icon="arrow-down-up"></i> Pull &amp; Push</button>
+    <button class="btn btn-ghost btn-sm" data-git="fetch" title="git fetch --all --prune"><i data-icon="refresh-cw"></i> Fetch</button>
+    <button class="btn btn-ghost btn-sm" data-action="merge" title="git merge"><i data-icon="git-merge"></i> Merge</button>
+    <button class="btn btn-ghost btn-sm" data-git="stash" title="git stash"><i data-icon="package"></i> Stash</button>
+    <button class="btn btn-ghost btn-sm" data-git="stash_pop" title="git stash pop"><i data-icon="package-open"></i> Pop</button>
     <div class="git-bar-end">
-      <button class="btn btn-ghost btn-sm" data-action="reload" data-i18n="bar.reload"></button>
+      <button class="btn btn-ghost btn-sm" data-action="reload"><i data-icon="refresh-cw"></i> <span data-i18n="bar.reload"></span></button>
     </div>
   </div>
   <div class="git-body">
@@ -24,8 +24,8 @@
       <div class="git-commit-area">
         <textarea class="git-commit-msg" data-role="message" rows="2" data-i18n-placeholder="commit.placeholder"></textarea>
         <div class="git-commit-actions">
-          <button class="btn btn-git btn-sm" data-action="commit">✓ Commit</button>
-          <button class="btn btn-ghost btn-sm" data-action="commit-push">✓ Commit &amp; Push</button>
+          <button class="btn btn-git btn-sm" data-action="commit"><i data-icon="check"></i> Commit</button>
+          <button class="btn btn-ghost btn-sm" data-action="commit-push"><i data-icon="check"></i> Commit &amp; Push</button>
         </div>
       </div>
     </div>

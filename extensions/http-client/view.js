@@ -332,7 +332,7 @@ export default {
             <svg class="pf-chevron ${open ? 'open' : ''}" viewBox="0 0 10 10" aria-hidden="true"><path d="M3.5 1.5 7 5 3.5 8.5" /></svg>
             <span class="hc-group-label" title="${esc(project ? t('sidebar.linked', { project: project.label }) : s.label)}">${esc(s.label)}</span>
             <span class="sb-count">${esc(fmt.number(s.requests.length))}</span>
-            <button class="sb-item-act" onclick="event.stopPropagation();Ext['http-client'].sectionMenu(event,${js(s.id)})" title="${esc(t('sidebar.sectionActions'))}">⋯</button>
+            <button class="sb-item-act" onclick="event.stopPropagation();Ext['http-client'].sectionMenu(event,${js(s.id)})" title="${esc(t('sidebar.sectionActions'))}"><i data-icon="ellipsis"></i></button>
           </div>
           <div class="hc-children">${sectionTree(s, closed)}</div>
         </div>`;
@@ -346,12 +346,12 @@ export default {
       const reqButton = (r, nested) => `<button class="sb-item hc-req ${nested ? 'hc-req-nested' : ''} ${active?.request === r.id && active?.section === s.id ? 'active' : ''}"
           onclick="Ext['http-client'].open(${js(s.id)},${js(r.id)})" oncontextmenu="event.preventDefault();Ext['http-client'].requestMenu(event,${js(s.id)},${js(r.id)})">
           ${methodBadge(r.method)}<span class="hc-req-label">${esc(r.label)}</span></button>`;
-      const addButton = (uid, nested) => `<button class="sb-item hc-add ${nested ? 'hc-req-nested' : ''}" onclick="Ext['http-client'].newRequest(${js(s.id)},${js(uid || '')})">＋ ${esc(t('sidebar.newRequest'))}</button>`;
+      const addButton = (uid, nested) => `<button class="sb-item hc-add ${nested ? 'hc-req-nested' : ''}" onclick="Ext['http-client'].newRequest(${js(s.id)},${js(uid || '')})"><i data-icon="plus"></i> ${esc(t('sidebar.newRequest'))}</button>`;
       if (!s.userTypes.length) return s.requests.map(r => reqButton(r, false)).join('') + addButton(null, false);
       const known = new Set(s.userTypes.map(u => u.id));
       const groups = [
-        ...s.userTypes.map(u => ({ id: u.id, label: u.label, icon: '👤', requests: s.requests.filter(r => r.userType === u.id) })),
-        { id: '', label: t('sidebar.noUser'), icon: '○', requests: s.requests.filter(r => !r.userType || !known.has(r.userType)) },
+        ...s.userTypes.map(u => ({ id: u.id, label: u.label, icon: 'user', requests: s.requests.filter(r => r.userType === u.id) })),
+        { id: '', label: t('sidebar.noUser'), icon: 'user-x', requests: s.requests.filter(r => !r.userType || !known.has(r.userType)) },
       ].filter(g => g.id || g.requests.length);
       return groups.map(g => {
         const key = `${s.id}|${g.id || '-'}`;
@@ -360,7 +360,7 @@ export default {
             <svg class="pf-chevron ${open ? 'open' : ''}" viewBox="0 0 10 10" aria-hidden="true"><path d="M3.5 1.5 7 5 3.5 8.5" /></svg>
             <span class="hc-user-icon">${g.icon}</span><span class="hc-group-label">${esc(g.label)}</span>
             <span class="sb-count">${esc(fmt.number(g.requests.length))}</span>
-            <button class="sb-item-act" onclick="event.stopPropagation();Ext['http-client'].newRequest(${js(s.id)},${js(g.id)})" title="${esc(t('sidebar.newRequestFor', { user: g.label }))}">＋</button>
+            <button class="sb-item-act" onclick="event.stopPropagation();Ext['http-client'].newRequest(${js(s.id)},${js(g.id)})" title="${esc(t('sidebar.newRequestFor', { user: g.label }))}"><i data-icon="plus"></i></button>
           </div>
           ${open ? g.requests.map(r => reqButton(r, true)).join('') + (g.requests.length ? '' : addButton(g.id, true)) : ''}`;
       }).join('');
@@ -421,7 +421,7 @@ export default {
       $(ctx.root, 'method').style.color = ctx.ui.cssColor(METHOD_COLORS[draft.method]);
       $(ctx.root, 'url').value = draft.url;
       $(ctx.root, 'user').innerHTML = `<option value="">${esc(t('editor.noUser'))}</option>` +
-        s.userTypes.map(u => `<option value="${esc(u.id)}" ${u.id === draft.userType ? 'selected' : ''}>👤 ${esc(u.label)}</option>`).join('');
+        s.userTypes.map(u => `<option value="${esc(u.id)}" ${u.id === draft.userType ? 'selected' : ''}>${esc(u.label)}</option>`).join('');
       renderVars();
       renderTabs();
       renderResponse();
@@ -521,7 +521,7 @@ export default {
       const names = ['baseUrl', ...s.variables.map(v => v.name)];
       $(ctx.root, 'vars').innerHTML = `<span class="hc-muted">${esc(t('editor.variables'))}</span> ` +
         names.map(n => `<code class="hc-var" title="${esc(n === 'baseUrl' ? s.baseUrl || t('editor.baseUrlMissing') : s.variables.find(v => v.name === n)?.value ?? '')} · ${esc(t('editor.variableForms', { name: n }))}">{{${esc(n)}}}</code>`).join(' ') +
-        ` <button class="btn btn-ghost btn-sm" onclick="Ext['http-client'].editSection(${js(s.id)})">✎</button>`;
+        ` <button class="btn btn-ghost btn-sm" onclick="Ext['http-client'].editSection(${js(s.id)})"><i data-icon="pencil"></i></button>`;
     }
 
     const count = list => (list || []).filter(p => p.name && p.enabled !== false).length;
@@ -562,10 +562,10 @@ export default {
             <option value="text" ${p.type !== 'file' ? 'selected' : ''}>${esc(t('body.formText'))}</option>
             <option value="file" ${p.type === 'file' ? 'selected' : ''}>${esc(t('body.formFile'))}</option></select></td>
           <td><input class="form-input ${p.type === 'file' ? 'hc-code' : ''}" data-list="form" data-index="${i}" data-field="value" value="${esc(p.value)}" placeholder="${esc(t(p.type === 'file' ? 'body.filePlaceholder' : 'pairs.value'))}" spellcheck="false"></td>
-          <td class="hc-pair-check"><button class="sb-item-act hc-visible" data-action="remove-pair" data-list="form" data-index="${i}" title="${esc(t('core.action.delete'))}">✕</button></td>
+          <td class="hc-pair-check"><button class="sb-item-act hc-visible" data-action="remove-pair" data-list="form" data-index="${i}" title="${esc(t('core.action.delete'))}"><i data-icon="x"></i></button></td>
         </tr>`).join('')}
       </tbody></table>
-      <button class="btn btn-ghost btn-sm" data-action="add-pair" data-list="form">＋ ${esc(t('body.formAdd'))}</button>
+      <button class="btn btn-ghost btn-sm" data-action="add-pair" data-list="form"><i data-icon="plus"></i> ${esc(t('body.formAdd'))}</button>
       <p class="hc-muted">${esc(t('body.formHint'))}</p>`;
     }
 
@@ -576,10 +576,10 @@ export default {
           <td class="hc-pair-check"><input type="checkbox" data-list="${list}" data-index="${i}" data-field="enabled" ${p.enabled === false ? '' : 'checked'} title="${esc(t('pairs.enabled'))}"></td>
           <td><input class="form-input" data-list="${list}" data-index="${i}" data-field="name" value="${esc(p.name)}" placeholder="${esc(t('pairs.name'))}" spellcheck="false"></td>
           <td><input class="form-input" data-list="${list}" data-index="${i}" data-field="value" value="${esc(p.value)}" placeholder="${esc(t('pairs.value'))}" spellcheck="false"></td>
-          <td class="hc-pair-check"><button class="sb-item-act hc-visible" data-action="remove-pair" data-list="${list}" data-index="${i}" title="${esc(t('core.action.delete'))}">✕</button></td>
+          <td class="hc-pair-check"><button class="sb-item-act hc-visible" data-action="remove-pair" data-list="${list}" data-index="${i}" title="${esc(t('core.action.delete'))}"><i data-icon="x"></i></button></td>
         </tr>`).join('')}
       </tbody></table>
-      <button class="btn btn-ghost btn-sm" data-action="add-pair" data-list="${list}">＋ ${esc(t(list === 'query' ? 'pairs.addQuery' : 'pairs.addHeader'))}</button>`;
+      <button class="btn btn-ghost btn-sm" data-action="add-pair" data-list="${list}"><i data-icon="plus"></i> ${esc(t(list === 'query' ? 'pairs.addQuery' : 'pairs.addHeader'))}</button>`;
     }
 
     function statusClass(status) {
@@ -619,7 +619,7 @@ export default {
       let body;
       if (r.binary) body = r.base64
         ? `<p class="hc-pad">${esc(t('response.downloaded', { name: r.fileName, size: fmt.bytes(r.size) }))}
-            <button class="btn btn-ghost btn-sm" data-action="download-body">${esc(t('response.downloadAgain'))}</button></p>`
+            <button class="btn btn-ghost btn-sm" data-action="download-body">${ctx.ui.icon('download')} ${esc(t('response.downloadAgain'))}</button></p>`
         : `<p class="hc-muted hc-pad">${esc(t(r.truncated ? 'response.binaryTooLarge' : 'response.binary', { size: fmt.bytes(r.size) }))}</p>`;
       else if (!r.body) body = `<p class="hc-muted hc-pad">${esc(t('response.empty'))}</p>`;
       else {
@@ -631,8 +631,8 @@ export default {
         body = tree ? `<div class="hc-resp-body hc-json hc-jt" data-role="json-tree">${tree}</div>`
           : `<pre class="hc-resp-body ${r.json ? 'hc-json' : ''}">${r.json ? highlightJson(text) : esc(text)}</pre>`;
         if (tree) body = `<div class="hc-jt-tools">
-            <button class="btn btn-ghost btn-sm" data-jt-all="expand" title="${esc(t('response.expandAllTitle'))}">⊞ ${esc(t('response.expandAll'))}</button>
-            <button class="btn btn-ghost btn-sm" data-jt-all="collapse" title="${esc(t('response.collapseAllTitle'))}">⊟ ${esc(t('response.collapseAll'))}</button>
+            <button class="btn btn-ghost btn-sm" data-jt-all="expand" title="${esc(t('response.expandAllTitle'))}"><i data-icon="chevrons-down-up"></i> ${esc(t('response.expandAll'))}</button>
+            <button class="btn btn-ghost btn-sm" data-jt-all="collapse" title="${esc(t('response.collapseAllTitle'))}"><i data-icon="chevrons-up-down"></i> ${esc(t('response.collapseAll'))}</button>
             <span class="hc-muted">${esc(t('response.jsonTreeHint'))}</span></div>${body}`;
       }
       el.innerHTML = `<div class="hc-resp-meta">
@@ -640,7 +640,7 @@ export default {
           <span>${esc(t('response.time', { ms: fmt.number(Math.round(r.ms)) }))}</span>
           <span>${esc(fmt.bytes(r.size))}</span>
           ${r.truncated ? `<span class="hc-warn">${esc(t('response.truncated'))}</span>` : ''}
-          ${r.user ? `<span class="hc-muted">👤 ${esc(activeSection()?.userTypes.find(u => u.id === r.user)?.label || r.user)}</span>` : ''}
+          ${r.user ? `<span class="hc-muted"><i data-icon="user"></i> ${esc(activeSection()?.userTypes.find(u => u.id === r.user)?.label || r.user)}</span>` : ''}
           <span class="hc-resp-url" title="${esc(r.url)}">${esc(r.url)}</span>
           <div class="hc-tabs hc-resp-tabs">
             <button class="hc-tab ${respTab === 'body' ? 'active' : ''}" data-resp-tab="body">${esc(t('response.body'))}</button>
@@ -658,8 +658,8 @@ export default {
     function jsonStatus(text) {
       const p = jsonProblem(text);
       if (!text.trim()) return '';
-      if (!p) return `<span class="hc-json-ok">✓ ${esc(t('body.jsonValid'))}</span>`;
-      return `<span class="hc-json-err">✖ ${esc(p.line ? t('body.jsonErrorAt', { line: p.line, column: p.column }) : t('body.invalidJson', { error: p.message }))}</span>`;
+      if (!p) return `<span class="hc-json-ok"><i data-icon="check"></i> ${esc(t('body.jsonValid'))}</span>`;
+      return `<span class="hc-json-err"><i data-icon="circle-x"></i> ${esc(p.line ? t('body.jsonErrorAt', { line: p.line, column: p.column }) : t('body.invalidJson', { error: p.message }))}</span>`;
     }
     let jsonTimer = null;
     function syncBody(ta) {
@@ -769,7 +769,7 @@ export default {
       return list.map((v, i) => `<tr>
         <td><input class="form-input" data-var="name" value="${esc(v.name)}" placeholder="${esc(t('pairs.name'))}" spellcheck="false"></td>
         <td><input class="form-input" data-var="value" value="${esc(v.value)}" placeholder="${esc(t('pairs.value'))}" spellcheck="false"></td>
-        <td class="hc-pair-check"><button class="sb-item-act hc-visible" onclick="this.closest('tr').remove()" title="${esc(t('core.action.delete'))}">✕</button></td>
+        <td class="hc-pair-check"><button class="sb-item-act hc-visible" onclick="this.closest('tr').remove()" title="${esc(t('core.action.delete'))}"><i data-icon="x"></i></button></td>
       </tr>`).join('');
     }
 
@@ -789,7 +789,7 @@ export default {
           <p class="hc-muted" id="f_hc_base_hint"></p></div>
         <div class="form-row"><label>${esc(t('sectionDlg.variables'))}</label>
           <table class="hc-pairs"><tbody id="f_hc_vars">${variablesRows(s.variables)}</tbody></table>
-          <button class="btn btn-ghost btn-sm" onclick="Ext['http-client'].addVariable()">＋ ${esc(t('sectionDlg.addVariable'))}</button>
+          <button class="btn btn-ghost btn-sm" onclick="Ext['http-client'].addVariable()"><i data-icon="plus"></i> ${esc(t('sectionDlg.addVariable'))}</button>
           <p class="hc-muted">${esc(t('sectionDlg.variablesHint'))}</p></div>`,
         `<button class="btn btn-ghost" onclick="UI.closeModal()">${esc(t('core.action.cancel'))}</button>
          <button class="btn btn-primary" onclick="Ext['http-client'].saveSection(${js(id || '')})">${esc(t(id ? 'core.action.save' : 'core.action.add'))}</button>`);
@@ -866,20 +866,20 @@ export default {
       openModal(t('users.title', { section: s.label }), `
         <p class="hc-muted">${esc(t('users.hint'))}</p>
         ${s.userTypes.length ? `<table class="data-table hc-users"><tbody>${s.userTypes.map(u => `<tr>
-          <td><strong>👤 ${esc(u.label)}</strong><div class="hc-muted">${esc(t(`auth.${u.auth.type}`))}</div></td>
+          <td><strong><i data-icon="user"></i> ${esc(u.label)}</strong><div class="hc-muted">${esc(t(`auth.${u.auth.type}`))}</div></td>
           <td>${tokenState(u)}</td>
           <td class="hc-users-actions">
             ${['login', 'oauth'].includes(u.auth.type) ? `<button class="btn btn-ghost btn-sm" onclick="Ext['http-client'].login(${js(u.id)})">${esc(t('users.login'))}</button>` : ''}
             ${!['none', 'basic'].includes(u.auth.type) ? `<button class="btn btn-ghost btn-sm" onclick="Ext['http-client'].pasteToken(${js(sectionId)},${js(u.id)})">${esc(t('users.paste'))}</button>` : ''}
             ${authStates.find(x => x.id === u.id)?.hasToken ? `<button class="btn btn-ghost btn-sm" onclick="Ext['http-client'].forgetToken(${js(u.id)})">${esc(t('users.forget'))}</button>` : ''}
-            <button class="btn btn-ghost btn-sm" onclick="Ext['http-client'].editUser(${js(u.id)})">✎</button>
-            <button class="btn btn-ghost btn-sm hc-danger" onclick="Ext['http-client'].deleteUser(${js(u.id)})">🗑</button>
+            <button class="btn btn-ghost btn-sm" onclick="Ext['http-client'].editUser(${js(u.id)})"><i data-icon="pencil"></i></button>
+            <button class="btn btn-ghost btn-sm hc-danger" onclick="Ext['http-client'].deleteUser(${js(u.id)})"><i data-icon="trash-2"></i></button>
           </td></tr>`).join('')}</tbody></table>` : `<p class="hc-muted">${esc(t('users.none'))}</p>`}
         ${browser ? `<div class="hc-browser"><span class="hc-muted">${esc(t('browser.label'))}</span>
           <code>${esc(browser.path || (browser.wsl ? (browser.firefox ? t('browser.wslFirefox', { path: browser.firefox }) : t('browser.wslDefault')) : t('browser.default')))}</code>
           <button class="btn btn-ghost btn-sm" onclick="Ext['http-client'].browserDialog(${js(sectionId)})">${esc(t('browser.change'))}</button></div>` : ''}`,
         `<button class="btn btn-ghost" onclick="UI.closeModal()">${esc(t('core.action.close'))}</button>
-         <button class="btn btn-primary" onclick="Ext['http-client'].editUser('')">＋ ${esc(t('users.add'))}</button>`);
+         <button class="btn btn-primary" onclick="Ext['http-client'].editUser('')"><i data-icon="plus"></i> ${esc(t('users.add'))}</button>`);
       byId('modal').classList.add('modal-wide');
     }
 
@@ -946,7 +946,7 @@ export default {
             <div class="hc-inline"><span class="hc-step-n">${i + 1}</span>
               <select class="form-input hc-method" data-sf="method">${info.methods.map(m => `<option ${m === st.method ? 'selected' : ''}>${m}</option>`).join('')}</select>
               <input class="form-input" data-sf="url" value="${esc(st.url)}" placeholder="{{baseUrl}}/me" spellcheck="false">
-              <button class="sb-item-act hc-visible" onclick="Ext['http-client'].removeStep(${i})" title="${esc(t('core.action.delete'))}">✕</button></div>
+              <button class="sb-item-act hc-visible" onclick="Ext['http-client'].removeStep(${i})" title="${esc(t('core.action.delete'))}"><i data-icon="x"></i></button></div>
             <div class="hc-grid2">
               <div class="form-row"><label>${esc(t('after.headers'))}</label><textarea class="form-input hc-code" data-sf="headers" rows="2" spellcheck="false" placeholder="X-Tenant: {{tenant}}">${esc(linesOf(st.headers))}</textarea></div>
               <div class="form-row"><label>${esc(t('after.extract'))}</label><textarea class="form-input hc-code" data-sf="extract" rows="2" spellcheck="false" placeholder="tenant = data.tenantId&#10;csrf = header:X-CSRF-Token">${esc(extractLines(st.extract))}</textarea></div>
@@ -955,7 +955,7 @@ export default {
               <div class="hc-inline"><select class="form-input hc-method" data-sf="bodyType">${['none', 'json', 'text'].map(bt => `<option value="${bt}" ${bt === (st.bodyType || 'none') ? 'selected' : ''}>${esc(t(`body.${bt}`))}</option>`).join('')}</select>
               <textarea class="form-input hc-code" data-sf="body" rows="2" spellcheck="false">${esc(st.body || '')}</textarea></div></div>
           </div>`).join('')}
-          ${u.afterToken.length < info.maxAfterSteps ? `<button class="btn btn-ghost btn-sm" onclick="Ext['http-client'].addStep()">＋ ${esc(t('after.add'))}</button>` : ''}
+          ${u.afterToken.length < info.maxAfterSteps ? `<button class="btn btn-ghost btn-sm" onclick="Ext['http-client'].addStep()"><i data-icon="plus"></i> ${esc(t('after.add'))}</button>` : ''}
           <p class="hc-muted">${esc(t('after.extractHint'))}</p>
         </fieldset>` : '';
       openModal(t(uid ? 'userDlg.editTitle' : 'userDlg.newTitle'), `<div class="hc-scroll">
@@ -1318,24 +1318,24 @@ export default {
       sectionMenu(event, id) {
         const s = section(id);
         menuAt(event, [
-          { label: t('sidebar.newRequest'), icon: '＋', action: () => { if (canLeave()) createRequest(id); } },
-          { label: t('sidebar.discover'), icon: '🔎', disabled: !s.projectId, action: () => routesDialog(id) },
-          { label: t('editor.users'), icon: '👤', action: () => usersDialog(id) },
-          { label: t('sidebar.editSection'), icon: '✎', action: () => sectionDialog(id) },
+          { label: t('sidebar.newRequest'), icon: 'plus', action: () => { if (canLeave()) createRequest(id); } },
+          { label: t('sidebar.discover'), icon: 'scan-search', disabled: !s.projectId, action: () => routesDialog(id) },
+          { label: t('editor.users'), icon: 'user', action: () => usersDialog(id) },
+          { label: t('sidebar.editSection'), icon: 'pencil', action: () => sectionDialog(id) },
           'separator',
-          { label: t('sidebar.deleteSection'), icon: '🗑', danger: true, action: () => deleteSection(id) },
+          { label: t('sidebar.deleteSection'), icon: 'trash-2', danger: true, action: () => deleteSection(id) },
         ]);
       },
       requestMenu(event, sectionId, requestId) {
         const r = section(sectionId).requests.find(x => x.id === requestId);
         menuAt(event, [
-          { label: t('sidebar.openRequest'), icon: '↗', action: () => { if (canLeave()) openRequest(sectionId, requestId); } },
-          { label: t('sidebar.duplicate'), icon: '⧉', action: () => { if (canLeave()) createRequest(sectionId, { ...r, id: undefined, label: t('sidebar.copyOf', { name: r.label }) }); } },
+          { label: t('sidebar.openRequest'), icon: 'arrow-up-right', action: () => { if (canLeave()) openRequest(sectionId, requestId); } },
+          { label: t('sidebar.duplicate'), icon: 'copy', action: () => { if (canLeave()) createRequest(sectionId, { ...r, id: undefined, label: t('sidebar.copyOf', { name: r.label }) }); } },
           ...(section(sectionId).userTypes.length ? ['separator',
-            ...section(sectionId).userTypes.filter(u => u.id !== r.userType).map(u => ({ label: t('sidebar.moveTo', { user: u.label }), icon: '👤', action: () => moveToUser(sectionId, requestId, u.id) })),
-            ...(r.userType ? [{ label: t('sidebar.moveTo', { user: t('sidebar.noUser') }), icon: '○', action: () => moveToUser(sectionId, requestId, null) }] : [])] : []),
+            ...section(sectionId).userTypes.filter(u => u.id !== r.userType).map(u => ({ label: t('sidebar.moveTo', { user: u.label }), icon: 'user', action: () => moveToUser(sectionId, requestId, u.id) })),
+            ...(r.userType ? [{ label: t('sidebar.moveTo', { user: t('sidebar.noUser') }), icon: 'user-x', action: () => moveToUser(sectionId, requestId, null) }] : [])] : []),
           'separator',
-          { label: t('core.action.delete'), icon: '🗑', danger: true, action: async () => {
+          { label: t('core.action.delete'), icon: 'trash-2', danger: true, action: async () => {
             if (!confirm(t('sidebar.confirmDeleteRequest', { name: r.label }))) return;
             try {
               await ctx.api.del(`/sections/${encodeURIComponent(sectionId)}/requests/${encodeURIComponent(requestId)}`);

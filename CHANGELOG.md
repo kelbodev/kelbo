@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.25.0] - 2026-11-06
+
+### Changed
+- **Icons: from emoji to [Lucide](https://lucide.dev).** The header, the 📁/🧩 panels, the tabs, sidebars, toolbars, buttons, menus, badges and widgets of the core and of every built-in extension use Lucide line icons, coloured like the text around them (the tabs and pills in the extension's colour) and the same on every system, instead of emoji that changed from one OS to another. Symbols that are part of a sentence (✓ done, → renamed) stay in the texts.
+- Built-in extensions declare a Lucide icon in their manifest (`layout-dashboard`, `cable`, `package`, `key-round`, `database`, `git-branch`, `send`, `drama`).
+
+### Added
+- **The whole Lucide set in the core** (v1.70.0, ISC license), one SVG sprite in `public/core/vendor/lucide/` (about 100 KB compressed) that every extension inherits, also offline: `<i data-icon="name">` in HTML (filled in automatically, also in HTML added later), `ctx.ui.icon(name)` in code, names in context menu items, badges as `{ icon, text }` (`ctx.setBadge`, widgets' `setBadge`), and a Lucide name as the manifest `icon` (emoji still work for existing extensions). Contract in `docs/EXTENSIONS.md` (*Icons*). `scripts/lucide-sprite.js` rebuilds the sprite from a newer `lucide-static`.
+
 ## [2.24.0] - 2026-11-06
 
 ### Added

@@ -38,8 +38,8 @@ function render(ctx, el) {
   const { t } = ctx;
   const d = states.get(el).data;
   if (d.locked) {
-    ctx.widget.setBadge('🔒');
-    ctx.ui.patch(el, `<p class="tw-muted">${esc(t('widget.locked'))}</p><button class="btn btn-primary btn-sm" data-tw="unlock">${esc(t('widget.unlock'))}</button>`);
+    ctx.widget.setBadge({ icon: 'lock' });
+    ctx.ui.patch(el, `<p class="tw-muted">${esc(t('widget.locked'))}</p><button class="btn btn-primary btn-sm" data-tw="unlock">${ctx.ui.icon('lock-open')} ${esc(t('widget.unlock'))}</button>`);
     return;
   }
   if (!ctx.hasExtension('db-client') && !ctx.hasExtension('mongo-client')) { ctx.widget.setBadge(null); ctx.ui.patch(el, `<p class="tw-muted">${esc(t('widget.noDb'))}</p>`); return; }

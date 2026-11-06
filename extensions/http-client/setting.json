@@ -11,7 +11,7 @@
     "en": "HTTP client for the projects' local APIs: sections of requests with variables, Express routes found in the code, tokens per user type (basic, login, OAuth/OpenID Connect)"
   },
   "color": "#f778ba",
-  "icon": "📮",
+  "icon": "send",
   "position": "tab",
   "order": 38,
   "config": [

@@ -31,7 +31,7 @@ export default {
       try { processes = await ctx.api.get('/processes'); } catch { return; }
       renderPills();
       const n = processes.filter(p => p.running).length;
-      ctx.setBadge(projects.length + (n ? ` · ${n}▶` : ''));
+      ctx.setBadge(n ? { icon: 'play', text: `${projects.length} · ${n}` } : projects.length);
     }
 
     // ---- header ----
@@ -43,7 +43,7 @@ export default {
           <span class="pill-dot"></span>
           ${esc(p.projectLabel)}<span class="pill-sub"> ${esc(p.script)}</span>
           ${ports ? `<span class="pill-sub">${esc(ports)}</span>` : ''}
-          <span class="pill-close" onclick="event.stopPropagation();Ext.npm.stop(${js(p.id)})">✕</span>
+          <span class="pill-close" onclick="event.stopPropagation();Ext.npm.stop(${js(p.id)})"><i data-icon="x"></i></span>
         </span>`;
       }).join(''));
     }
@@ -52,15 +52,15 @@ export default {
     function renderProjects() {
       const el = $(ctx.sidebar, 'projects');
       if (!projects.length) {
-        ctx.ui.patch(el, `<p class="npm-muted npm-pad">${esc(t('sidebar.none'))}<br><br><button class="btn btn-npm btn-sm" onclick="Projects.openPanel()">${esc(t('sidebar.add'))}</button></p>${ctx.projects.hiddenNote(hidden)}`);
+        ctx.ui.patch(el, `<p class="npm-muted npm-pad">${esc(t('sidebar.none'))}<br><br><button class="btn btn-npm btn-sm" onclick="Projects.openPanel()">${ctx.ui.icon('folder-git-2')} ${esc(t('sidebar.add'))}</button></p>${ctx.projects.hiddenNote(hidden)}`);
         return;
       }
       ctx.ui.patch(el, ctx.projects.tree(folders, projects, p => {
         const n = running(p.id);
         return `<div class="sb-proj ${activeProject === p.id ? 'active' : ''}" onclick="Ext.npm.select(${js(p.id)})">
-          <span class="sb-proj-icon">${n ? '🟠' : '📦'}</span>
+          <span class="sb-proj-icon ${n ? 'running' : ''}">${ctx.ui.icon(n ? 'circle-play' : 'package')}</span>
           <div class="sb-proj-info">
-            <div class="sb-proj-label">${esc(p.label)}${n ? ` <span class="npm-run-count">▶${fmt.number(n)}</span>` : ''}</div>
+            <div class="sb-proj-label">${esc(p.label)}${n ? ` <span class="npm-run-count">${ctx.ui.icon('play')}${fmt.number(n)}</span>` : ''}</div>
             <div class="sb-proj-path">${esc(p.path)}</div>
           </div>
         </div>`;
@@ -76,7 +76,7 @@ export default {
       $(ctx.root, 'title').textContent = p.label;
       $(ctx.root, 'path').textContent = p.path;
       const n = running(p.id);
-      $(ctx.root, 'running').textContent = n ? t('running', { count: n }) : '';
+      $(ctx.root, 'running').innerHTML = n ? `${ctx.ui.icon('play')} ${esc(t('running', { count: n }))}` : '';
       for (const b of ctx.root.querySelectorAll('.npm-tab')) b.classList.toggle('active', b.dataset.tab === tab);
       return true;
     }
@@ -112,15 +112,15 @@ export default {
           ${(isRunning ? proc.ports || [] : []).map(port => `<span class="proc-port" title="${esc(t('script.portInUse'))}">:${esc(port)}</span>`).join('')}
           <div class="script-actions">
             ${proc ? `
-              <button class="btn btn-ghost btn-sm" onclick="Ext.npm.logs(${js(proc.id)},${js(scriptLabel(name))})" title="${esc(t('script.logs'))}">📋</button>
+              <button class="btn btn-ghost btn-sm" onclick="Ext.npm.logs(${js(proc.id)},${js(scriptLabel(name))})" title="${esc(t('script.logs'))}"><i data-icon="scroll-text"></i></button>
               ${isRunning ? `
-                <button class="btn btn-ghost btn-sm" onclick="Ext.npm.restart(${js(proc.id)})" title="${esc(t('script.restart'))}">↺</button>
-                <button class="btn btn-disconnect btn-sm" onclick="Ext.npm.stop(${js(proc.id)})" title="${esc(t('script.stop'))}">⏹</button>
+                <button class="btn btn-ghost btn-sm" onclick="Ext.npm.restart(${js(proc.id)})" title="${esc(t('script.restart'))}"><i data-icon="rotate-ccw"></i></button>
+                <button class="btn btn-disconnect btn-sm" onclick="Ext.npm.stop(${js(proc.id)})" title="${esc(t('script.stop'))}"><i data-icon="square"></i></button>
               ` : `
-                <button class="btn btn-npm btn-sm" onclick="Ext.npm.run(${js(p.id)},${js(name)})">${esc(t('script.rerun'))}</button>
-                <button class="btn btn-ghost btn-sm" onclick="Ext.npm.dismiss(${js(proc.id)})" title="${esc(t('script.dismiss'))}">✕</button>
+                <button class="btn btn-npm btn-sm" onclick="Ext.npm.run(${js(p.id)},${js(name)})">${ctx.ui.icon('play')} ${esc(t('script.rerun'))}</button>
+                <button class="btn btn-ghost btn-sm" onclick="Ext.npm.dismiss(${js(proc.id)})" title="${esc(t('script.dismiss'))}"><i data-icon="x"></i></button>
               `}
-            ` : `<button class="btn btn-npm btn-sm" onclick="Ext.npm.run(${js(p.id)},${js(name)})">${esc(t('script.run'))}</button>`}
+            ` : `<button class="btn btn-npm btn-sm" onclick="Ext.npm.run(${js(p.id)},${js(name)})">${ctx.ui.icon('play')} ${esc(t('script.run'))}</button>`}
             ${pm2 && name !== 'install' ? `<button class="btn btn-ghost btn-sm" onclick="Ext.npm.pm2(${js(p.id)},${js(name)})" title="${esc(t('script.pm2'))}">PM2</button>` : ''}
           </div>
         </div>`;
@@ -152,15 +152,15 @@ export default {
               <td class="pkg-name">${esc(name)}</td>
               <td class="pkg-dim">${esc(ver)}</td>
               <td class="pkg-installed" data-pkg="${esc(name)}"><span class="pkg-dim">—</span></td>
-              <td><button class="btn btn-ghost btn-sm" onclick="Ext.npm.update(${js(p.id)},${js(name)})" title="${esc(t('packages.update'))}">↑ update</button></td>
+              <td><button class="btn btn-ghost btn-sm" onclick="Ext.npm.update(${js(p.id)},${js(name)})" title="${esc(t('packages.update'))}">${ctx.ui.icon('arrow-up')} update</button></td>
             </tr>`).join('')}</tbody>
           </table>
         </div>`;
 
       ctx.ui.patch(content, `
         <div class="pkg-toolbar">
-          <button class="btn btn-npm btn-sm" onclick="Ext.npm.run(${js(p.id)},'install')">↓ npm install</button>
-          <button class="btn btn-ghost btn-sm" onclick="Ext.npm.outdated(${js(p.id)})">${esc(t('packages.checkUpdates'))}</button>
+          <button class="btn btn-npm btn-sm" onclick="Ext.npm.run(${js(p.id)},'install')">${ctx.ui.icon('download')} npm install</button>
+          <button class="btn btn-ghost btn-sm" onclick="Ext.npm.outdated(${js(p.id)})">${ctx.ui.icon('search-check')} ${esc(t('packages.checkUpdates'))}</button>
           <span class="pkg-dim" data-role="outdated-status"></span>
         </div>
         ${table(deps, 'dependencies')}

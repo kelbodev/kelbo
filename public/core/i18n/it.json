@@ -324,5 +324,5 @@
     "one": "+ {count} progetto non di questa sezione",
     "other": "+ {count} progetti non di questa sezione"
   },
-  "core.projects.hiddenTitle": "Progetti senza i tratti usati da questa sezione: si gestiscono nel pannello 📁 Progetti"
+  "core.projects.hiddenTitle": "Progetti senza i tratti usati da questa sezione: si gestiscono nel pannello Progetti"
 }

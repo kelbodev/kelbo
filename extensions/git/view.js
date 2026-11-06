@@ -291,7 +291,7 @@ export default {
         : ctx.projects.tree(folders, repos, r => `
           <div class="sb-item ${activeRepo === r.id ? 'active' : ''}" role="button" tabindex="0" onclick="Ext.git.select(${js(r.id)})"
                onkeydown="if(event.key==='Enter')Ext.git.select(${js(r.id)})">
-            <span class="sb-icon">🌿</span>
+            <span class="sb-icon"><i data-icon="git-branch"></i></span>
             <span class="git-repo-name">${esc(r.label)}</span>
           </div>`)) + ctx.projects.hiddenNote(hidden);
     }
@@ -316,12 +316,12 @@ export default {
       const r = repo();
       if (!r) return;
       ctx.ui.patch($('header'), `
-        <h3>🌿 ${esc(r.label)}</h3>
-        ${status ? `<button class="git-branch-badge git-branch-btn" data-action="branches" title="${esc(t('header.branchTitle'))}">⎇ ${esc(status.branch)} ▾</button>
+        <h3><i data-icon="git-branch"></i> ${esc(r.label)}</h3>
+        ${status ? `<button class="git-branch-badge git-branch-btn" data-action="branches" title="${esc(t('header.branchTitle'))}"><i data-icon="git-branch"></i> ${esc(status.branch)} ${ctx.ui.icon('chevron-down')}</button>
           ${status.merging ? `<span class="git-sync-badge git-sync-merge">${esc(t('header.merging'))}</span>` : ''}
-          ${status.ahead ? `<span class="git-sync-badge git-sync-ahead">${esc(t('header.ahead', { count: status.ahead }))}</span>` : ''}
-          ${status.behind ? `<span class="git-sync-badge git-sync-behind">${esc(t('header.behind', { count: status.behind }))}</span>` : ''}
-          ${status.stashCount ? `<span class="git-sync-badge git-sync-stash">${esc(t('header.stash', { count: status.stashCount }))}</span>` : ''}` : ''}
+          ${status.ahead ? `<span class="git-sync-badge git-sync-ahead">${ctx.ui.icon('arrow-up')} ${esc(t('header.ahead', { count: status.ahead }))}</span>` : ''}
+          ${status.behind ? `<span class="git-sync-badge git-sync-behind">${ctx.ui.icon('arrow-down')} ${esc(t('header.behind', { count: status.behind }))}</span>` : ''}
+          ${status.stashCount ? `<span class="git-sync-badge git-sync-stash">${ctx.ui.icon('archive')} ${esc(t('header.stash', { count: status.stashCount }))}</span>` : ''}` : ''}
         <span class="git-path">${esc(r.path)}</span>`);
     }
 
@@ -335,7 +335,7 @@ export default {
       }
       banner.innerHTML = `
         <div class="git-merge-title">${esc(t('merge.banner'))} — ${esc(status.conflicts.length ? t('merge.conflicts', { count: status.conflicts.length }) : t('merge.resolved'))}</div>
-        ${status.conflicts.length ? `<ul>${status.conflicts.map(f => `<li>${esc(f)} <button class="btn btn-ghost btn-sm" onclick="Ext.git.resolve(${js(f)})">⚔ ${esc(t('mergeEditor.open'))}</button></li>`).join('')}</ul>
+        ${status.conflicts.length ? `<ul>${status.conflicts.map(f => `<li>${esc(f)} <button class="btn btn-ghost btn-sm" onclick="Ext.git.resolve(${js(f)})">${ctx.ui.icon('git-merge')} ${esc(t('mergeEditor.open'))}</button></li>`).join('')}</ul>
           <p class="git-muted">${esc(t('merge.hint'))}</p>` : ''}
         <div class="git-merge-actions">
           <button class="btn btn-ghost btn-sm" data-action="merge-abort">${esc(t('merge.abort'))}</button>
@@ -348,10 +348,10 @@ export default {
       const toggle = $('toggle-all');
       renderMergeBanner();
       const allLabel = t('files.all');
-      if (!status) { ctx.ui.patch(el, `<div class="git-muted git-pad">${esc(t('files.noData'))}</div>`); toggle.textContent = `☐ ${allLabel}`; return; }
+      if (!status) { ctx.ui.patch(el, `<div class="git-muted git-pad">${esc(t('files.noData'))}</div>`); toggle.innerHTML = `${ctx.ui.icon('square')} ${esc(allLabel)}`; return; }
       if (!status.files.length) {
-        ctx.ui.patch(el, `<div class="git-clean"><div class="git-clean-icon">✓</div>${esc(t('files.clean'))}</div>`);
-        toggle.textContent = `☐ ${allLabel}`;
+        ctx.ui.patch(el, `<div class="git-clean"><div class="git-clean-icon"><i data-icon="check"></i></div>${esc(t('files.clean'))}</div>`);
+        toggle.innerHTML = `${ctx.ui.icon('square')} ${esc(allLabel)}`;
         return;
       }
       ctx.ui.patch(el, status.files.map(f => {
@@ -361,16 +361,16 @@ export default {
         const parts = (isDir ? f.name.slice(0, -1) : f.name).split('/');
         const label = xyLabel(f.xy);
         return `<div class="git-file ${sel ? 'selected' : ''}" onclick="Ext.git.toggleFile(${js(f.name)})" title="${esc(f.name)}">
-          <span class="git-file-check">${sel ? '☑' : '☐'}</span>
+          <span class="git-file-check">${ctx.ui.icon(sel ? 'square-check' : 'square')}</span>
           <span class="git-file-xy ${XY_CLASS[label] || ''}">${esc(label)}</span>
-          <span class="git-file-name">${isDir ? '📁 ' : ''}${esc(parts[parts.length - 1])}${isDir ? '/' : ''}</span>
+          <span class="git-file-name">${isDir ? `${ctx.ui.icon('folder')} ` : ''}${esc(parts[parts.length - 1])}${isDir ? '/' : ''}</span>
           ${parts.length > 1 ? `<span class="git-file-dir">${esc(parts.slice(0, -1).join('/'))}/</span>` : ''}
           ${status.conflicts.includes(f.name)
-            ? `<button class="git-file-act git-file-resolve" onclick="event.stopPropagation();Ext.git.resolve(${js(f.name)})" title="${esc(t('mergeEditor.open'))}">⚔ ${esc(t('mergeEditor.short'))}</button>`
+            ? `<button class="git-file-act git-file-resolve" onclick="event.stopPropagation();Ext.git.resolve(${js(f.name)})" title="${esc(t('mergeEditor.open'))}">${ctx.ui.icon('git-merge')} ${esc(t('mergeEditor.short'))}</button>`
             : isDir ? '' : `<button class="git-file-act" onclick="event.stopPropagation();Ext.git.diff(${js(f.name)})" title="${esc(t('diff.open'))}">±</button>`}
         </div>`;
       }).join(''));
-      toggle.textContent = `${status.files.every(f => selected.has(f.name)) ? '☑' : '☐'} ${allLabel}`;
+      toggle.innerHTML = `${ctx.ui.icon(status.files.every(f => selected.has(f.name)) ? 'square-check' : 'square')} ${esc(allLabel)}`;
     }
 
     // ---- log e grafo ----
@@ -401,7 +401,7 @@ export default {
         legendEl.hidden = !legend.length;
         legendEl.innerHTML = legend.map(({ color, label }) => {
           const anon = /^branch-\d+$/.test(label);
-          const icon = anon ? '●' : label === status?.branch ? '◉' : remoteRefs.has(label) ? '↗' : '⎇';
+          const icon = ctx.ui.icon(anon ? 'circle-small' : label === status?.branch ? 'circle-dot' : remoteRefs.has(label) ? 'cloud' : 'git-branch');
           return `<span class="git-legend-item ${anon ? 'anon' : ''}" style="--lane:${color}">${icon} ${esc(label)}</span>`;
         }).join('');
 
@@ -434,13 +434,13 @@ export default {
           <div class="git-drawer-subject">${refBadges(e.refs)}${esc(e.subject)}</div>
           <div class="git-drawer-body" data-role="commit-body"></div>
           <div class="git-drawer-meta">
-            <span>👤 ${esc(e.author)}</span>
-            <span>🕐 ${when(e.date)}</span>
+            <span><i data-icon="user"></i> ${esc(e.author)}</span>
+            <span>${ctx.ui.icon('clock')} ${when(e.date)}</span>
             <span class="git-mono">${esc(t('drawer.sha'))} <span class="git-hash" onclick="navigator.clipboard&&navigator.clipboard.writeText(${js(e.hash)})" title="${esc(t('drawer.copy'))}">${esc(e.hash)}</span></span>
             ${e.parents?.length ? `<span class="git-mono">${esc(t('drawer.parent'))} ${e.parents.map(p => `<span class="git-hash">${esc(p.slice(0, 7))}</span>`).join(' ')}</span>` : ''}
           </div>
         </div>
-        <button class="git-drawer-close" title="${esc(t('core.action.close'))}" onclick="this.closest('.git-commit-drawer').remove()">✕</button>`;
+        <button class="git-drawer-close" title="${esc(t('core.action.close'))}" onclick="this.closest('.git-commit-drawer').remove()"><i data-icon="x"></i></button>`;
       ctx.root.querySelector('.git-log-col').appendChild(drawer);
 
       // Corpo completo del commit (git show restituisce subject + riga vuota + body)
@@ -608,18 +608,18 @@ export default {
         branchPop.querySelector('.git-pop-list').innerHTML = `
           <div class="git-pop-section">${esc(t('pop.local'))}</div>
           ${local.map(x => `<div class="git-pop-item ${x.name === b.current ? 'current' : ''}" data-switch="${esc(x.name)}" title="${esc(x.lastCommit.subject)} — ${esc(fmt.relative(x.lastCommit.date))}">
-            <span class="git-pop-name">${x.name === b.current ? '● ' : ''}${esc(x.name)}</span>
-            <span class="git-pop-meta">${x.ahead ? `↑${fmt.number(x.ahead)} ` : ''}${x.behind ? `↓${fmt.number(x.behind)} ` : ''}${x.gone ? esc(t('pop.gone')) + ' ' : ''}${x.merged && x.name !== b.current ? esc(t('pop.merged')) : ''}</span>
-            ${x.name !== b.current ? `<button data-merge="${esc(x.name)}" title="${esc(t('pop.mergeInto', { branch: b.current || 'HEAD' }))}">⑃</button><button data-delete="${esc(x.name)}" title="${esc(t('pop.delete'))}">🗑</button>` : ''}
+            <span class="git-pop-name">${x.name === b.current ? `${ctx.ui.icon('circle-dot')} ` : ''}${esc(x.name)}</span>
+            <span class="git-pop-meta">${x.ahead ? `${ctx.ui.icon('arrow-up')}${fmt.number(x.ahead)} ` : ''}${x.behind ? `${ctx.ui.icon('arrow-down')}${fmt.number(x.behind)} ` : ''}${x.gone ? esc(t('pop.gone')) + ' ' : ''}${x.merged && x.name !== b.current ? esc(t('pop.merged')) : ''}</span>
+            ${x.name !== b.current ? `<button data-merge="${esc(x.name)}" title="${esc(t('pop.mergeInto', { branch: b.current || 'HEAD' }))}"><i data-icon="git-merge"></i></button><button data-delete="${esc(x.name)}" title="${esc(t('pop.delete'))}"><i data-icon="trash-2"></i></button>` : ''}
           </div>`).join('') || `<div class="git-pop-empty">${esc(t('pop.none'))}</div>`}
           <div class="git-pop-section">${esc(t('pop.remote'))}</div>
           ${remote.map(x => `<div class="git-pop-item" data-switch="${esc(x.name)}" title="${esc(t(x.hasLocal ? 'pop.switchLocal' : 'pop.createLocal'))} — ${esc(x.lastCommit.subject)}">
             <span class="git-pop-name">${esc(x.name)}</span><span class="git-pop-meta">${x.hasLocal ? esc(t('pop.hasLocal')) : ''}</span>
-            <button data-merge="${esc(x.name)}" title="${esc(t('pop.mergeInto', { branch: b.current || 'HEAD' }))}">⑃</button></div>`).join('') || `<div class="git-pop-empty">${esc(t('pop.none'))}</div>`}`;
+            <button data-merge="${esc(x.name)}" title="${esc(t('pop.mergeInto', { branch: b.current || 'HEAD' }))}"><i data-icon="git-merge"></i></button></div>`).join('') || `<div class="git-pop-empty">${esc(t('pop.none'))}</div>`}`;
       };
       branchPop.innerHTML = `<input class="form-input git-pop-search" placeholder="${esc(t('pop.search'))}">
         <div class="git-pop-list"></div>
-        <button class="git-pop-new" data-new>${esc(t('pop.new'))}</button>`;
+        <button class="git-pop-new" data-new>${ctx.ui.icon('plus')} ${esc(t('pop.new'))}</button>`;
       render('');
       const search = branchPop.querySelector('input');
       search.addEventListener('input', () => render(search.value));
@@ -693,7 +693,7 @@ export default {
       };
       // ↺ su ogni modifica: riportata a HEAD (solo file tracciati, non rinominati, di testo)
       const blocks = !!d.blocks;
-      const revertBtn = s => `<button class="git-d-revert" onclick="Ext.git.revertBlock(${s.hunk},${s.block})" title="${esc(t('diff.revertBlock'))}">↺</button>`;
+      const revertBtn = s => `<button class="git-d-revert" onclick="Ext.git.revertBlock(${s.hunk},${s.block})" title="${esc(t('diff.revertBlock'))}"><i data-icon="rotate-ccw"></i></button>`;
       let body;
       if (d.binary) body = `<p class="git-muted git-pad">${esc(t('diff.binary'))}</p>`;
       else if (!hunks.length) body = `<p class="git-muted git-pad">${esc(t('diff.none'))}</p>`;
@@ -726,7 +726,7 @@ export default {
               <button class="${v.mode === 'split' ? 'active' : ''}" onclick="Ext.git.diffMode('split')">${esc(t('diff.split'))}</button>
               <button class="${v.mode === 'unified' ? 'active' : ''}" onclick="Ext.git.diffMode('unified')">${esc(t('diff.unified'))}</button>
             </span>
-            <button class="btn btn-ghost btn-sm git-d-revert-all" onclick="Ext.git.revertFile()" title="${esc(t(d.xy === '??' ? 'diff.deleteFileTitle' : 'diff.revertAllTitle'))}">${esc(t(d.xy === '??' ? 'diff.deleteFile' : 'diff.revertAll'))}</button>
+            <button class="btn btn-ghost btn-sm git-d-revert-all" onclick="Ext.git.revertFile()" title="${esc(t(d.xy === '??' ? 'diff.deleteFileTitle' : 'diff.revertAllTitle'))}">${ctx.ui.icon(d.xy === '??' ? 'trash-2' : 'undo-2')} ${esc(t(d.xy === '??' ? 'diff.deleteFile' : 'diff.revertAll'))}</button>
             <button class="btn btn-ghost btn-sm" ${at > 0 ? '' : 'disabled'} onclick="Ext.git.diff(${js(files[at - 1] || '')})" title="${esc(t('diff.prev'))}">‹</button>
             <span class="git-muted">${at >= 0 ? `${fmt.number(at + 1)}/${fmt.number(files.length)}` : ''}</span>
             <button class="btn btn-ghost btn-sm" ${at >= 0 && at < files.length - 1 ? '' : 'disabled'} onclick="Ext.git.diff(${js(files[at + 1] || '')})" title="${esc(t('diff.next'))}">›</button>
@@ -778,7 +778,7 @@ export default {
       const blocks = conflicts.map((c, i) => `
         <div class="git-me-conflict ${v.choices[i] ? 'resolved' : ''}" id="git_me_${i}">
           <div class="git-me-head"><strong>${esc(t('mergeEditor.conflict', { n: i + 1, total: conflicts.length }))}</strong>
-            ${v.choices[i] ? `<span class="git-me-chosen">✓ ${esc(opts.find(o => o[0] === v.choices[i])[1])}</span>` : ''}
+            ${v.choices[i] ? `<span class="git-me-chosen"><i data-icon="check"></i> ${esc(opts.find(o => o[0] === v.choices[i])[1])}</span>` : ''}
             <span class="git-me-opts">${opts.map(([k, label]) => `<button class="btn btn-sm ${v.choices[i] === k ? 'btn-git' : 'btn-ghost'}" onclick="Ext.git.mergeChoose(${i},${js(k)})">${esc(label)}</button>`).join('')}</span></div>
           <div class="git-me-sides">
             <div class="git-me-side git-me-ours"><div class="git-me-label">${esc(t('mergeEditor.ours', { name: d.oursLabel }))}</div><pre>${lines(c.ours)}</pre></div>
@@ -799,7 +799,7 @@ export default {
         <div class="git-me-conflicts">${blocks}</div>
         <div class="git-me-result-head"><h4>${esc(t('mergeEditor.result'))}</h4><span class="git-muted">${esc(t(v.manual ? 'mergeEditor.manual' : 'mergeEditor.resultHint'))}</span></div>
         <textarea class="git-me-result" id="git_me_result" spellcheck="false" oninput="Ext.git.mergeEdited()">${esc(v.manual ? v.text : result)}</textarea>`,
-        `${close}<button class="btn btn-git" onclick="Ext.git.mergeSave()">✓ ${esc(t('mergeEditor.save'))}</button>`);
+        `${close}<button class="btn btn-git" onclick="Ext.git.mergeSave()"><i data-icon="check"></i> ${esc(t('mergeEditor.save'))}</button>`);
       document.getElementById('modal')?.classList.add('modal-wide', 'git-me-modal');
     }
     async function mergeSave(body) {

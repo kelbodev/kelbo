@@ -58,8 +58,8 @@ export default {
               title="${esc(tn.label)} :${esc(tn.port)}${tn.reconnecting ? ' ' + esc(t('pill.reconnecting')) : ''}">
           <span class="pill-dot"></span>
           ${esc(tn.label)}<span class="pill-port">:${esc(tn.port)}</span>
-          <span class="pill-close" onclick="event.stopPropagation();Ext.tunnels.stop(${js(tn.id)})">✕</span>
-        </span>`).join('') + `<button class="btn btn-danger btn-sm" onclick="Ext.tunnels.stopAll()">${esc(t('pill.stopAll'))}</button>`);
+          <span class="pill-close" onclick="event.stopPropagation();Ext.tunnels.stop(${js(tn.id)})"><i data-icon="x"></i></span>
+        </span>`).join('') + `<button class="btn btn-danger btn-sm" onclick="Ext.tunnels.stopAll()">${ctx.ui.icon('square')} ${esc(t('pill.stopAll'))}</button>`);
     }
 
     // ---- vista tunnel ----
@@ -90,7 +90,7 @@ export default {
       const main = $(ctx.root, 'main');
       const g = state.groups.find(x => x.key === activeGroup);
       if (!g) {
-        ctx.ui.patch(main, `<div class="empty-state"><div class="icon">🔗</div><p>${esc(t('main.selectGroup'))}</p></div>`);
+        ctx.ui.patch(main, `<div class="empty-state"><div class="icon"><i data-icon="cable"></i></div><p>${esc(t('main.selectGroup'))}</p></div>`);
         return;
       }
       const color = cssColor(g.color), cnt = tunnelsOf(g).length;
@@ -105,13 +105,13 @@ export default {
           <h2>${esc(g.label)}</h2>
           ${cnt ? `<span class="section-banner-sub">${esc(t('main.connected', { count: cnt }))}</span>` : ''}
           <div class="tn-banner-actions">
-            ${cnt ? `<button class="btn btn-danger btn-sm" onclick="Ext.tunnels.stopGroup(${js(g.key)})">${esc(t('main.disconnectAll'))}</button>` : ''}
+            ${cnt ? `<button class="btn btn-danger btn-sm" onclick="Ext.tunnels.stopGroup(${js(g.key)})">${ctx.ui.icon('square')} ${esc(t('main.disconnectAll'))}</button>` : ''}
           </div>
         </div>
         ${autossh}
         <div class="server-area">
           <div class="server-grid">${g.servers.map(serverCard).join('')}</div>
-          ${g.servers.length ? '' : `<div class="empty-state tn-empty-inline"><div class="icon">🖥</div><p>${esc(t('main.noServers'))}</p></div>`}
+          ${g.servers.length ? '' : `<div class="empty-state tn-empty-inline"><div class="icon"><i data-icon="monitor"></i></div><p>${esc(t('main.noServers'))}</p></div>`}
         </div>`);
     }
 
@@ -132,7 +132,7 @@ export default {
         </div>` : ''}
         <div class="card-bottom">
           ${tn
-            ? `<span class="connected-status ${tn.reconnecting ? 'reconnecting' : ''}">:${esc(tn.port)}${tn.reconnecting ? ' ↻' : ''}</span>
+            ? `<span class="connected-status ${tn.reconnecting ? 'reconnecting' : ''}">:${esc(tn.port)}${tn.reconnecting ? ` ${ctx.ui.icon('refresh-cw', { cls: 'tn-spin' })}` : ''}</span>
                <button class="btn btn-disconnect" onclick="Ext.tunnels.stop(${js(tn.id)})">${esc(t('card.disconnect'))}</button>
                <button class="btn btn-ghost btn-sm" onclick="Ext.tunnels.logs(${js(tn.id)},${js(s.label)})">${esc(t('card.logs'))}</button>`
             : `<input class="port-input" type="number" min="1" max="65535" value="${esc(customPorts.get(s.key) ?? s.port)}"
@@ -163,8 +163,8 @@ export default {
             <span class="gli-dot" style="background:${cssColor(g.color)}"></span>
             <span class="gli-label">${esc(g.label)}</span>
             <span class="gli-cnt">${fmt.number(g.servers.length)}</span>
-            <button class="gli-edit" onclick="event.stopPropagation();Ext.tunnels.editGroup(${js(g.key)})" title="${esc(t('core.action.edit'))}">✏️</button>
-            <button class="gli-del" onclick="event.stopPropagation();Ext.tunnels.deleteGroup(${js(g.key)})" title="${esc(t('core.action.delete'))}">🗑</button>
+            <button class="gli-edit" onclick="event.stopPropagation();Ext.tunnels.editGroup(${js(g.key)})" title="${esc(t('core.action.edit'))}"><i data-icon="pencil"></i></button>
+            <button class="gli-del" onclick="event.stopPropagation();Ext.tunnels.deleteGroup(${js(g.key)})" title="${esc(t('core.action.delete'))}"><i data-icon="trash-2"></i></button>
           </div>`).join('')) + orphanItem);
     }
 
@@ -184,8 +184,8 @@ export default {
                 </div>
                 <span class="sli-type">${esc(s.type || 'TCP')}</span>
                 <div class="sli-actions">
-                  <button class="sli-btn" onclick="Ext.tunnels.editServer(${js(s.key)})" title="${esc(t('core.action.edit'))}">✏️</button>
-                  <button class="sli-btn danger" onclick="Ext.tunnels.deleteServer(${js(s.key)})" title="${esc(t('settings.deleteForever'))}">🗑</button>
+                  <button class="sli-btn" onclick="Ext.tunnels.editServer(${js(s.key)})" title="${esc(t('core.action.edit'))}"><i data-icon="pencil"></i></button>
+                  <button class="sli-btn danger" onclick="Ext.tunnels.deleteServer(${js(s.key)})" title="${esc(t('settings.deleteForever'))}"><i data-icon="trash-2"></i></button>
                 </div>
               </div>`).join('')}
           </div>`);
@@ -193,7 +193,7 @@ export default {
       }
       const g = state.groups.find(x => x.key === settingsGroup);
       if (!g) {
-        ctx.ui.patch(el, `<div class="settings-detail-empty"><div class="icon">←</div><p>${esc(t('main.selectGroup'))}</p></div>`);
+        ctx.ui.patch(el, `<div class="settings-detail-empty"><div class="icon">${ctx.ui.icon('arrow-left')}</div><p>${esc(t('main.selectGroup'))}</p></div>`);
         return;
       }
       const available = state.servers.filter(s => !g.servers.some(x => x.key === s.key));
@@ -215,9 +215,9 @@ export default {
                 </div>
                 <span class="sli-type">${esc(s.type || 'TCP')}</span>
                 <div class="sli-actions">
-                  <button class="sli-btn" onclick="Ext.tunnels.editServer(${js(s.key)})" title="${esc(t('core.action.edit'))}">✏️</button>
-                  <button class="sli-btn danger" onclick="Ext.tunnels.removeFromGroup(${js(g.key)},${js(s.key)})" title="${esc(t('settings.removeFromGroup'))}">✕</button>
-                  <button class="sli-btn danger" onclick="Ext.tunnels.deleteServer(${js(s.key)})" title="${esc(t('settings.deleteForever'))}">🗑</button>
+                  <button class="sli-btn" onclick="Ext.tunnels.editServer(${js(s.key)})" title="${esc(t('core.action.edit'))}"><i data-icon="pencil"></i></button>
+                  <button class="sli-btn danger" onclick="Ext.tunnels.removeFromGroup(${js(g.key)},${js(s.key)})" title="${esc(t('settings.removeFromGroup'))}"><i data-icon="x"></i></button>
+                  <button class="sli-btn danger" onclick="Ext.tunnels.deleteServer(${js(s.key)})" title="${esc(t('settings.deleteForever'))}"><i data-icon="trash-2"></i></button>
                 </div>
               </div>`).join('')}
         </div>`);

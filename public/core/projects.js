@@ -39,7 +39,7 @@ window.Projects = (() => {
       return `<div class="pf-folder ${open ? '' : 'collapsed'}" data-folder="${esc(f.id)}">
         <div class="pf-folder-head" role="button" tabindex="0" aria-expanded="${open}"
              onclick="Projects.toggle(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();Projects.toggle(this)}">
-          ${chevron(open)}<span class="pf-folder-icon">📁</span>
+          ${chevron(open)}<span class="pf-folder-icon">${UI.icon('folder')}</span>
           <span class="pf-folder-label">${esc(f.label)}</span>
           <span class="sb-count">${esc(fmt.number(children.length))}</span>
         </div>
@@ -117,9 +117,9 @@ window.Projects = (() => {
       <div class="pj-toolbar">
         <input class="form-input pj-search" type="search" value="${esc(query)}" placeholder="${esc(t('core.projects.search'))}"
                oninput="Projects.search(this.value)" data-autofocus>
-        <button class="btn btn-primary btn-sm" onclick="Projects.form()">＋ ${esc(t('core.projects.newProject'))}</button>
-        <button class="btn btn-ghost btn-sm" onclick="Projects.go({ name: 'folder' })">📁 ${esc(t('core.projects.newFolder'))}</button>
-        <button class="btn btn-ghost btn-sm" onclick="Projects.go({ name: 'import' })">⇣ ${esc(t('core.projects.importButton'))}</button>
+        <button class="btn btn-primary btn-sm" onclick="Projects.form()">${UI.icon('plus')} ${esc(t('core.projects.newProject'))}</button>
+        <button class="btn btn-ghost btn-sm" onclick="Projects.go({ name: 'folder' })">${UI.icon('folder-plus')} ${esc(t('core.projects.newFolder'))}</button>
+        <button class="btn btn-ghost btn-sm" onclick="Projects.go({ name: 'import' })">${UI.icon('folder-input')} ${esc(t('core.projects.importButton'))}</button>
       </div>
       <div class="pj-list" data-role="pj-list"></div>`;
   }
@@ -142,8 +142,8 @@ window.Projects = (() => {
       </div>
       <div class="pj-traits">${traitChips(p) || `<span class="pj-muted">${esc(t('core.projects.noTraits'))}</span>`}</div>
       <div class="pj-actions">
-        <button class="btn btn-ghost btn-sm" onclick="Projects.form(${js(p.id)})" title="${esc(t('core.projects.edit'))}">✎</button>
-        <button class="btn btn-ghost btn-sm" onclick="Projects.askRemove(${js(p.id)})" title="${esc(t('core.projects.remove'))}">🗑</button>
+        <button class="btn btn-ghost btn-sm" onclick="Projects.form(${js(p.id)})" title="${esc(t('core.projects.edit'))}">${UI.icon('pencil')}</button>
+        <button class="btn btn-ghost btn-sm" onclick="Projects.askRemove(${js(p.id)})" title="${esc(t('core.projects.remove'))}">${UI.icon('trash-2')}</button>
       </div>
     </div>`;
   }
@@ -163,12 +163,12 @@ window.Projects = (() => {
     el.innerHTML = groups.map(g => `
       <div class="pj-group">
         <div class="pj-group-head">
-          <span>${g.folder ? `📁 ${esc(g.folder.label)}` : esc(t('core.projects.rootGroup'))}</span>
+          <span>${g.folder ? `${UI.icon('folder')} ${esc(g.folder.label)}` : esc(t('core.projects.rootGroup'))}</span>
           <span class="sb-count">${esc(fmt.number(g.items.length))}</span>
           ${g.folder ? `<span class="pj-group-actions">
-            <button class="btn btn-ghost btn-sm" onclick="Projects.form(null, { folder: ${js(g.folder.id)} })" title="${esc(t('core.projects.newProject'))}">＋</button>
-            <button class="btn btn-ghost btn-sm" onclick="Projects.go({ name: 'folder', id: ${js(g.folder.id)} })" title="${esc(t('core.projects.renameFolder'))}">✎</button>
-            <button class="btn btn-ghost btn-sm" onclick="Projects.removeFolder(${js(g.folder.id)})" title="${esc(t('core.projects.deleteFolder'))}">🗑</button>
+            <button class="btn btn-ghost btn-sm" onclick="Projects.form(null, { folder: ${js(g.folder.id)} })" title="${esc(t('core.projects.newProject'))}">${UI.icon('plus')}</button>
+            <button class="btn btn-ghost btn-sm" onclick="Projects.go({ name: 'folder', id: ${js(g.folder.id)} })" title="${esc(t('core.projects.renameFolder'))}">${UI.icon('pencil')}</button>
+            <button class="btn btn-ghost btn-sm" onclick="Projects.removeFolder(${js(g.folder.id)})" title="${esc(t('core.projects.deleteFolder'))}">${UI.icon('trash-2')}</button>
           </span>` : ''}
         </div>
         ${g.items.map(projectRow).join('') || `<p class="pj-muted pj-empty-folder">${esc(t('core.projects.emptyFolder'))}</p>`}

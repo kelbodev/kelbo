@@ -1,7 +1,7 @@
 <!-- Vault: creazione o sblocco della master password -->
 <div class="db-gate" data-role="gate" hidden>
   <form class="db-gate-box" data-role="gate-form" autocomplete="off">
-    <div class="db-gate-icon">🔐</div>
+    <div class="db-gate-icon"><i data-icon="lock-keyhole"></i></div>
     <h3 data-role="gate-title"></h3>
     <p class="db-gate-text" data-role="gate-text"></p>
     <input class="form-input" type="password" data-role="gate-password" autocomplete="off">
@@ -14,7 +14,7 @@
 
 <!-- Contenuto disponibile a vault sbloccato -->
 <div class="db-main" data-role="main" hidden>
-  <div class="empty-state" data-role="no-connection"><div class="icon">🗄️</div><p data-i18n="main.noConnection"></p></div>
+  <div class="empty-state" data-role="no-connection"><div class="icon"><i data-icon="database"></i></div><p data-i18n="main.noConnection"></p></div>
   <div class="db-workspace" data-role="workspace" hidden>
     <div class="db-tabs" role="tablist" data-role="tabs"></div>
     <div class="db-conn-header" data-role="conn-header"></div>
@@ -25,10 +25,10 @@
         <option value="1000" selected></option>
         <option value="10000"></option>
       </select>
-      <button class="btn btn-primary btn-sm" data-action="run" data-i18n="toolbar.run" data-i18n-title="toolbar.runTitle"></button>
-      <button class="btn btn-ghost btn-sm" data-action="export-query" data-i18n="toolbar.export" data-i18n-title="toolbar.exportTitle"></button>
-      <button class="btn btn-ghost btn-sm" data-action="new-table" data-i18n="toolbar.newTable" data-i18n-title="toolbar.newTableTitle"></button>
-      <button class="btn btn-ghost btn-sm" data-action="history" data-i18n="toolbar.history" data-i18n-title="toolbar.historyTitle"></button>
+      <button class="btn btn-primary btn-sm" data-action="run" data-i18n-title="toolbar.runTitle"><i data-icon="play"></i> <span data-i18n="toolbar.run"></span></button>
+      <button class="btn btn-ghost btn-sm" data-action="export-query" data-i18n-title="toolbar.exportTitle"><i data-icon="download"></i> <span data-i18n="toolbar.export"></span></button>
+      <button class="btn btn-ghost btn-sm" data-action="new-table" data-i18n-title="toolbar.newTableTitle"><i data-icon="plus"></i> <span data-i18n="toolbar.newTable"></span></button>
+      <button class="btn btn-ghost btn-sm" data-action="history" data-i18n-title="toolbar.historyTitle"><i data-icon="history"></i> <span data-i18n="toolbar.history"></span></button>
       <span class="db-hint" data-i18n="toolbar.hint"></span>
     </div>
     <div class="db-editor" data-role="editor">

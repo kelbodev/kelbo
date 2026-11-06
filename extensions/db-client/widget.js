@@ -39,19 +39,20 @@ async function test(ctx, el, id) {
   if (states.has(el)) render(ctx, el);
 }
 
-const target = c => (c.tunnel ? `⇄ ${c.tunnel}` : `${c.host}:${c.port}`);
+// destinazione già in HTML: tunnel con la sua icona, altrimenti host:porta
+const target = (ctx, c) => (c.tunnel ? `${ctx.ui.icon('cable')} ${ctx.ui.esc(c.tunnel)}` : ctx.ui.esc(`${c.host}:${c.port}`));
 
 function render(ctx, el) {
   const { esc, fmt } = ctx.ui;
   const { t } = ctx;
   const st = states.get(el);
   if (st.locked) {
-    ctx.widget.setBadge('🔒');
-    ctx.ui.patch(el, `<p class="db-muted">${esc(t('widget.locked'))}</p><button class="btn btn-primary btn-sm" data-dbw="unlock">${esc(t('widget.unlock'))}</button>`);
+    ctx.widget.setBadge({ icon: 'lock' });
+    ctx.ui.patch(el, `<p class="db-muted">${esc(t('widget.locked'))}</p><button class="btn btn-primary btn-sm" data-dbw="unlock">${ctx.ui.icon('lock-open')} ${esc(t('widget.unlock'))}</button>`);
     return;
   }
   const failed = st.list.filter(c => st.tests.get(c.id)?.ok === false).length;
-  ctx.widget.setBadge(failed ? `✖ ${fmt.number(failed)}` : null);
+  ctx.widget.setBadge(failed ? { icon: 'circle-x', text: fmt.number(failed) } : null);
   if (!st.list.length) { ctx.ui.patch(el, `<p class="db-muted">${esc(t('widget.none'))}</p>`); return; }
   ctx.ui.patch(el, `<div class="dbw-list">${st.list.map(c => {
     const tst = st.tests.get(c.id), mig = st.migs.get(c.id);
@@ -60,16 +61,16 @@ function render(ctx, el) {
     return `<div class="dbw-conn">
       <div class="dbw-row">
         <span class="dbw-dot ${dot}" title="${esc(tst === 'testing' ? t('widget.testing') : tst?.text || '')}"></span>
-        <strong class="dbw-label">${c.readOnly ? '🔒 ' : ''}${esc(c.label)}</strong>
-        <span class="db-muted dbw-target">${esc(c.user)}@${esc(target(c))}${c.database ? ` / ${esc(c.database)}` : ''}</span>
+        <strong class="dbw-label">${c.readOnly ? `${ctx.ui.icon('lock')} ` : ''}${esc(c.label)}</strong>
+        <span class="db-muted dbw-target">${esc(c.user)}@${target(ctx, c)}${c.database ? ` / ${esc(c.database)}` : ''}</span>
         <span class="dbw-actions">
-          <button class="btn btn-ghost btn-sm" data-dbw="test" data-id="${esc(c.id)}" title="${esc(t('widget.retest'))}">↻</button>
+          <button class="btn btn-ghost btn-sm" data-dbw="test" data-id="${esc(c.id)}" title="${esc(t('widget.retest'))}"><i data-icon="refresh-cw"></i></button>
           <button class="btn btn-ghost btn-sm" data-dbw="open" data-id="${esc(c.id)}" title="${esc(t('widget.openTitle'))}">${esc(t('widget.open'))}</button>
         </span>
       </div>
       ${tst && tst !== 'testing' ? `<div class="${tst.ok ? 'db-muted' : 'dbw-error'} dbw-detail">${esc(tst.text)}</div>`
         : !tst && c.tunnel ? `<div class="db-muted dbw-detail">${esc(t('widget.tunnelNotTested'))}</div>` : ''}
-      ${mig?.linked ? `<div class="db-muted dbw-detail">📁 ${esc(mig.repo?.label || mig.repo?.id || '')}${mig.dir ? `/${esc(mig.dir)}` : ''} · ${mig.repo?.missing ? esc(t('widget.migrationsMissing'))
+      ${mig?.linked ? `<div class="db-muted dbw-detail"><i data-icon="folder"></i> ${esc(mig.repo?.label || mig.repo?.id || '')}${mig.dir ? `/${esc(mig.dir)}` : ''} · ${mig.repo?.missing ? esc(t('widget.migrationsMissing'))
         : mig.files?.length ? esc(t('widget.migrations', { count: mig.files.length, last })) : esc(t('widget.noMigrations'))}
         ${mig.duplicates?.length ? `<span class="dbw-error"> · ${esc(t('widget.duplicates', { list: fmt.list(mig.duplicates.map(String)) }))}</span>` : ''}</div>` : ''}
     </div>`;
