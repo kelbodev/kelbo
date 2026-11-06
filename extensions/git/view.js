@@ -22,31 +22,37 @@ function parsePatch(patch) {
   let h = null;
   for (const line of String(patch || '').split('\n')) {
     const m = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@ ?(.*)$/.exec(line);
-    if (m) { h = { oldStart: Number(m[1]), newStart: Number(m[2]), header: m[3], lines: [] }; hunks.push(h); continue; }
-    if (!h || line.startsWith('\\')) continue; // "\ No newline at end of file"
+    if (m) { h = { oldStart: Number(m[1]), newStart: Number(m[2]), header: m[3], lines: [], raw: [] }; hunks.push(h); continue; }
+    if (!h || line === '') continue;
+    h.raw.push(line); // testo del blocco così com'è: il server lo confronta prima di toccare il file
+    if (line.startsWith('\\')) continue; // "\ No newline at end of file"
     if (line[0] === ' ' || line[0] === '-' || line[0] === '+') h.lines.push({ t: line[0], s: line.slice(1) });
   }
   return hunks;
 }
 
 // Righe affiancate: le righe tolte e aggiunte consecutive vanno sulla stessa riga
-// [{ kind: 'hunk', header } | { kind: 'same'|'change', o: { n, s }|null, n: { n, s }|null }]
+// [{ kind: 'hunk', header } | { kind: 'same'|'change', o: { n, s }|null, n: { n, s }|null, start? }]
+// start: { hunk, block } sulla prima riga di ogni modifica (righe cambiate fra due righe uguali)
 function sideBySide(hunks) {
   const rows = [];
-  for (const h of hunks) {
+  hunks.forEach((h, hi) => {
     rows.push({ kind: 'hunk', header: h.header, oldStart: h.oldStart, newStart: h.newStart });
-    let on = h.oldStart, nn = h.newStart, i = 0;
+    let on = h.oldStart, nn = h.newStart, i = 0, block = -1, inBlock = false;
     while (i < h.lines.length) {
       const l = h.lines[i];
-      if (l.t === ' ') { rows.push({ kind: 'same', o: { n: on++, s: l.s }, n: { n: nn++, s: l.s } }); i++; continue; }
+      if (l.t === ' ') { inBlock = false; rows.push({ kind: 'same', o: { n: on++, s: l.s }, n: { n: nn++, s: l.s } }); i++; continue; }
+      const first = !inBlock;
+      if (first) { block++; inBlock = true; }
       const del = [], add = [];
       while (i < h.lines.length && h.lines[i].t === '-') del.push(h.lines[i++].s);
       while (i < h.lines.length && h.lines[i].t === '+') add.push(h.lines[i++].s);
       for (let k = 0; k < Math.max(del.length, add.length); k++) {
-        rows.push({ kind: 'change', o: k < del.length ? { n: on++, s: del[k] } : null, n: k < add.length ? { n: nn++, s: add[k] } : null });
+        rows.push({ kind: 'change', o: k < del.length ? { n: on++, s: del[k] } : null, n: k < add.length ? { n: nn++, s: add[k] } : null,
+          ...(first && k === 0 ? { start: { hunk: hi, block } } : {}) });
       }
     }
-  }
+  });
   return rows;
 }
 
@@ -644,6 +650,24 @@ export default {
       diffView = { file, mode, all: diffView?.all || false, data: null };
       await loadDiff();
     }
+    // Dopo un ripristino: status di nuovo; il file ha ancora modifiche → diff aggiornato, altrimenti
+    // il file modificato successivo (o la finestra si chiude)
+    async function afterRevert(scroll) {
+      const v = diffView;
+      const before = (status?.files || []).filter(f => !status.conflicts.includes(f.name)).map(f => f.name);
+      await loadStatus();
+      const files = (status?.files || []).filter(f => !status.conflicts.includes(f.name)).map(f => f.name);
+      if (files.includes(v.file)) {
+        await loadDiff();
+        const wrap = document.querySelector('.git-diff-wrap');
+        if (wrap && scroll != null) wrap.scrollTop = scroll;
+        return;
+      }
+      const next = before.slice(before.indexOf(v.file) + 1).find(f => files.includes(f)) || files[0];
+      if (next) openDiff(next);
+      else { diffView = null; closeModal(); }
+    }
+
     async function loadDiff() {
       const v = diffView;
       if (!v) return;
@@ -665,22 +689,28 @@ export default {
         const [a, b] = changedRange(text, other);
         return a >= b ? esc(text) : `${esc(text.slice(0, a))}<mark>${esc(text.slice(a, b))}</mark>${esc(text.slice(b))}`;
       };
+      // ↺ su ogni modifica: riportata a HEAD (solo file tracciati, non rinominati, di testo)
+      const blocks = !!d.blocks;
+      const revertBtn = s => `<button class="git-d-revert" onclick="Ext.git.revertBlock(${s.hunk},${s.block})" title="${esc(t('diff.revertBlock'))}">↺</button>`;
       let body;
       if (d.binary) body = `<p class="git-muted git-pad">${esc(t('diff.binary'))}</p>`;
       else if (!hunks.length) body = `<p class="git-muted git-pad">${esc(t('diff.none'))}</p>`;
       else if (v.mode === 'split') {
-        body = `<table class="git-diff git-diff-split"><colgroup><col class="git-d-numcol"><col><col class="git-d-numcol"><col></colgroup><tbody>${sideBySide(hunks).map(r => {
-          if (r.kind === 'hunk') return `<tr class="git-d-hunk"><td colspan="4">@@ −${r.oldStart} +${r.newStart} @@ ${esc(r.header)}</td></tr>`;
-          if (r.kind === 'same') return `<tr><td class="git-d-no">${r.o.n}</td><td class="git-d-code">${esc(r.o.s)}</td><td class="git-d-no">${r.n.n}</td><td class="git-d-code">${esc(r.n.s)}</td></tr>`;
+        body = `<table class="git-diff git-diff-split"><colgroup><col class="git-d-numcol"><col><col class="git-d-numcol"><col>${blocks ? '<col class="git-d-actcol">' : ''}</colgroup><tbody>${sideBySide(hunks).map(r => {
+          if (r.kind === 'hunk') return `<tr class="git-d-hunk"><td colspan="${blocks ? 5 : 4}">@@ −${r.oldStart} +${r.newStart} @@ ${esc(r.header)}</td></tr>`;
+          if (r.kind === 'same') return `<tr><td class="git-d-no">${r.o.n}</td><td class="git-d-code">${esc(r.o.s)}</td><td class="git-d-no">${r.n.n}</td><td class="git-d-code">${esc(r.n.s)}</td>${blocks ? '<td></td>' : ''}</tr>`;
           const side = (x, other, cls) => (x ? `<td class="git-d-no">${x.n}</td><td class="git-d-code ${cls}">${code(x.s, other?.s)}</td>` : '<td class="git-d-no"></td><td class="git-d-empty"></td>');
-          return `<tr>${side(r.o, r.n, 'git-d-del')}${side(r.n, r.o, 'git-d-add')}</tr>`;
+          return `<tr>${side(r.o, r.n, 'git-d-del')}${side(r.n, r.o, 'git-d-add')}${blocks ? `<td class="git-d-act">${r.start ? revertBtn(r.start) : ''}</td>` : ''}</tr>`;
         }).join('')}</tbody></table>`;
       } else {
-        body = `<table class="git-diff git-diff-unified"><colgroup><col class="git-d-numcol"><col class="git-d-numcol"><col></colgroup><tbody>${hunks.map(h => {
-          let on = h.oldStart, nn = h.newStart;
-          return `<tr class="git-d-hunk"><td colspan="3">@@ −${h.oldStart} +${h.newStart} @@ ${esc(h.header)}</td></tr>` + h.lines.map(l => {
+        body = `<table class="git-diff git-diff-unified"><colgroup><col class="git-d-numcol"><col class="git-d-numcol"><col>${blocks ? '<col class="git-d-actcol">' : ''}</colgroup><tbody>${hunks.map((h, hi) => {
+          let on = h.oldStart, nn = h.newStart, block = -1, inBlock = false;
+          return `<tr class="git-d-hunk"><td colspan="${blocks ? 4 : 3}">@@ −${h.oldStart} +${h.newStart} @@ ${esc(h.header)}</td></tr>` + h.lines.map(l => {
             const o = l.t !== '+' ? on++ : '', n = l.t !== '-' ? nn++ : '';
-            return `<tr class="${l.t === '+' ? 'git-d-add' : l.t === '-' ? 'git-d-del' : ''}"><td class="git-d-no">${o}</td><td class="git-d-no">${n}</td><td class="git-d-code"><span class="git-d-sign">${l.t === ' ' ? ' ' : l.t === '-' ? '−' : '+'}</span>${esc(l.s)}</td></tr>`;
+            let start = null;
+            if (l.t === ' ') inBlock = false;
+            else if (!inBlock) { inBlock = true; block++; start = { hunk: hi, block }; }
+            return `<tr class="${l.t === '+' ? 'git-d-add' : l.t === '-' ? 'git-d-del' : ''}"><td class="git-d-no">${o}</td><td class="git-d-no">${n}</td><td class="git-d-code"><span class="git-d-sign">${l.t === ' ' ? ' ' : l.t === '-' ? '−' : '+'}</span>${esc(l.s)}</td>${blocks ? `<td class="git-d-act">${start ? revertBtn(start) : ''}</td>` : ''}</tr>`;
           }).join('');
         }).join('')}</tbody></table>`;
       }
@@ -694,6 +724,7 @@ export default {
               <button class="${v.mode === 'split' ? 'active' : ''}" onclick="Ext.git.diffMode('split')">${esc(t('diff.split'))}</button>
               <button class="${v.mode === 'unified' ? 'active' : ''}" onclick="Ext.git.diffMode('unified')">${esc(t('diff.unified'))}</button>
             </span>
+            <button class="btn btn-ghost btn-sm git-d-revert-all" onclick="Ext.git.revertFile()" title="${esc(t(d.xy === '??' ? 'diff.deleteFileTitle' : 'diff.revertAllTitle'))}">${esc(t(d.xy === '??' ? 'diff.deleteFile' : 'diff.revertAll'))}</button>
             <button class="btn btn-ghost btn-sm" ${at > 0 ? '' : 'disabled'} onclick="Ext.git.diff(${js(files[at - 1] || '')})" title="${esc(t('diff.prev'))}">‹</button>
             <span class="git-muted">${at >= 0 ? `${fmt.number(at + 1)}/${fmt.number(files.length)}` : ''}</span>
             <button class="btn btn-ghost btn-sm" ${at >= 0 && at < files.length - 1 ? '' : 'disabled'} onclick="Ext.git.diff(${js(files[at + 1] || '')})" title="${esc(t('diff.next'))}">›</button>
@@ -790,6 +821,25 @@ export default {
       diff: file => file && openDiff(file),
       diffMode(mode) { diffView.mode = mode; try { localStorage.setItem(DIFF_MODE_KEY, mode); } catch { /* niente */ } renderDiff(); },
       diffAll(all) { diffView.all = all; loadDiff(); },
+      async revertFile() {
+        const v = diffView;
+        if (!v?.data) return;
+        const untracked = v.data.xy === '??';
+        if (!confirm(t(untracked ? 'diff.confirmDelete' : 'diff.confirmRevertAll', { file: v.file }))) return;
+        try { await ctx.api.post(repoUrl('/revert'), { file: v.file }); }
+        catch (e) { toast(e.message, 'error'); return; }
+        toast(t(untracked ? 'diff.deleted' : 'diff.reverted', { file: v.file }), 'success');
+        await afterRevert();
+      },
+      async revertBlock(hunk, block) {
+        const v = diffView;
+        const h = v?.data && parsePatch(v.data.patch)[hunk];
+        if (!h) return;
+        const scroll = document.querySelector('.git-diff-wrap')?.scrollTop;
+        try { await ctx.api.post(repoUrl('/revert-block'), { file: v.file, context: v.all ? 'all' : '3', hunk, block, expect: h.raw.join('\n') }); }
+        catch (e) { toast(e.message, 'error'); if (e.code === 'git.diff_changed') loadDiff(); return; }
+        await afterRevert(scroll);
+      },
       resolve: file => openMerge(file),
       mergeChoose(i, choice) {
         const v = mergeView;

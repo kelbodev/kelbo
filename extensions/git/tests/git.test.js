@@ -306,3 +306,58 @@ test('merge editor: base, nostra e loro; risoluzione scritta e aggiunta', async 
   assert.equal((await get('me.txt')).json.code, 'git.not_conflicted');
   assert.equal(exitOf(await action({ action: 'merge_continue' })), 0);
 });
+
+test('diff: una modifica alla volta o tutte riportate all\'ultimo commit', async () => {
+  git(repo, 'checkout', '-q', 'main');
+  const lines = Array.from({ length: 30 }, (_, i) => `riga ${i + 1}`);
+  commitFile(repo, 'rv.txt', lines.join('\n') + '\n');
+  const edited = [...lines];
+  edited[1] = 'riga 2 cambiata';                 // modifica 1 (hunk 1)
+  edited.splice(14, 1, 'riga 15 A', 'riga 15 B'); // modifica 2 (hunk 2)
+  edited.push('riga 31');                       // modifica 3 (hunk 3)
+  fs.writeFileSync(path.join(repo, 'rv.txt'), edited.join('\n') + '\n');
+  git(repo, 'add', 'rv.txt');                   // in stage: anche l'indice va riportato
+  const read = () => fs.readFileSync(path.join(repo, 'rv.txt'), 'utf8').split('\n');
+  const diff = async (ctxp = '3') => (await srv.request('GET', `/api/ext/git/repos/r/diff?file=rv.txt&context=${ctxp}`)).json;
+  const hunks = patch => { const out = []; for (const l of patch.split('\n')) { if (l.startsWith('@@ ')) out.push([]); else if (out.length && l) out[out.length - 1].push(l); } return out; };
+  const block = body => srv.request('POST', '/api/ext/git/repos/r/revert-block', { body });
+
+  let d = await diff();
+  assert.equal(d.blocks, true);
+  let h = hunks(d.patch);
+  assert.equal(h.length, 3);
+  // testo cambiato nel frattempo: rifiutato
+  assert.equal((await block({ file: 'rv.txt', context: '3', hunk: 1, block: 0, expect: 'altro' })).json.code, 'git.diff_changed');
+  // la seconda modifica torna com'era, le altre restano
+  let r = await block({ file: 'rv.txt', context: '3', hunk: 1, block: 0, expect: h[1].join('\n') });
+  assert.equal(r.status, 200, r.text);
+  assert.deepEqual([read()[1], read()[14], read()[15], read()[30]], ['riga 2 cambiata', 'riga 15', 'riga 16', 'riga 31']);
+  assert.doesNotMatch(git(repo, 'diff', '--cached'), /riga 15 A/); // tolta anche dall'indice
+
+  // con tutto il file un solo blocco @@ e due modifiche: si sceglie la seconda (in fondo)
+  d = await diff('all');
+  h = hunks(d.patch);
+  assert.equal(h.length, 1);
+  r = await block({ file: 'rv.txt', context: 'all', hunk: 0, block: 1, expect: h[0].join('\n') });
+  assert.equal(r.status, 200, r.text);
+  assert.deepEqual([read()[1], read().length], ['riga 2 cambiata', 31]); // riga 31 tolta, resta la prima modifica
+
+  // tutte le modifiche: il file torna come in HEAD e non è più tra i modificati
+  r = await srv.request('POST', '/api/ext/git/repos/r/revert', { body: { file: 'rv.txt' } });
+  assert.equal(r.status, 200, r.text);
+  assert.equal(fs.readFileSync(path.join(repo, 'rv.txt'), 'utf8'), lines.join('\n') + '\n');
+  assert.ok(!r.json.files.some(f => f.name === 'rv.txt'));
+
+  // file nuovo: niente modifiche singole, "annulla tutto" lo elimina; mai file non modificati
+  fs.writeFileSync(path.join(repo, 'nuovo.txt'), 'x\n');
+  assert.equal((await srv.request('GET', '/api/ext/git/repos/r/diff?file=nuovo.txt')).json.blocks, false);
+  assert.equal((await block({ file: 'nuovo.txt', hunk: 0, block: 0, expect: '' })).json.code, 'git.revert_block_unsupported');
+  assert.equal((await srv.request('POST', '/api/ext/git/repos/r/revert', { body: { file: 'nuovo.txt' } })).status, 200);
+  assert.equal(fs.existsSync(path.join(repo, 'nuovo.txt')), false);
+  assert.equal((await srv.request('POST', '/api/ext/git/repos/r/revert', { body: { file: 'package.json' } })).json.code, 'git.file_not_changed');
+  // file nuovo aggiunto all'indice: tolto dall'indice e dal disco
+  fs.writeFileSync(path.join(repo, 'staged-new.txt'), 'y\n'); git(repo, 'add', 'staged-new.txt');
+  assert.equal((await srv.request('POST', '/api/ext/git/repos/r/revert', { body: { file: 'staged-new.txt' } })).status, 200);
+  assert.equal(fs.existsSync(path.join(repo, 'staged-new.txt')), false);
+  assert.equal(git(repo, 'status', '--porcelain').trim(), '');
+});

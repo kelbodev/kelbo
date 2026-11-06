@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.23.0] - 2026-11-06
+
+### Added
+- **Git: discard changes from the diff.** **↺** next to each change (a run of removed/added lines between unchanged ones) brings only that change back to the last commit, in the working folder and, when it was staged, in the index too; the other changes of the file stay. **Discard all changes** brings the whole file back to the last commit (staged changes included); a renamed file gets its old name back, a new file is deleted (untracked) or removed from the index and the disk (staged). *Discard all changes* asks for a confirmation; a single change is reverted only if the file still shows the same diff (otherwise the diff is reloaded). Single changes are offered for tracked, not renamed, text files. Backend `POST …/repos/:id/revert` and `…/revert-block`.
+
 ## [2.22.0] - 2026-11-03
 
 ### Added

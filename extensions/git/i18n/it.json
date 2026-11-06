@@ -193,5 +193,19 @@
   "mergeEditor.saved": "{file} risolto e aggiunto",
   "mergeEditor.allDone": "Conflitti risolti: puoi concludere il merge",
   "mergeEditor.dropManual": "Il risultato è stato modificato a mano: rigenerarlo dalle scelte?",
-  "mergeEditor.confirmDelete": "Eliminare {file} come risoluzione del conflitto?"
+  "mergeEditor.confirmDelete": "Eliminare {file} come risoluzione del conflitto?",
+  "diff.revertBlock": "Riporta questa modifica com'era nell'ultimo commit",
+  "diff.revertAll": "↺ Annulla tutte le modifiche",
+  "diff.revertAllTitle": "Riporta il file com'era nell'ultimo commit (anche le modifiche in stage)",
+  "diff.deleteFile": "🗑 Elimina il file",
+  "diff.deleteFileTitle": "Il file è nuovo e non tracciato: annullare le modifiche significa eliminarlo",
+  "diff.confirmRevertAll": "Annullare tutte le modifiche di {file}? Il file torna com'era nell'ultimo commit e le modifiche si perdono.",
+  "diff.confirmDelete": "Eliminare {file}? È un file nuovo, non ancora tracciato: non si potrà recuperare.",
+  "diff.reverted": "{file} riportato all'ultimo commit",
+  "diff.deleted": "{file} eliminato",
+  "errors.conflicted": "Il file {file} è in conflitto: risolvilo con il merge editor",
+  "errors.revert_block_unsupported": "Per {file} si possono annullare solo tutte le modifiche (file nuovo, rinominato o binario)",
+  "errors.diff_changed": "{file} è cambiato nel frattempo: differenze aggiornate, riprova",
+  "errors.block_invalid": "Modifica non trovata nelle differenze",
+  "errors.revert_failed": "La modifica non si può annullare: {output}"
 }

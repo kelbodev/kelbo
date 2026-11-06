@@ -55,6 +55,16 @@
         "handler": "diff"
       },
       {
+        "method": "POST",
+        "path": "/repos/:id/revert",
+        "handler": "revertFile"
+      },
+      {
+        "method": "POST",
+        "path": "/repos/:id/revert-block",
+        "handler": "revertBlock"
+      },
+      {
         "method": "GET",
         "path": "/repos/:id/conflict",
         "handler": "conflict"
