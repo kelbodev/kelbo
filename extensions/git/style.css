@@ -180,3 +180,11 @@
 .git-d-revert:hover{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 60%,var(--border));background:color-mix(in srgb,var(--danger) 10%,transparent)}
 .git-d-revert-all{color:var(--danger)}
 .git-d-revert-all:hover{border-color:var(--danger)}
+
+/* nomi lunghi: nome e cartella si accorciano con "…", il pulsante ± / Risolvi resta visibile */
+.git-file{min-width:0}
+.git-file-name{min-width:0;flex:0 1 auto}
+.git-file-dir{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.git-file-act{flex-shrink:0}
+.git-file-name{max-width:72%}
+.git-file-act{opacity:.45}

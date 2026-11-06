@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.23.1] - 2026-11-06
+
+### Fixed
+- **Git: ± hidden for long file names.** In the changes list a long name or folder pushed the ± (diff) and *Resolve* buttons out of the row; name and folder now shorten with "…" (the full path is in the tooltip) and the buttons always stay visible, the ± faintly also without the mouse over the row.
+- **Git: untracked folders** (shown by `git status` as `folder/`) appeared without a name and with a ± that couldn't open a diff: they now show as 📁 `folder/`, without ±, and are skipped by the previous/next buttons of the diff.
+
 ## [2.23.0] - 2026-11-06
 
 ### Added
