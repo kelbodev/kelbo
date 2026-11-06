@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.24.0] - 2026-11-06
+
+### Added
+- **HTTP: JSON response as a collapsible tree.** ▾/▸ next to every object and array closes and opens it (the closed one shows how many keys or items it has, a click on the count opens it again); Alt+click does the same to everything inside; **Expand** and **Collapse** for the whole response (collapse keeps the first level visible). The response text is read as it is, so numbers beyond 2^53 keep all their digits. Responses larger than 2 MB, or not valid JSON, are shown as before.
+- **HTTP: Copy formatted** and **Copy minified** for JSON responses (two-space indentation, or one line without spaces), from the same reading, numbers untouched; other responses keep **Copy**.
+
 ## [2.23.1] - 2026-11-06
 
 ### Fixed
