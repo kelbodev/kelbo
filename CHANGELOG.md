@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.28.1] - 2026-11-09
+
+### Fixed
+- `ctx.ui.extColor`, documented since 2.26, was missing from the frontend `ctx` of extensions and widgets; it is there now, with `ctx.ui.ansiState()` for output read in chunks (a stream) by `ansiToHtml`.
+
 ## [2.28.0] - 2026-11-09
 
 ### Added
