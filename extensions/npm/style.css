@@ -29,11 +29,11 @@
 .proc-dot{width:6px;height:6px;border-radius:50%;background:var(--ext-color, #f0883e);flex-shrink:0;box-shadow:0 0 5px var(--ext-color, #f0883e);animation:pulse 2s infinite}
 .proc-dot.dead{background:var(--danger);box-shadow:0 0 5px var(--danger);animation:none}
 .proc-uptime{font-family:var(--font);font-size:10px;color:var(--muted);white-space:nowrap}
-.proc-port{font-family:var(--font);font-size:10px;color:#388bfd;background:color-mix(in srgb,#388bfd 10%,transparent);border:1px solid color-mix(in srgb,#388bfd 30%,transparent);border-radius:4px;padding:1px 5px;white-space:nowrap}
+.proc-port{font-family:var(--font);font-size:10px;color:var(--info);background:color-mix(in srgb,var(--info) 10%,transparent);border:1px solid color-mix(in srgb,var(--info) 30%,transparent);border-radius:4px;padding:1px 5px;white-space:nowrap}
 .pkg-section{margin-bottom:20px}
 .pkg-section-title{font-size:11px;font-family:var(--font);color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:8px}
 .pkg-count{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:1px 7px;font-size:10px;color:var(--muted)}
-.btn-npm{background:var(--ext-color, #f0883e);color:#fff;border-color:var(--ext-color, #f0883e)}
+.btn-npm{background:var(--ext-color, #f0883e);color:var(--on-accent);border-color:var(--ext-color, #f0883e)}
 .btn-npm:hover:not(:disabled){opacity:.85}
 
 /* Elementi della vista */

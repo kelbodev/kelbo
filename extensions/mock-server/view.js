@@ -2,13 +2,15 @@
 // (ordinabili: risponde la prima che corrisponde), registro delle chiamate in tempo reale
 // con il dettaglio del payload e "crea rotta da questa chiamata".
 
-const METHOD_COLORS = { ANY: '#8b949e', GET: '#3fb950', POST: '#d29922', PUT: '#58a6ff', PATCH: '#a371f7', DELETE: '#f85149', HEAD: '#8b949e', OPTIONS: '#8b949e' };
+// colori dei metodi: variabili del tema
+const METHOD_COLORS = { ANY: 'var(--http-other)', GET: 'var(--http-get)', POST: 'var(--http-post)', PUT: 'var(--http-put)', PATCH: 'var(--http-patch)', DELETE: 'var(--http-delete)', HEAD: 'var(--http-other)', OPTIONS: 'var(--http-other)' };
+const methodColor = m => Object.hasOwn(METHOD_COLORS, m) ? METHOD_COLORS[m] : 'var(--http-other)';
 const POLL_MS = 10000;
 const METHODS = ['ANY', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 
 export default {
   async mount(ctx) {
-    const { esc, js, toast, openModal, closeModal, fmt, cssColor } = ctx.ui;
+    const { esc, js, toast, openModal, closeModal, fmt } = ctx.ui;
     const { t } = ctx;
     const $ = (root, role) => root.querySelector(`[data-role="${role}"]`);
     const byId = id => document.getElementById(id);
@@ -22,7 +24,7 @@ export default {
     let closeStream = null;
 
     const active = () => mocks.find(m => m.id === activeId) || null;
-    const badge = m => `<span class="ms-badge" style="--m:${cssColor(METHOD_COLORS[m] || '#8b949e')}">${esc(m === 'ANY' ? t('routes.any') : m)}</span>`;
+    const badge = m => `<span class="ms-badge" style="--m:${methodColor(m)}">${esc(m === 'ANY' ? t('routes.any') : m)}</span>`;
     const base = (suffix = '') => `/mocks/${encodeURIComponent(activeId)}${suffix}`;
 
     async function load() {

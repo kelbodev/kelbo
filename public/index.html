@@ -19,6 +19,7 @@
     <div class="header-pills" id="activePills"></div>
     <div class="header-actions">
       <button class="btn btn-ghost lang-btn" id="langBtn" onclick="Shell.chooseLanguage(event)" data-i18n-title="core.language.choose" hidden><i data-icon="globe"></i> <span class="lang-code"></span></button>
+      <button class="btn btn-ghost" id="themeBtn" onclick="Theme.choose(event)" data-i18n-aria-label="core.theme.choose"><i data-icon="palette"></i></button>
       <button class="notif-btn" id="notifBtn" onclick="Shell.toggleNotifications()" data-i18n-title="core.notifications.enable"><i data-icon="bell"></i></button>
       <button class="btn btn-ghost" onclick="Shell.exportConfig()" data-i18n-title="core.export.buttonTitle"><i data-icon="download"></i> <span data-i18n="core.export.button"></span></button>
       <label class="btn btn-ghost" style="cursor:pointer" data-i18n-title="core.import.buttonTitle"><i data-icon="upload"></i> <span data-i18n="core.import.button"></span><input type="file" accept=".json" style="display:none" onchange="Shell.importConfig(this)"></label>
@@ -61,6 +62,7 @@
 
 <script src="core/i18n.js"></script>
 <script src="core/ui.js"></script>
+<script src="core/theme.js"></script>
 <script src="core/projects.js"></script>
 <script src="core/vault.js"></script>
 <script src="core/extensions.js"></script>

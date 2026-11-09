@@ -2,7 +2,9 @@
 // inviate dal widget (stesse regole dell'editor: variabili, utenza, token), con lo stato
 // dell'ultima risposta di questa pagina. Il dettaglio si apre nella sezione HTTP.
 
-const METHOD_COLORS = { GET: '#3fb950', POST: '#d29922', PUT: '#58a6ff', PATCH: '#a371f7', DELETE: '#f85149', HEAD: '#8b949e', OPTIONS: '#8b949e' };
+// colori dei metodi: variabili del tema
+const METHOD_COLORS = { GET: 'var(--http-get)', POST: 'var(--http-post)', PUT: 'var(--http-put)', PATCH: 'var(--http-patch)', DELETE: 'var(--http-delete)', HEAD: 'var(--http-other)', OPTIONS: 'var(--http-other)' };
+const methodColor = m => Object.hasOwn(METHOD_COLORS, m) ? METHOD_COLORS[m] : 'var(--http-other)';
 const states = new WeakMap(); // el → { project, sections, last: Map(requestId → { status, ms, at } | { error } | 'sending') }
 
 async function load(ctx, el) {
@@ -14,7 +16,7 @@ async function load(ctx, el) {
 const statusClass = s => (s >= 500 ? 'hcw-5' : s >= 400 ? 'hcw-4' : s >= 300 ? 'hcw-3' : 'hcw-2');
 
 function render(ctx, el) {
-  const { esc, fmt, cssColor } = ctx.ui;
+  const { esc, fmt } = ctx.ui;
   const { t } = ctx;
   const st = states.get(el);
   const errors = [...st.last.values()].filter(x => x?.error || x?.status >= 400).length;
@@ -26,7 +28,7 @@ function render(ctx, el) {
       const last = st.last.get(r.id);
       const user = s.userTypes.find(u => u.id === r.userType);
       return `<div class="hcw-req">
-        <span class="hc-badge" style="--m:${cssColor(METHOD_COLORS[r.method])}">${esc(r.method)}</span>
+        <span class="hc-badge" style="--m:${methodColor(r.method)}">${esc(r.method)}</span>
         <button class="hcw-label" data-hcw="open" data-section="${esc(s.id)}" data-request="${esc(r.id)}" title="${esc(t('widget.openTitle'))}">${esc(r.label)}</button>
         ${user ? `<span class="hc-muted hcw-user"><i data-icon="user"></i> ${esc(user.label)}</span>` : ''}
         <span class="hcw-last">${last === 'sending' ? `<span class="hc-muted">${esc(t('widget.sending'))}</span>`

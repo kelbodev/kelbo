@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.26.0] - 2026-11-09
+
+### Added
+- **Color themes as extensions.** A palette button in the header picks the color theme: the built-in *Kelbo Dark* or one brought by an installed extension — the official catalog now has **Light theme** (*Kelbo Light*) and **Dim theme** (*Kelbo Dim*). *Follow the system* switches between the last light and the last dark theme chosen together with the operating system, live. The choice is saved in `config.json` (`layout.theme`, validated on save and import) so it travels with the export; the last theme applied is shown immediately when the page loads, and a theme whose extension is removed or turned off falls back to the built-in one.
+- **Theme contract** (`docs/EXTENSIONS.md`, *Themes*): manifest `themes: [{ id, name, scheme: "dark" | "light", css }]`, a stylesheet that only sets the core's color variables on `:root[data-theme]`; `--ext-<code>` changes an extension's color (`ctx.ui.extColor(code, color)`); `position` can be left out by an extension without `frontend.js`. Test kit: `themeTokens()` and `themeProblems(css)`.
+
+### Changed
+- **Every color is a CSS variable.** The core and the built-in extensions no longer write colors by hand: besides the base ones, `:root` defines text on colored buttons, overlay and shadows, the output panel and the 16 ANSI colors, syntax highlighting (`--code-*`), diffs, HTTP methods (`--http-*`, also in the JavaScript of HTTP and Mock), commit graph lanes (`--graph-0…9`) and the sticky notes' colors. Nothing changes with the built-in theme, apart from JSON numbers in the HTTP response taking the literal color.
+
 ## [2.25.0] - 2026-11-06
 
 ### Changed

@@ -16,6 +16,12 @@
   "core.extensions.loadError": "Error loading {name}: {error}",
   "core.extensions.none": "No extensions available",
   "core.language.choose": "Language",
+  "core.theme.choose": "Color theme",
+  "core.theme.button": "Theme: {name}",
+  "core.theme.buttonSystem": "Theme: {name} (follows the system)",
+  "core.theme.builtin": "Kelbo Dark",
+  "core.theme.system": "Follow the system (light/dark)",
+  "core.theme.more": "More themes in the Extensions panel",
   "core.widgets.failed": "Widget unavailable: {error}",
   "core.widgets.unavailable": "The widget {widget} is no longer there (extension removed or switched off)",
   "core.output.title": "Output",
@@ -324,5 +330,6 @@
     "one": "+ {count} project not for this section",
     "other": "+ {count} projects not for this section"
   },
-  "core.projects.hiddenTitle": "Projects without the traits this section uses: manage them in the Projects panel"
+  "core.projects.hiddenTitle": "Projects without the traits this section uses: manage them in the Projects panel",
+  "core.errors.layout_theme": "Invalid theme: { id, system, light, dark } with \"<extension>/<theme>\" keys"
 }

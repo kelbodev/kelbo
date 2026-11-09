@@ -17,6 +17,11 @@ window.UI = (() => {
     return /^#[0-9a-f]{3,8}$/i.test(c || '') ? c : '#6b7280';
   }
 
+  // Colore di un'estensione: quello del manifest, a meno che il tema attivo non definisca --ext-<code>
+  function extColor(code, c) {
+    return /^[a-z0-9][a-z0-9-]{0,39}$/.test(code || '') ? `var(--ext-${code}, ${cssColor(c)})` : cssColor(c);
+  }
+
   // ---- ANSI → HTML ----
   // Stato dei colori che continua tra un pezzo di output e il successivo (state.pending:
   // sequenza di escape spezzata a fine pezzo). Solo le sequenze SGR (…m) cambiano lo stile;
@@ -296,5 +301,5 @@ window.UI = (() => {
   // click fuori dal modal lo chiude
   document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
 
-  return { t: I18n.t, fmt: I18n.fmt, errorText: I18n.errorText, esc, js, cssColor, ansiToHtml, ansiState, toast, openModal, closeModal, patch, apiClient, formatUptime, toolNotice, contextMenu, closeContextMenu, icon, iconOrText, isIconName, badgeHtml };
+  return { t: I18n.t, fmt: I18n.fmt, errorText: I18n.errorText, esc, js, cssColor, extColor, ansiToHtml, ansiState, toast, openModal, closeModal, patch, apiClient, formatUptime, toolNotice, contextMenu, closeContextMenu, icon, iconOrText, isIconName, badgeHtml };
 })();

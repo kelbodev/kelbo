@@ -12,7 +12,7 @@ after(() => srv?.stop());
 const call = (m, p, body) => srv.request(m, `/api/core${p}`, body !== undefined ? { body } : {});
 
 test('ordine predefinito: lista vuota', async () => {
-  assert.deepEqual((await call('GET', '/layout')).json, { tabs: [], positions: {} });
+  assert.deepEqual((await call('GET', '/layout')).json, { tabs: [], positions: {}, theme: { id: '', system: false, light: '', dark: '' } });
 });
 
 test('salvataggio: duplicati e codici sconosciuti o non di tab scartati', async () => {

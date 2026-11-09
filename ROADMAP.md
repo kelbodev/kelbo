@@ -145,6 +145,16 @@ Goal: projects are managed in one place of the core, not from the sidebars of NP
 - [x] **M10.5** Import of projects from a folder: its subfolders with at least one known trait, chosen with checkboxes (traits shown, existing paths skipped), added in one go into a project folder
 - [x] **M10.6** Tests (traits: detection, extension traits, overrides, filtered lists; panel API; links; import), README, `docs/EXTENSIONS.md` (`projects`, `projectTraits`, `projectLinks`), CHANGELOG
 
+## M11 — Color themes as extensions — core, built-in and official extensions ✅ (2.26.0)
+
+The core keeps one theme (dark); a light theme and a second dark theme are extensions to install from the official catalog.
+
+- [x] **M11.1** Every color of the core and of the built-in extensions as a CSS variable on `:root` (`shell.css`): base and status colors, text on colored buttons, overlay and shadows, output panel and the 16 ANSI colors, syntax highlighting, diffs, HTTP methods, commit graph lanes, sticky notes; no fixed color left in the CSS or in the JavaScript (`METHOD_COLORS`, `GRAPH_COLORS` are variables now)
+- [x] **M11.2** Theme contract: manifest `themes: [{ id, name, scheme, css }]` (a theme-only extension needs no `frontend` nor `position`), stylesheet served like the frontend files, `--ext-<code>` to change an extension's color (`ctx.ui.extColor`); test kit `themeTokens()` and `themeProblems(css)`
+- [x] **M11.3** Theme button in the header: built-in theme, the installed themes, *follow the system*; choice in `layout.theme` (validated, exported), last theme applied at once on page load, fallback to the built-in theme when the extension is gone
+- [x] **M11.4** Official extensions use the variables (`mongo-client`, `notes`, `ports`, `script`); new `theme-light` (*Kelbo Light*) and `theme-dim` (*Kelbo Dim*) in kelbo-extensions
+- [x] **M11.5** Tests (manifest, API, served files, `layout.theme`, the core's own variables pass the theme check; each theme extension checks its stylesheet), `docs/EXTENSIONS.md` (*Themes*), README, CHANGELOG
+
 ---
 
 ## Parked
@@ -170,3 +180,4 @@ Not planned for now; to be taken back into the roadmap when needed (descriptions
 | M8 Angular CLI | M | `angular-cli` (kelbo-extensions) | workspaces and generators first, then the form from `schema.json` with dry-run preview, then `ng add` / `ng update` and MCP tools |
 | M9 Kubernetes and port-forward tunnels | L | core (`provides` contract), `tunnels`, `kubectl` (kelbo-extensions) | providers contract and `tunnel-transport` first (tested with a fake transport), then pods, then the port-forward provider |
 | M10 Project management and traits | M | core (traits, header panel), `npm`, `git`, `env` | done in 2.18.0 |
+| M11 Color themes | M | core, built-in extensions, `theme-light` and `theme-dim` (kelbo-extensions) | done in 2.26.0 |

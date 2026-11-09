@@ -91,6 +91,9 @@ module.exports = function coreRoutes(extensions) {
     res.json(layout.setPosition(req.params.code, req.body?.position ?? null, ext?.frontend?.js ? ext.manifestPosition : null));
   });
 
+  // Tema dei colori ({ id, scheme, system }), salvato in layout.theme
+  router.put('/layout/theme', (req, res) => { res.json(layout.setTheme(req.body)); });
+
   // Vault della master password (segreti di db-client, http-client e delle altre estensioni)
   router.get('/vault', (req, res) => { res.json(vault.status()); });
   // errori (anche asincroni) all'error handler del core; Retry-After dopo troppi tentativi

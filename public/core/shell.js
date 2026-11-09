@@ -24,6 +24,7 @@ window.Shell = (() => {
     await window.I18n.init(list.filter(e => e.state !== 'disabled'));
     window.I18n.apply(document);
     renderLanguageButton();
+    await window.Theme.init(list);
     if (failure) { toast(t('core.extensions.unavailable', { error: failure.message }), 'error'); return; }
     extList = list;
 
@@ -77,6 +78,7 @@ window.Shell = (() => {
       else if (meta.position !== entry.meta.position) removeEntry(code); // spostata tra tab e header: stesso modulo, nuovo posto
     }
     extList = list;
+    window.Theme.setExtensions(list);
     await window.I18n.setExtensions(list.filter(usable), [...changed, ...[...wanted.keys()].filter(c => !exts.has(c))]);
     for (const meta of wanted.values()) {
       if (exts.has(meta.code)) continue;
@@ -106,7 +108,7 @@ window.Shell = (() => {
     const btn = document.createElement('button');
     btn.className = 'section-tab';
     btn.id = `ext-tab-${meta.code}`;
-    btn.style.setProperty('--tab-color', cssColor(meta.color));
+    btn.style.setProperty('--tab-color', UI.extColor(meta.code, meta.color));
     btn.innerHTML = `
       <span class="section-tab-icon">${UI.iconOrText(meta.icon)}</span>
       <span class="section-tab-name">${esc(pick(meta.name))}</span>${warningMark(meta)}
@@ -215,7 +217,7 @@ window.Shell = (() => {
     btn.className = 'btn btn-ghost ext-header-btn';
     btn.id = `ext-tab-${meta.code}`;
     btn.title = pick(meta.name);
-    btn.style.setProperty('--tab-color', cssColor(meta.color));
+    btn.style.setProperty('--tab-color', UI.extColor(meta.code, meta.color));
     btn.innerHTML = `${meta.icon ? UI.iconOrText(meta.icon) : esc(pick(meta.name))}${warningMark(meta)}<span class="section-tab-badge" style="display:none"></span>`;
     btn.addEventListener('click', () => open(meta.code));
     const actions = document.querySelector('.header-actions');
@@ -228,7 +230,7 @@ window.Shell = (() => {
     panel.className = 'main-panel ext-panel';
     panel.id = `ext-panel-${meta.code}`;
     panel.style.display = 'none';
-    panel.style.setProperty('--ext-color', cssColor(meta.color));
+    panel.style.setProperty('--ext-color', UI.extColor(meta.code, meta.color));
     panel.dataset.i18nNs = meta.code;
     panel.innerHTML = `
       <div class="ext-root"></div>
@@ -253,7 +255,7 @@ window.Shell = (() => {
     sb.className = 'ext-sidebar';
     sb.id = `ext-sidebar-${meta.code}`;
     sb.style.display = 'none';
-    sb.style.setProperty('--ext-color', cssColor(meta.color));
+    sb.style.setProperty('--ext-color', UI.extColor(meta.code, meta.color));
     sb.dataset.i18nNs = meta.code;
     document.getElementById('sidebar').appendChild(sb);
     return sb;
@@ -265,7 +267,7 @@ window.Shell = (() => {
       el = document.createElement('span');
       el.className = 'ext-pills';
       el.dataset.ext = code;
-      el.style.setProperty('--ext-color', cssColor(exts.get(code)?.meta.color));
+      el.style.setProperty('--ext-color', UI.extColor(code, exts.get(code)?.meta.color));
       document.getElementById('activePills').prepend(el);
     }
     return el;
@@ -835,7 +837,7 @@ window.Shell = (() => {
   function listWidgets(scope = 'project', project = null) {
     return extList.filter(usable).filter(meta => !project || withTraits(meta, project)).flatMap(meta => (meta.widgets || []).filter(w => w.scope === scope).map(w => ({
       key: `${meta.code}/${w.id}`, code: meta.code, id: w.id, title: pick(w.title), description: pick(w.description || ''),
-      size: w.size, icon: meta.icon || 'box', color: meta.color, extension: pick(meta.name),
+      size: w.size, icon: meta.icon || 'box', color: meta.color, cssColor: UI.extColor(meta.code, meta.color), extension: pick(meta.name),
     })));
   }
 

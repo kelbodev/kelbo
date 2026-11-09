@@ -2,7 +2,9 @@
 // query, header e body, risposta formattata, dialoghi per sezione, tipologie di utenza e
 // rotte Express trovate nel progetto collegato.
 
-const METHOD_COLORS = { GET: '#3fb950', POST: '#d29922', PUT: '#58a6ff', PATCH: '#a371f7', DELETE: '#f85149', HEAD: '#8b949e', OPTIONS: '#8b949e' };
+// colori dei metodi: variabili del tema
+const METHOD_COLORS = { GET: 'var(--http-get)', POST: 'var(--http-post)', PUT: 'var(--http-put)', PATCH: 'var(--http-patch)', DELETE: 'var(--http-delete)', HEAD: 'var(--http-other)', OPTIONS: 'var(--http-other)' };
+const methodColor = m => Object.hasOwn(METHOD_COLORS, m) ? METHOD_COLORS[m] : 'var(--http-other)';
 const COLLAPSED_KEY = 'devdock.httpSections.collapsed';
 const NPM_OUTPUT_KEY = 'devdock.httpSections.npmOutput'; // { <sezione>: script seguito, '' = nessuno }
 const AUTH_TYPES = ['none', 'basic', 'manual', 'login', 'oauth'];
@@ -300,7 +302,7 @@ export default {
 
     const section = id => sections.find(s => s.id === id);
     const activeSection = () => (active ? section(active.section) : null);
-    const methodBadge = m => `<span class="hc-badge" style="--m:${ctx.ui.cssColor(METHOD_COLORS[m])}">${esc(m)}</span>`;
+    const methodBadge = m => `<span class="hc-badge" style="--m:${methodColor(m)}">${esc(m)}</span>`;
 
     // ---- caricamento ----
 
@@ -418,7 +420,7 @@ export default {
       $(ctx.root, 'label').value = draft.label;
       $(ctx.root, 'dirty').hidden = !dirty;
       $(ctx.root, 'method').innerHTML = info.methods.map(m => `<option ${m === draft.method ? 'selected' : ''}>${esc(m)}</option>`).join('');
-      $(ctx.root, 'method').style.color = ctx.ui.cssColor(METHOD_COLORS[draft.method]);
+      $(ctx.root, 'method').style.color = methodColor(draft.method);
       $(ctx.root, 'url').value = draft.url;
       $(ctx.root, 'user').innerHTML = `<option value="">${esc(t('editor.noUser'))}</option>` +
         s.userTypes.map(u => `<option value="${esc(u.id)}" ${u.id === draft.userType ? 'selected' : ''}>${esc(u.label)}</option>`).join('');
@@ -1275,7 +1277,7 @@ export default {
     ctx.root.addEventListener('change', e => {
       const role = e.target.dataset.role;
       if (!draft) return;
-      if (role === 'method') { draft.method = e.target.value; e.target.style.color = ctx.ui.cssColor(METHOD_COLORS[draft.method]); markDirty(); }
+      if (role === 'method') { draft.method = e.target.value; e.target.style.color = methodColor(draft.method); markDirty(); }
       if (role === 'npm-output') {
         const script = e.target.value;
         storeNpmChoice(active.section, script);

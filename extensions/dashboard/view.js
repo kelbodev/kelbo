@@ -88,7 +88,7 @@ export default {
       const info = new Map(available().map(w => [w.key, w]));
       grid.innerHTML = layout.length ? layout.map(item => {
         const w = info.get(item.key);
-        return `<section class="dash-w dash-${item.size}" data-key="${esc(item.key)}" style="--w-color:${ctx.ui.cssColor(w.color)}">
+        return `<section class="dash-w dash-${item.size}" data-key="${esc(item.key)}" style="--w-color:${w.cssColor || ctx.ui.cssColor(w.color)}">
           <header class="dash-w-head" draggable="true" title="${esc(t('widget.drag'))}">
             <span class="dash-w-icon">${ctx.ui.iconOrText(w.icon)}</span>
             <span class="dash-w-title" data-title>${esc(w.title)}</span>
@@ -151,7 +151,7 @@ export default {
       const shown = new Set(layout.map(w => w.key));
       const list = available().filter(w => !shown.has(w.key));
       openModal(t('add.title'), list.length ? `<div class="dash-add">${list.map(w => `
-          <button class="dash-add-item" onclick="Ext.dashboard.addWidget(${js(w.key)})" style="--w-color:${ctx.ui.cssColor(w.color)}">
+          <button class="dash-add-item" onclick="Ext.dashboard.addWidget(${js(w.key)})" style="--w-color:${w.cssColor || ctx.ui.cssColor(w.color)}">
             <span class="dash-w-icon">${ctx.ui.iconOrText(w.icon)}</span>
             <span class="dash-add-text"><strong>${esc(w.title)}</strong><span class="dash-muted">${esc(w.extension)}${w.description ? ` · ${esc(w.description)}` : ''}</span></span>
           </button>`).join('')}</div>` : `<p class="dash-muted">${esc(t('add.none'))}</p>`,
