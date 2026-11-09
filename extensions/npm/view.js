@@ -17,6 +17,7 @@ export default {
     let activeProject = null;
     let tab = 'scripts';
     let closeStream = null;
+    let projectTunnels = { id: null, tunnels: [] }; // tunnel collegati al progetto aperto
 
     const project = () => projects.find(p => p.id === activeProject) || null;
     const running = id => processes.filter(pr => pr.projectId === id && pr.running).length;
@@ -78,7 +79,55 @@ export default {
       const n = running(p.id);
       $(ctx.root, 'running').innerHTML = n ? `${ctx.ui.icon('play')} ${esc(t('running', { count: n }))}` : '';
       for (const b of ctx.root.querySelectorAll('.npm-tab')) b.classList.toggle('active', b.dataset.tab === tab);
+      renderTunnelsButton(p);
       return true;
+    }
+
+    // ---- tunnel SSH collegati al progetto: partono prima di ogni suo script ----
+    async function renderTunnelsButton(p) {
+      const btn = $(ctx.root, 'tunnels');
+      btn.hidden = !ctx.hasExtension('tunnels');
+      if (btn.hidden) return;
+      if (projectTunnels.id !== p.id) {
+        projectTunnels = { id: p.id, tunnels: [] };
+        try { projectTunnels.tunnels = (await ctx.api.get(`/projects/${encodeURIComponent(p.id)}/tunnels`)).tunnels; } catch { /* nessuno */ }
+        if (project() !== p) return;
+      }
+      const n = projectTunnels.tunnels.length;
+      btn.classList.toggle('linked', n > 0);
+      btn.innerHTML = `${ctx.ui.icon('cable')} ${esc(n ? t('tunnels.linked', { count: n }) : t('tunnels.button'))}`;
+    }
+
+    async function tunnelsDialog() {
+      const p = project();
+      if (!p) return;
+      let state;
+      try { state = await ctx.apiFor('tunnels').get('/state'); } catch (e) { toast(e.message, 'error'); return; }
+      const chosen = new Set(projectTunnels.id === p.id ? projectTunnels.tunnels : []);
+      const grouped = new Set(state.groups.flatMap(g => g.servers.map(s => s.key)));
+      const row = s => `<label class="npm-tn-row"><input type="checkbox" name="npm_tn" value="${esc(s.key)}" ${chosen.has(s.key) ? 'checked' : ''}>
+        <span>${esc(s.label || s.key)}</span><span class="npm-tn-meta">:${esc(s.port)} → ${esc(s.remote || '')} · ${esc(s.alias || '')}</span></label>`;
+      const others = state.servers.filter(s => !grouped.has(s.key));
+      const body = state.servers.length
+        ? state.groups.filter(g => g.servers.length).map(g => `<div class="npm-tn-group">${esc(g.label)}</div>${g.servers.map(row).join('')}`).join('')
+          + (others.length ? `<div class="npm-tn-group">${esc(t('tunnels.ungrouped'))}</div>${others.map(row).join('')}` : '')
+        : `<p class="npm-muted">${esc(t('tunnels.none'))}</p>`;
+      openModal(t('tunnels.title', { project: p.label }), `<p class="npm-muted">${esc(t('tunnels.intro'))}</p>${body}`,
+        `<button class="btn btn-ghost" onclick="UI.closeModal()">${esc(t('core.action.cancel'))}</button>
+         ${state.servers.length ? `<button class="btn btn-npm" onclick="Ext.npm.saveTunnels()">${esc(t('core.action.save'))}</button>` : ''}`);
+    }
+
+    async function saveTunnels() {
+      const p = project();
+      if (!p) return;
+      // stesso tunnel in più gruppi: una volta sola
+      const keys = [...new Set([...document.querySelectorAll('input[name="npm_tn"]:checked')].map(i => i.value))];
+      try {
+        projectTunnels = { id: p.id, tunnels: (await ctx.api.put(`/projects/${encodeURIComponent(p.id)}/tunnels`, { tunnels: keys })).tunnels };
+        closeModal();
+        toast(t('tunnels.saved'), 'success');
+        renderTunnelsButton(p);
+      } catch (e) { toast(e.message, 'error'); }
     }
 
     async function renderTab() {
@@ -214,6 +263,8 @@ export default {
         renderProjects(); renderTab();
       },
       select(id) { activeProject = id; renderProjects(); renderTab(); },
+      tunnels: tunnelsDialog,
+      saveTunnels,
 
       async run(projectId, script) {
         try {

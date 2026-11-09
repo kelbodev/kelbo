@@ -11,6 +11,31 @@
   "icon": "package",
   "position": "tab",
   "order": 20,
+  "dependencies": [
+    {
+      "code": "tunnels",
+      "required": false
+    }
+  ],
+  "config": [
+    "npmTunnels"
+  ],
+  "export": [
+    {
+      "id": "tunnels",
+      "label": {
+        "it": "Tunnel dei progetti npm",
+        "en": "npm project tunnels"
+      },
+      "description": {
+        "it": "Tunnel SSH avviati insieme agli script di ogni progetto",
+        "en": "SSH tunnels started together with the scripts of each project"
+      },
+      "sections": [
+        "npmTunnels"
+      ]
+    }
+  ],
   "backend": {
     "module": "server.js",
     "routes": [
@@ -28,6 +53,16 @@
         "method": "GET",
         "path": "/projects/:id/outdated",
         "handler": "outdated"
+      },
+      {
+        "method": "GET",
+        "path": "/projects/:id/tunnels",
+        "handler": "getTunnels"
+      },
+      {
+        "method": "PUT",
+        "path": "/projects/:id/tunnels",
+        "handler": "setTunnels"
       },
       {
         "method": "POST",
