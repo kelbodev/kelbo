@@ -8,8 +8,43 @@ const path = require('path');
 const MAX_LOG_LINES = 500;
 
 module.exports = function createNpm(ctx) {
-  const { NPM_NAME_RE } = ctx.lib.validate;
+  const { NPM_NAME_RE, KEY_RE } = ctx.lib.validate;
   const { getPortsForPgid } = ctx.lib.ports;
+  const tunnels = ctx.require('tunnels'); // opzionale: tunnel SSH avviati insieme agli script
+  const MAX_TUNNELS = 20;
+
+  // ---- tunnel collegati ai progetti: { <progetto>: [<chiave del server tunnel>, …] } ----
+  const config = {
+    npmTunnels: {
+      empty: {},
+      validate(value) {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) throw ctx.error.config('not_an_object');
+        for (const [project, keys] of Object.entries(value)) {
+          if (!KEY_RE.test(project)) throw ctx.error.config('project_id', { id: project });
+          if (!Array.isArray(keys) || keys.length > MAX_TUNNELS || !keys.every(k => typeof k === 'string' && KEY_RE.test(k)) || new Set(keys).size !== keys.length) {
+            throw ctx.error.config('tunnel_list', { id: project });
+          }
+        }
+      },
+    },
+  };
+  const linkedTunnels = () => ctx.config.get('npmTunnels') || {};
+
+  // Prima di avviare uno script: i tunnel del progetto pronti (avviati se serve). Un tunnel che
+  // non parte non blocca lo script: il motivo finisce nell'output, prima del comando
+  async function tunnelsPrelude(p) {
+    const keys = linkedTunnels()[p.id] || [];
+    if (!keys.length) return '';
+    if (!tunnels) return `! tunnel: ${ctx.error.message('tunnels_unavailable')}\n`;
+    const results = await Promise.allSettled(keys.map(async k => {
+      const srv = tunnels.getServer(k);
+      if (!srv) throw ctx.error(400, 'tunnel_unknown', { tunnel: k });
+      return tunnels.ensureTunnel(k);
+    }));
+    return results.map((r, i) => (r.status === 'fulfilled'
+      ? `$ tunnel ${r.value.label} → 127.0.0.1:${r.value.port}\n`
+      : `! tunnel ${tunnels.getServer(keys[i])?.label || keys[i]}: ${r.reason?.message || r.reason}\n`)).join('');
+  }
 
   const processes = new Map(); // id → { id, projectId, projectLabel, script, args, pid, process, startedAt, logs[], running, exitCode }
 
@@ -49,14 +84,14 @@ module.exports = function createNpm(ctx) {
     proc.on('error', err => { if (current()) { pd.running = false; log(pd, `\n[error: ${err.message}]`); } });
   }
 
-  function startNpm(p, script, args) {
+  function startNpm(p, script, args, header = '') {
     const pd = {
       id: crypto.randomUUID(), projectId: p.id, projectLabel: p.label,
       script, args, pid: null, process: null,
       startedAt: null, logs: [], running: false, exitCode: null,
     };
     processes.set(pd.id, pd);
-    spawnNpm(pd, p.path);
+    spawnNpm(pd, p.path, header);
     return pd;
   }
 
@@ -101,6 +136,10 @@ module.exports = function createNpm(ctx) {
   };
 
   return {
+    config,
+    // collegamenti mostrati nel pannello Progetti
+    projectLinks: project => ((linkedTunnels()[project.id] || []).length
+      ? [{ key: 'links.tunnels', params: { count: linkedTunnels()[project.id].length } }] : []),
     services: {
       readPackage,
       // per l'estensione ports: processi avviati da Kelbo (pid = process group) e arresto
@@ -128,7 +167,7 @@ module.exports = function createNpm(ctx) {
       processes() {
         return { processes: [...processes.values()].map(publicProcess) };
       },
-      run({ project, script }) {
+      async run({ project, script }) {
         const p = getProject(project);
         if (!p) throw ctx.error(404, 'project_not_found', { id: String(project) });
         if (typeof script !== 'string' || !script) throw ctx.error(400, 'script_required');
@@ -138,7 +177,7 @@ module.exports = function createNpm(ctx) {
           if (!Object.hasOwn(readPackage(p)?.scripts || {}, script)) throw ctx.error(400, 'script_not_defined', { script });
           args = ['run', script];
         }
-        const pd = startNpm(p, script, args);
+        const pd = startNpm(p, script, args, await tunnelsPrelude(p));
         return { started: true, process: publicProcess(pd) };
       },
       stop({ process: id }) {
@@ -204,8 +243,27 @@ module.exports = function createNpm(ctx) {
         catch { ctx.error.send(res, 500, 'outdated_invalid'); }
       },
 
-      // Solo "install" o script definiti in package.json
-      runScript(req, res) {
+      // Tunnel collegati al progetto: { tunnels: [chiavi], available } (available: c'è l'estensione)
+      getTunnels(req, res) {
+        const p = projectOr404(req);
+        res.json({ tunnels: linkedTunnels()[p.id] || [], available: !!tunnels });
+      },
+      setTunnels(req, res) {
+        const p = projectOr404(req);
+        const keys = req.body?.tunnels;
+        if (!Array.isArray(keys) || keys.length > MAX_TUNNELS || !keys.every(k => typeof k === 'string' && KEY_RE.test(k))) throw ctx.error(400, 'tunnel_list', { id: p.id });
+        const list = [...new Set(keys)];
+        if (list.length && !tunnels) throw ctx.error(400, 'tunnels_unavailable');
+        const unknown = list.find(k => !tunnels.getServer(k));
+        if (unknown) throw ctx.error(400, 'tunnel_unknown', { tunnel: unknown });
+        const all = { ...linkedTunnels() };
+        if (list.length) all[p.id] = list; else delete all[p.id];
+        ctx.config.set('npmTunnels', all);
+        res.json({ tunnels: list, available: !!tunnels });
+      },
+
+      // Solo "install" o script definiti in package.json; prima i tunnel del progetto
+      async runScript(req, res) {
         const p = projectOr404(req);
         const { script } = req.body;
         if (typeof script !== 'string' || !script) throw ctx.error(400, 'script_required');
@@ -217,7 +275,7 @@ module.exports = function createNpm(ctx) {
           if (!Object.hasOwn(scripts, script)) throw ctx.error(400, 'script_not_defined', { script });
           args = ['run', script];
         }
-        const pd = startNpm(p, script, args);
+        const pd = startNpm(p, script, args, await tunnelsPrelude(p));
         countRun(p.id, script);
         res.json({ id: pd.id, pid: pd.pid });
       },
@@ -253,12 +311,13 @@ module.exports = function createNpm(ctx) {
         res.json({ ok: true });
       },
 
-      restartProcess(req, res) {
+      async restartProcess(req, res) {
         const pd = processOr404(req);
         const p = getProject(pd.projectId);
         if (!p) throw ctx.error(400, 'project_gone');
+        const prelude = await tunnelsPrelude(p); // prima di fermarlo: intanto continua a girare
         killGroup(pd);
-        spawnNpm(pd, p.path, '\n--- ↻ ---\n');
+        spawnNpm(pd, p.path, `\n--- ↻ ---\n${prelude}`);
         res.json({ ok: true, pid: pd.pid });
       },
 

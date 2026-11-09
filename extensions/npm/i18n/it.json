@@ -61,5 +61,25 @@
     "one": "{count} avvio",
     "other": "{count} avvii"
   },
-  "widget.run": "Avvia {script}"
+  "widget.run": "Avvia {script}",
+  "tunnels.button": "Tunnel",
+  "tunnels.buttonTitle": "Tunnel SSH avviati insieme agli script di questo progetto",
+  "tunnels.title": "Tunnel di {project}",
+  "tunnels.intro": "I tunnel scelti partono (se non sono già attivi) prima di ogni script del progetto e restano aperti quando lo script si ferma.",
+  "tunnels.none": "Nessun server tunnel configurato: aggiungili nella sezione Tunnel SSH.",
+  "tunnels.ungrouped": "Senza gruppo",
+  "tunnels.saved": "Tunnel del progetto salvati",
+  "tunnels.linked": {
+    "one": "{count} tunnel",
+    "other": "{count} tunnel"
+  },
+  "links.tunnels": {
+    "one": "{count} tunnel avviato con gli script",
+    "other": "{count} tunnel avviati con gli script"
+  },
+  "errors.not_an_object": "Deve essere un oggetto",
+  "errors.project_id": "Id di progetto non valido: {id}",
+  "errors.tunnel_list": "Elenco dei tunnel del progetto {id} non valido (chiavi dei server, al massimo 20, senza ripetizioni)",
+  "errors.tunnels_unavailable": "L'estensione Tunnel SSH non è installata o è spenta",
+  "errors.tunnel_unknown": "Server tunnel sconosciuto: {tunnel}"
 }

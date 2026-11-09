@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.28.0] - 2026-11-09
+
+### Added
+- **NPM: tunnels linked to a project.** The **Tunnels** button in a project's header chooses SSH tunnels (grouped like in the SSH Tunnels section) that start, unless already up, before every script of the project — also on restart and from the `npm_run` MCP tool. The output of the script begins with one line per tunnel (`$ tunnel Orders DB → 127.0.0.1:15432`, or `! tunnel Cache: …` when it could not start: the script starts anyway). Tunnels stay open when the script stops. Saved in the `npmTunnels` section (validated, Export/Import checkbox *Tunnel dei progetti npm*), listed among the project's links in the Projects panel; the `tunnels` extension is an optional dependency of `npm`.
+
 ## [2.27.0] - 2026-11-09
 
 ### Added

@@ -61,5 +61,25 @@
     "one": "{count} run",
     "other": "{count} runs"
   },
-  "widget.run": "Run {script}"
+  "widget.run": "Run {script}",
+  "tunnels.button": "Tunnels",
+  "tunnels.buttonTitle": "SSH tunnels started together with the scripts of this project",
+  "tunnels.title": "Tunnels of {project}",
+  "tunnels.intro": "The chosen tunnels start (unless they are already up) before every script of the project and stay open when the script stops.",
+  "tunnels.none": "No tunnel servers configured: add them in the SSH Tunnels section.",
+  "tunnels.ungrouped": "No group",
+  "tunnels.saved": "Project tunnels saved",
+  "tunnels.linked": {
+    "one": "{count} tunnel",
+    "other": "{count} tunnels"
+  },
+  "links.tunnels": {
+    "one": "{count} tunnel started with the scripts",
+    "other": "{count} tunnels started with the scripts"
+  },
+  "errors.not_an_object": "Must be an object",
+  "errors.project_id": "Invalid project id: {id}",
+  "errors.tunnel_list": "Invalid tunnel list for project {id} (server keys, at most 20, no repetitions)",
+  "errors.tunnels_unavailable": "The SSH Tunnels extension is not installed or is turned off",
+  "errors.tunnel_unknown": "Unknown tunnel server: {tunnel}"
 }
