@@ -207,5 +207,19 @@
   "errors.revert_block_unsupported": "Per {file} si possono annullare solo tutte le modifiche (file nuovo, rinominato o binario)",
   "errors.diff_changed": "{file} è cambiato nel frattempo: differenze aggiornate, riprova",
   "errors.block_invalid": "Modifica non trovata nelle differenze",
-  "errors.revert_failed": "La modifica non si può annullare: {output}"
+  "errors.revert_failed": "La modifica non si può annullare: {output}",
+  "drawer.files": {
+    "one": "{count} file cambiato rispetto al commit precedente",
+    "other": "{count} file cambiati rispetto al commit precedente"
+  },
+  "drawer.filesRoot": {
+    "one": "{count} file nel primo commit",
+    "other": "{count} file nel primo commit"
+  },
+  "drawer.filesTruncated": "(elenco troncato)",
+  "diff.commitTitle": "Commit {hash} · {file}",
+  "diff.commitLegend": "A sinistra il commit precedente ({parent}), a destra il commit {hash}.",
+  "diff.rootLegend": "Primo commit del repository ({hash}): tutto il contenuto è aggiunto.",
+  "errors.commit_not_found": "Commit {hash} non trovato",
+  "errors.file_not_in_commit": "Il file {file} non è tra quelli cambiati dal commit"
 }

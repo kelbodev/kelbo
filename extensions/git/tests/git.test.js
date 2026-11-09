@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { startServer, tmpDir, makeRepo, commitFile, git } = require('../../../lib/testkit');
 
-let srv, base, repo;
+let srv, base, repo, hist;
 before(async () => {
   base = tmpDir();
   repo = makeRepo(path.join(base, 'repo'));
@@ -16,7 +16,18 @@ before(async () => {
   git(repo, 'remote', 'set-url', '--add', '--push', 'origin', path.join(base, 'A.git'));
   git(repo, 'remote', 'set-url', '--add', '--push', 'origin', path.join(base, 'B.git'));
   git(repo, 'fetch', '-q', 'origin');
-  srv = await startServer({ groups: [], servers: [], projects: [{ id: 'r', label: 'Repo', path: repo }] });
+  // repository per il diff dei commit: primo commit, modifica, rinomina
+  hist = path.join(base, 'hist');
+  fs.mkdirSync(hist);
+  git(hist, 'init', '-q', '-b', 'main');
+  fs.writeFileSync(path.join(hist, 'a.txt'), 'uno\ndue\n');
+  fs.writeFileSync(path.join(hist, 'b.txt'), 'bi\n'.repeat(20));
+  git(hist, 'add', '.'); git(hist, '-c', 'user.name=T', '-c', 'user.email=t@example.invalid', 'commit', '-qm', 'primo');
+  fs.writeFileSync(path.join(hist, 'a.txt'), 'uno\nDUE\ntre\n');
+  git(hist, 'mv', 'b.txt', 'c.txt');
+  fs.writeFileSync(path.join(hist, 'nuovo.txt'), 'n\n');
+  git(hist, 'add', '.'); git(hist, '-c', 'user.name=T', '-c', 'user.email=t@example.invalid', 'commit', '-qm', 'secondo');
+  srv = await startServer({ groups: [], servers: [], projects: [{ id: 'r', label: 'Repo', path: repo }, { id: 'h', label: 'Storia', path: hist }] });
 });
 after(() => srv.stop());
 
@@ -25,7 +36,7 @@ const exitOf = r => r.events.find(e => e.type === 'exit')?.data;
 
 test('repo ricavato dai progetti', async () => {
   const r = await srv.request('GET', '/api/ext/git/repos');
-  assert.deepEqual(r.json.map(x => x.id), ['r']);
+  assert.deepEqual(r.json.map(x => x.id), ['r', 'h']);
 });
 
 test('validazione di azione, branch, remote', async () => {
@@ -360,4 +371,36 @@ test('diff: una modifica alla volta o tutte riportate all\'ultimo commit', async
   assert.equal((await srv.request('POST', '/api/ext/git/repos/r/revert', { body: { file: 'staged-new.txt' } })).status, 200);
   assert.equal(fs.existsSync(path.join(repo, 'staged-new.txt')), false);
   assert.equal(git(repo, 'status', '--porcelain').trim(), '');
+});
+
+test('modifiche di un commit rispetto al precedente', async () => {
+  const head = git(hist, 'rev-parse', 'HEAD').trim(), first = git(hist, 'rev-parse', 'HEAD~1').trim();
+  let r = await srv.request('GET', `/api/ext/git/repos/h/commit/${head}`);
+  assert.equal(r.status, 200, r.text);
+  assert.equal(r.json.body, 'secondo');
+  assert.equal(r.json.parent, first);
+  const byName = Object.fromEntries(r.json.files.map(f => [f.name, f]));
+  assert.equal(byName['a.txt'].status, 'M');
+  assert.equal(byName['nuovo.txt'].status, 'A');
+  assert.deepEqual([byName['c.txt'].status, byName['c.txt'].orig], ['R', 'b.txt']);
+  const diff = (hash, file, extra = '') => srv.request('GET', `/api/ext/git/repos/h/commit/${hash}/diff?file=${encodeURIComponent(file)}${extra}`);
+  r = await diff(head, 'a.txt');
+  assert.equal(r.status, 200, r.text);
+  assert.match(r.json.patch, /^-due$/m);
+  assert.match(r.json.patch, /^\+DUE$/m);
+  assert.match(r.json.patch, /^\+tre$/m);
+  r = await diff(head, 'c.txt');
+  assert.match(r.json.patch, /rename from b\.txt/);
+  // primo commit: niente parent, tutto aggiunto
+  r = await srv.request('GET', `/api/ext/git/repos/h/commit/${first}`);
+  assert.equal(r.json.parent, null);
+  assert.deepEqual(r.json.files.map(f => [f.status, f.name]).sort(), [['A', 'a.txt'], ['A', 'b.txt']]);
+  r = await diff(first, 'b.txt', '&context=all');
+  assert.equal(r.status, 200, r.text);
+  assert.match(r.json.patch, /^\+bi$/m);
+  // solo i file del commit, hash validato
+  assert.equal((await diff(head, 'b.txt')).json.code, 'git.file_not_in_commit');
+  assert.equal((await diff(head, '../../etc/passwd')).status, 404);
+  assert.equal((await diff('--output=x', 'a.txt')).status, 400);
+  assert.equal((await srv.request('GET', '/api/ext/git/repos/h/commit/deadbeef')).json.code, 'git.commit_not_found');
 });

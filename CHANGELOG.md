@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.27.0] - 2026-11-09
+
+### Added
+- **Git: changes of a commit.** The commit panel (a click on a row of the log) lists the files the commit changed against the previous one — added, modified, deleted, renamed — and each opens the diff window read-only: side by side or unified, whole file, previous/next file of the commit. The first commit of a repository shows all its files as added. New route `GET /repos/:id/commit/:hash/diff?file=` (only files changed by that commit); `GET /repos/:id/commit/:hash` also returns `parent` and `files`.
+
 ## [2.26.0] - 2026-11-09
 
 ### Added

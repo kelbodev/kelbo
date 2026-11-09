@@ -434,6 +434,7 @@ export default {
         <div class="git-drawer-main">
           <div class="git-drawer-subject">${refBadges(e.refs)}${esc(e.subject)}</div>
           <div class="git-drawer-body" data-role="commit-body"></div>
+          <div class="git-drawer-files" data-role="commit-files"></div>
           <div class="git-drawer-meta">
             <span><i data-icon="user"></i> ${esc(e.author)}</span>
             <span>${ctx.ui.icon('clock')} ${when(e.date)}</span>
@@ -452,8 +453,23 @@ export default {
         const body = lines.slice(start).join('\n').trimEnd();
         const el = drawer.querySelector('[data-role="commit-body"]');
         if (el && body) el.textContent = body;
+        // file cambiati rispetto al commit precedente: un clic apre il diff (sola lettura)
+        const files = data.files || [];
+        drawerCommit = { hash: e.hash, parent: data.parent || null, files: files.map(f => f.name) };
+        const box = drawer.querySelector('[data-role="commit-files"]');
+        if (!box) return;
+        box.innerHTML = `<div class="git-drawer-files-head">${esc(t(data.parent ? 'drawer.files' : 'drawer.filesRoot', { count: files.length }))}${data.filesTruncated ? ` ${esc(t('drawer.filesTruncated'))}` : ''}</div>
+          ${files.map(f => {
+            const parts = f.name.split('/');
+            return `<button class="git-cf" onclick="Ext.git.commitDiff(${js(e.hash)},${js(f.name)})" title="${esc(f.orig ? `${f.orig} → ${f.name}` : f.name)}">
+              <span class="git-file-xy xy-${esc(f.status)}">${esc(f.status)}</span>
+              <span class="git-file-name">${esc(parts[parts.length - 1])}</span>
+              ${parts.length > 1 ? `<span class="git-file-dir">${esc(parts.slice(0, -1).join('/'))}/</span>` : ''}
+            </button>`;
+          }).join('')}`;
       }).catch(() => {});
     }
+    let drawerCommit = null; // { hash, parent, files } del commit aperto nel pannello
 
     // ---- azioni git con output in streaming ----
     // onRefused(err): il server ha rifiutato prima di eseguire (err.code, err.message tradotto, err.data)
@@ -645,12 +661,13 @@ export default {
     }
 
     // ---- diff di un file rispetto all'ultimo commit ----
-    let diffView = null; // { file, mode: 'split'|'unified', all, data }
+    let diffView = null; // { file, mode: 'split'|'unified', all, data, commit: { hash, parent, files } | null }
     const DIFF_MODE_KEY = 'kelbo.git.diffMode';
-    async function openDiff(file) {
+    // commit: diff di un file di quel commit rispetto al precedente (sola lettura)
+    async function openDiff(file, commit = null) {
       let mode = 'split';
       try { mode = localStorage.getItem(DIFF_MODE_KEY) === 'unified' ? 'unified' : 'split'; } catch { /* predefinito */ }
-      diffView = { file, mode, all: diffView?.all || false, data: null };
+      diffView = { file, mode, all: diffView?.all || false, data: null, commit };
       await loadDiff();
     }
     // Dopo un ripristino: status di nuovo; il file ha ancora modifiche → diff aggiornato, altrimenti
@@ -674,14 +691,15 @@ export default {
     async function loadDiff() {
       const v = diffView;
       if (!v) return;
-      try { v.data = await ctx.api.get(repoUrl(`/diff?file=${encodeURIComponent(v.file)}${v.all ? '&context=all' : ''}`)); }
+      const path = v.commit ? `/commit/${encodeURIComponent(v.commit.hash)}/diff` : '/diff';
+      try { v.data = await ctx.api.get(repoUrl(`${path}?file=${encodeURIComponent(v.file)}${v.all ? '&context=all' : ''}`)); }
       catch (e) { toast(e.message, 'error'); return; }
       if (diffView === v) renderDiff();
     }
     function renderDiff() {
       const v = diffView;
       const d = v.data;
-      const files = (status?.files || []).filter(f => !status.conflicts.includes(f.name) && !f.name.endsWith('/')).map(f => f.name);
+      const files = v.commit ? v.commit.files : (status?.files || []).filter(f => !status.conflicts.includes(f.name) && !f.name.endsWith('/')).map(f => f.name);
       const at = files.indexOf(v.file);
       const hunks = parsePatch(d.patch);
       const plus = hunks.reduce((n, h) => n + h.lines.filter(l => l.t === '+').length, 0);
@@ -693,7 +711,7 @@ export default {
         return a >= b ? esc(text) : `${esc(text.slice(0, a))}<mark>${esc(text.slice(a, b))}</mark>${esc(text.slice(b))}`;
       };
       // ↺ su ogni modifica: riportata a HEAD (solo file tracciati, non rinominati, di testo)
-      const blocks = !!d.blocks;
+      const blocks = !v.commit && !!d.blocks;
       const revertBtn = s => `<button class="git-d-revert" onclick="Ext.git.revertBlock(${s.hunk},${s.block})" title="${esc(t('diff.revertBlock'))}"><i data-icon="rotate-ccw"></i></button>`;
       let body;
       if (d.binary) body = `<p class="git-muted git-pad">${esc(t('diff.binary'))}</p>`;
@@ -717,7 +735,11 @@ export default {
           }).join('');
         }).join('')}</tbody></table>`;
       }
-      openModal(t('diff.title', { file: d.file }), `
+      const short = h => String(h || '').slice(0, 7);
+      const legend = v.commit
+        ? (v.commit.parent ? t('diff.commitLegend', { parent: short(v.commit.parent), hash: short(v.commit.hash) }) : t('diff.rootLegend', { hash: short(v.commit.hash) }))
+        : t(d.xy === '??' ? 'diff.untracked' : 'diff.legend');
+      openModal(v.commit ? t('diff.commitTitle', { file: d.file, hash: short(v.commit.hash) }) : t('diff.title', { file: d.file }), `
         <div class="git-diff-bar">
           <span class="git-mono">${d.orig ? `${esc(d.orig)} → ` : ''}${esc(d.file)}</span>
           <span class="git-d-stat"><span class="git-d-plus">+${fmt.number(plus)}</span> <span class="git-d-minus">−${fmt.number(minus)}</span></span>
@@ -727,13 +749,13 @@ export default {
               <button class="${v.mode === 'split' ? 'active' : ''}" onclick="Ext.git.diffMode('split')">${esc(t('diff.split'))}</button>
               <button class="${v.mode === 'unified' ? 'active' : ''}" onclick="Ext.git.diffMode('unified')">${esc(t('diff.unified'))}</button>
             </span>
-            <button class="btn btn-ghost btn-sm git-d-revert-all" onclick="Ext.git.revertFile()" title="${esc(t(d.xy === '??' ? 'diff.deleteFileTitle' : 'diff.revertAllTitle'))}">${ctx.ui.icon(d.xy === '??' ? 'trash-2' : 'undo-2')} ${esc(t(d.xy === '??' ? 'diff.deleteFile' : 'diff.revertAll'))}</button>
-            <button class="btn btn-ghost btn-sm" ${at > 0 ? '' : 'disabled'} onclick="Ext.git.diff(${js(files[at - 1] || '')})" title="${esc(t('diff.prev'))}">‹</button>
+            ${v.commit ? '' : `<button class="btn btn-ghost btn-sm git-d-revert-all" onclick="Ext.git.revertFile()" title="${esc(t(d.xy === '??' ? 'diff.deleteFileTitle' : 'diff.revertAllTitle'))}">${ctx.ui.icon(d.xy === '??' ? 'trash-2' : 'undo-2')} ${esc(t(d.xy === '??' ? 'diff.deleteFile' : 'diff.revertAll'))}</button>`}
+            <button class="btn btn-ghost btn-sm" ${at > 0 ? '' : 'disabled'} onclick="Ext.git.diffGo(${js(files[at - 1] || '')})" title="${esc(t('diff.prev'))}">‹</button>
             <span class="git-muted">${at >= 0 ? `${fmt.number(at + 1)}/${fmt.number(files.length)}` : ''}</span>
-            <button class="btn btn-ghost btn-sm" ${at >= 0 && at < files.length - 1 ? '' : 'disabled'} onclick="Ext.git.diff(${js(files[at + 1] || '')})" title="${esc(t('diff.next'))}">›</button>
+            <button class="btn btn-ghost btn-sm" ${at >= 0 && at < files.length - 1 ? '' : 'disabled'} onclick="Ext.git.diffGo(${js(files[at + 1] || '')})" title="${esc(t('diff.next'))}">›</button>
           </span>
         </div>
-        <p class="git-muted git-d-legend">${esc(t(d.xy === '??' ? 'diff.untracked' : 'diff.legend'))}${d.truncated ? ` ${esc(t('diff.truncated'))}` : ''}</p>
+        <p class="git-muted git-d-legend">${esc(legend)}${d.truncated ? ` ${esc(t('diff.truncated'))}` : ''}</p>
         <div class="git-diff-wrap">${body}</div>`,
         `<button class="btn btn-ghost" onclick="UI.closeModal()">${esc(t('core.action.close'))}</button>`);
       document.getElementById('modal')?.classList.add('modal-wide', 'git-diff-modal');
@@ -822,6 +844,9 @@ export default {
     // ---- collegamenti ----
     const actions = {
       diff: file => file && openDiff(file),
+      // file precedente/successivo nella finestra del diff (modifiche attuali o file del commit)
+      diffGo: file => file && openDiff(file, diffView?.commit || null),
+      commitDiff: (hash, file) => drawerCommit?.hash === hash && openDiff(file, drawerCommit),
       diffMode(mode) { diffView.mode = mode; try { localStorage.setItem(DIFF_MODE_KEY, mode); } catch { /* niente */ } renderDiff(); },
       diffAll(all) { diffView.all = all; loadDiff(); },
       async revertFile() {
