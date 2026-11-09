@@ -4,7 +4,8 @@
 const AUTO_REFRESH_MS = 30000;
 
 // Palette colori per le lane del grafo (ciclica)
-const GRAPH_COLORS = ['#3fb950', '#388bfd', '#bc8cff', '#f0883e', '#58a6ff', '#56d364', '#d2a8ff', '#ffa657', '#79c0ff', '#f778ba'];
+// colori delle corsie: variabili del tema (--graph-0 … --graph-9)
+const GRAPH_COLORS = Array.from({ length: 10 }, (_, i) => `var(--graph-${i})`);
 
 // Nome di branch più adatto tra i ref di un commit: niente tag né HEAD nudo,
 // "HEAD -> x" diventa x, a parità preferisce il nome più corto (main su origin/main)

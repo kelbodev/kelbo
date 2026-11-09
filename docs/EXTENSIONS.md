@@ -82,9 +82,9 @@ Only `setting.json` is mandatory: an extension can be frontend-only (`swagger`, 
 | `version` | yes | Extension version (SemVer, `1.2.0`) |
 | `kelbo` | yes | Kelbo versions the extension works with, as an npm range (`^2.0`, `>=2.1 <3`, `^2.0 \|\| ^3.0`). Before 2.13 the field was called `devdock`, which is still accepted (if both are there they must be equal); an extension that must also load on Kelbo before 2.13 keeps `devdock` too, with the same range. The loader refuses an extension whose range does not include the running core version: it is listed as disabled with the reason (`richiede Kelbo ^3.0, questa è la 2.0.0`) |
 | `description` | no | One line; a string or a map by language tag |
-| `color` | yes | Accent colour (`#rrggbb`) for tab, badges, pills and `--ext-color` |
+| `color` | yes | Accent colour (`#rrggbb`) for tab, badges, pills and `--ext-color`; a theme can replace it with `--ext-<code>` (see *Themes*) |
 | `icon` | no | Icon of the tab / header button, the catalog and the widgets: a [Lucide](https://lucide.dev/icons) icon name (`"database"`, `"git-branch"`; Kelbo ≥ 2.25), drawn in the extension's colour; an emoji or short text still works |
-| `position` | yes | `"tab"`: entry in the section bar with its own panel · `"header"`: button in the header bar that opens its panel. It is the default: the user can move the extension from the Extensions panel (saved in `layout.positions`), so the UI must work in both places; `GET /api/core/extensions` reports the `position` in use and the `manifestPosition` |
+| `position` | with `frontend.js` | `"tab"`: entry in the section bar with its own panel · `"header"`: button in the header bar that opens its panel. It is the default: the user can move the extension from the Extensions panel (saved in `layout.positions`), so the UI must work in both places; `GET /api/core/extensions` reports the `position` in use and the `manifestPosition`. An extension without `frontend.js` (only themes, traits or a backend) can leave it out (Kelbo ≥ 2.26) |
 | `order` | no | Sort order among tabs and among header buttons (default 100); it is the default order: the user can reorder the tabs (saved in `layout.tabs`), and extensions not in that list go after the others in `order`. The first tab opens at startup |
 | `dependencies` | no | `required: true` → the extension is not loaded if the dependency is missing or disabled · `required: false` → it loads with a warning icon and must cope with the dependency being absent |
 | `config` | no | Top-level keys of `config.json` owned by the extension (see *Configuration*) |
@@ -97,6 +97,7 @@ Only `setting.json` is mandatory: an extension can be frontend-only (`swagger`, 
 | `widgets` | no | Mini views for the project dashboard (see *Widgets*): `[{ id, title, description?, scope: "project", size: "s" \| "m" \| "l", js }]`; `js` is a module in the extension folder, served like the `frontend` files |
 | `projects` | no | `{ traits: ["node", …] }`: the extension works with the projects having at least one of these traits; `ctx.projects` (backend `list({ traits })`, frontend `load()`) and the dashboard widgets leave the others out (see *Projects and folders*). Without it the extension sees every project (Kelbo ≥ 2.18) |
 | `projectTraits` | no | Traits the extension adds to the core's `git`, `node`, `env`: `[{ id, label, files?, dependencies?, detect? }]` — present when one of `files` (relative paths, folders too) exists in the project folder or one of the npm packages in `dependencies` is in its `package.json` (dependencies, devDependencies, peerDependencies); with `detect: true` the backend has the last word (see *Traits*, Kelbo ≥ 2.19). At least one of the three. A trait with the id of a core trait or of an extension loaded earlier is ignored (Kelbo ≥ 2.18) |
+| `themes` | no | Color themes the extension brings: `[{ id, name, scheme: "dark" \| "light", css }]`; `css` is a stylesheet in the extension folder, served like the `frontend` files (see *Themes*, Kelbo ≥ 2.26) |
 | `frontend.preload` | no | `true`: the module is mounted at startup (hidden) instead of on first open — for extensions that keep header pills, badges or notifications up to date in the background |
 
 ### Loading and states
@@ -421,7 +422,7 @@ export default {
 | `ctx.hasExtension(code)` | Whether another extension is loaded (for features that rely on it) |
 | `ctx.t(key, params)` | Translation of a key of the extension's catalogs (keys are relative: `t('branches.title')` reads `git.branches.title`; keys starting with `core.` are the core's). See *Translations* |
 | `ctx.i18n` | `lang` (active tag), `pick(value)` (text of a string-or-map manifest field), `apply(element)` (translates `data-i18n…` attributes in markup the extension creates) |
-| `ctx.ui` | `t` (global keys), `fmt` (locale-aware formatting, see *Translations*), `toast`, `openModal`, `closeModal`, `patch(el, html)` (updates a container that is redrawn on its own — polling, `change`, `blur` — only when the HTML changes, and after the click when the mouse is pressed inside it, so a click is never lost because its button was replaced; Kelbo ≥ 2.3), `esc`, `js`, `cssColor`, `ansiToHtml`, `formatUptime`, `toolNotice(message, installCmd, recheckHandler)`, `contextMenu(x, y, items)` (items: `{ label, icon, action, danger, disabled }` or `'separator'`; `icon` a Lucide name or a short text), `icon(name, { cls, title })` (an inline SVG of the Lucide icon `name`, sized and coloured like the text around it; Kelbo ≥ 2.25), `iconOrText(value)` (Lucide name → icon, anything else escaped text), `badgeHtml(value)`, `notify(title, body, icon)` (desktop notification, if enabled with 🔔), `output` (the panel's output drawer: `open(title)`, `append(text, 'out'\|'err'\|'sys')`, `clear()`, `close()`; the user resizes it by dragging its top edge, and the height is remembered per section) |
+| `ctx.ui` | `t` (global keys), `fmt` (locale-aware formatting, see *Translations*), `toast`, `openModal`, `closeModal`, `patch(el, html)` (updates a container that is redrawn on its own — polling, `change`, `blur` — only when the HTML changes, and after the click when the mouse is pressed inside it, so a click is never lost because its button was replaced; Kelbo ≥ 2.3), `esc`, `js`, `cssColor`, `extColor(code, color)` (the colour of an extension as CSS: `var(--ext-<code>, <color>)`, so the active theme can replace it; Kelbo ≥ 2.26), `ansiToHtml`, `formatUptime`, `toolNotice(message, installCmd, recheckHandler)`, `contextMenu(x, y, items)` (items: `{ label, icon, action, danger, disabled }` or `'separator'`; `icon` a Lucide name or a short text), `icon(name, { cls, title })` (an inline SVG of the Lucide icon `name`, sized and coloured like the text around it; Kelbo ≥ 2.25), `iconOrText(value)` (Lucide name → icon, anything else escaped text), `badgeHtml(value)`, `notify(title, body, icon)` (desktop notification, if enabled with 🔔), `output` (the panel's output drawer: `open(title)`, `append(text, 'out'\|'err'\|'sys')`, `clear()`, `close()`; the user resizes it by dragging its top edge, and the height is remembered per section) |
 | `ctx.bus.on(name, fn)` / `ctx.bus.emit(name, detail)` | Events between extensions; the core emits `core:projects-changed` after any change to projects or folders |
 | `ctx.projects` | Projects and folders of the core, see *Projects and folders* |
 | `ctx.vault` | `ensure()`: resolves `true` when the master password vault is unlocked, asking for the password (or to create it) first; `isVaultError(err)`: whether an API error is a locked or missing vault (`core.vault_locked`, `core.vault_missing`); `status()` |
@@ -479,6 +480,37 @@ Kelbo ships the whole [Lucide](https://lucide.dev/icons) icon set (ISC license) 
 - the manifest `icon` is a name too.
 
 Icons take the colour and size of the text around them (`currentColor`, about 1.15em): a button in the extension's colour gets an icon in that colour. They are icons, not text: for meaning use a `title` on the button, and keep symbols that belong to a sentence (✓, →) in the translated text. Before Kelbo 2.25 there is no sprite: an extension for older versions keeps emoji.
+
+## Themes
+
+Every colour of the interface is a CSS variable defined on `:root` in the core's `public/core/shell.css`; the values there are the built-in theme, *Kelbo Dark*. A **theme** is a stylesheet that gives those variables other values. Extensions bring themes through the manifest:
+
+```json
+"themes": [{ "id": "light", "name": "Kelbo Light", "scheme": "light", "css": "themes/light.css" }]
+```
+
+`name` is a string or a map by language tag; `scheme` says whether the theme is light or dark (it sets the browser's `color-scheme`, for scrollbars and native controls, and drives *follow the system*). A theme-only extension needs no `frontend` and no `position`.
+
+The user picks the theme from the palette button in the header; the choice is saved in `config.json` as `layout.theme` — `{ id: "<code>/<theme id>", system, light, dark }`, `id` `""` for the built-in theme — so it travels with the export. With *follow the system* (`system: true`) Kelbo applies the last light or dark theme chosen, following the operating system's setting, and switches live when it changes. A theme whose extension is removed or turned off falls back to the built-in theme. Only the active theme's stylesheet is in the page, and `<html>` carries `data-theme="<code>/<id>"` (`kelbo-dark` for the built-in one).
+
+**Writing a theme.** The stylesheet only sets variables, on `:root[data-theme]` (it then wins over the core's `:root` defaults whatever the loading order): no other selectors, no `url()` or `@import`. It must define all the colour variables of `shell.css` — `themeProblems(cssText)` in the test kit checks exactly that, and `themeTokens()` lists them:
+
+| Variables | Used for |
+|---|---|
+| `--bg`, `--surface`, `--surface2`, `--border`, `--border-strong`, `--text`, `--muted` | Backgrounds (page, panels, inputs and rows), borders (normal and hovered), text |
+| `--accent`, `--on-accent`, `--on-warning` | Default accent; text on coloured buttons and on yellow badges |
+| `--danger`, `--success`, `--warning`, `--info`, `--purple`, `--orange`, `--cyan` | Status and secondary colours |
+| `--overlay`, `--shadow`, `--hover` | Backdrop behind dialogs, shadows of menus and popovers, hovered rows |
+| `--terminal-bg`, `--terminal-text`, `--ansi-<color>`, `--ansi-bright-<color>` | Output panel and logs; the 16 ANSI colours (`black red green yellow blue magenta cyan white`) |
+| `--code-keyword`, `--code-string`, `--code-number`, `--code-function`, `--code-key`, `--code-literal`, `--code-comment`, `--code-variable` | Syntax highlighting (SQL, JSON, mongosh, `.env`) |
+| `--diff-add`, `--diff-del` | Diffs and merge editor |
+| `--http-get`, `--http-post`, `--http-put`, `--http-patch`, `--http-delete`, `--http-other` | HTTP method labels |
+| `--graph-0` … `--graph-9` | Lanes of the commit graph |
+| `--note-<color>-bg`, `--note-<color>-fg` | Sticky notes (`yellow green blue pink purple gray`) |
+
+A theme can also change an extension's colour with `--ext-<code>` (e.g. `--ext-git: #1a7f37`, for manifest colours too light on a white background): the shell sets `--ext-color` to `var(--ext-<code>, <manifest color>)`.
+
+**Extensions and themes.** Write colours with these variables, never as fixed values: `color: var(--code-string)`, `background: color-mix(in srgb, var(--diff-add) 13%, transparent)`, `box-shadow: 0 8px 24px var(--shadow)`, `color: var(--on-accent)` on a button in `--ext-color`. In JavaScript, put the variable in the style (`style="--m: var(--http-get)"`, SVG `stroke="var(--graph-3)"`), and use `ctx.ui.extColor(code, color)` for the colour of another extension. An extension can define variables of its own on `:root` for things the core has no variable for, with a dark default; themes may override them.
 
 ## Translations
 
@@ -599,6 +631,7 @@ Each extension keeps its tests in its own `tests/` folder (`*.test.js`, `node:te
 | `manifest(code, extra)`, `writeExtension(root, code, files)` | Minimal valid manifest and fixture extensions written to disk |
 | `i18nProblems(extDir)` | The translation checks for one extension: catalogs valid and consistent with the source language, keys used in the code present in `i18n/it.json`, no UI text written in the code (exceptions in `tests/i18n-allowlist.txt`); `[]` when everything is fine |
 | `parseSse(text)` | Events of a Server-Sent Events response |
+| `themeTokens()`, `themeProblems(cssText)` | The colour variables a theme must define, and the checks on a theme stylesheet (only `:root…` rules with variables, no `url()`/`@import`, every variable defined); `[]` when it is fine (Kelbo ≥ 2.26) |
 | `validateManifest(json)`, `coreVersion()` | The loader's manifest checks (throws with the reason) and the Kelbo version of the kit, for the scripts of an extensions repository (e.g. generating its catalog) |
 
 ```js

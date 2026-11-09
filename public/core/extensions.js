@@ -79,7 +79,7 @@ window.Extensions = (() => {
       const duplicate = e.duplicate;
       const upd = e.update;
       return `<div class="ext-row">
-        <div class="ext-icon" style="--c:${cssColor(e.color)}">${UI.iconOrText(e.icon)}</div>
+        <div class="ext-icon" style="--c:${UI.extColor(e.code, e.color)}">${UI.iconOrText(e.icon)}</div>
         <div class="ext-info">
           <div class="ext-name">${esc(pick(e.name))} <span class="ext-muted">${esc(e.code)} · ${esc(e.version || '?')}</span> ${stateLabel(e)}
             ${upd?.available ? `<span class="ext-pill ext-pill-upd">${esc(t('core.ext.updateAvailable', { version: upd.latest || '' }))}</span>` : ''}

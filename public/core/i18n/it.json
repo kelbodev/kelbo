@@ -16,6 +16,12 @@
   "core.extensions.loadError": "Errore nel caricamento di {name}: {error}",
   "core.extensions.none": "Nessuna estensione disponibile",
   "core.language.choose": "Lingua",
+  "core.theme.choose": "Tema dei colori",
+  "core.theme.button": "Tema: {name}",
+  "core.theme.buttonSystem": "Tema: {name} (segue il sistema)",
+  "core.theme.builtin": "Kelbo scuro",
+  "core.theme.system": "Segui il sistema (chiaro/scuro)",
+  "core.theme.more": "Altri temi nel pannello Estensioni",
   "core.widgets.failed": "Widget non disponibile: {error}",
   "core.widgets.unavailable": "Il widget {widget} non c'è più (estensione rimossa o spenta)",
   "core.output.title": "Output",
@@ -324,5 +330,6 @@
     "one": "+ {count} progetto non di questa sezione",
     "other": "+ {count} progetti non di questa sezione"
   },
-  "core.projects.hiddenTitle": "Progetti senza i tratti usati da questa sezione: si gestiscono nel pannello Progetti"
+  "core.projects.hiddenTitle": "Progetti senza i tratti usati da questa sezione: si gestiscono nel pannello Progetti",
+  "core.errors.layout_theme": "Tema non valido: { id, system, light, dark } con chiavi \"<estensione>/<tema>\""
 }

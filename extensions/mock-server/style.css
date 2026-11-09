@@ -30,10 +30,10 @@
 .ms-preview{font-family:var(--font);max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ms-row-actions{text-align:end;white-space:nowrap}
 .ms-status{font-family:var(--font);font-size:11px;font-weight:700;padding:0 6px;border-radius:4px}
-.ms-st-2{color:#3fb950;background:color-mix(in srgb,#3fb950 14%,transparent)}
-.ms-st-3{color:#58a6ff;background:color-mix(in srgb,#58a6ff 14%,transparent)}
-.ms-st-4{color:#d29922;background:color-mix(in srgb,#d29922 14%,transparent)}
-.ms-st-5{color:#f85149;background:color-mix(in srgb,#f85149 14%,transparent)}
+.ms-st-2{color:var(--success);background:color-mix(in srgb,var(--success) 14%,transparent)}
+.ms-st-3{color:var(--info);background:color-mix(in srgb,var(--info) 14%,transparent)}
+.ms-st-4{color:var(--warning);background:color-mix(in srgb,var(--warning) 14%,transparent)}
+.ms-st-5{color:var(--danger);background:color-mix(in srgb,var(--danger) 14%,transparent)}
 
 /* registro delle chiamate */
 .ms-calls{flex:1;display:grid;grid-template-columns:minmax(320px,40%) 1fr;min-height:0}

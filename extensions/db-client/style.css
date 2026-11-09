@@ -42,11 +42,11 @@
 .db-editor-highlight code{font:inherit;white-space:inherit}
 .db-editor-input{resize:none;background:transparent;color:transparent;caret-color:var(--text);outline:none;overflow:auto}
 .db-editor-input::selection{background:color-mix(in srgb,var(--ext-color) 30%,transparent);color:transparent}
-.sql-k{color:#ff7b72}
-.sql-s{color:#a5d6ff}
-.sql-n{color:#79c0ff}
-.sql-c{color:#8b949e}
-.sql-i{color:#d2a8ff}
+.sql-k{color:var(--code-keyword)}
+.sql-s{color:var(--code-string)}
+.sql-n{color:var(--code-number)}
+.sql-c{color:var(--code-comment)}
+.sql-i{color:var(--code-function)}
 
 /* risultati */
 .db-results{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column}
@@ -179,14 +179,14 @@
 .db-tree-search .form-input{padding:5px 8px;font-size:12px}
 
 /* autocompletamento dell'editor SQL */
-.db-ac{position:fixed;z-index:400;min-width:220px;max-width:420px;max-height:240px;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.35);padding:3px;font-size:12px}
+.db-ac{position:fixed;z-index:400;min-width:220px;max-width:420px;max-height:240px;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:6px;box-shadow:0 8px 24px var(--shadow);padding:3px;font-size:12px}
 .db-ac-item{display:flex;gap:8px;align-items:center;padding:3px 6px;border-radius:4px;cursor:pointer;white-space:nowrap}
 .db-ac-item.active,.db-ac-item:hover{background:color-mix(in srgb,var(--ext-color,#d29922) 22%,transparent)}
 .db-ac-kind{font-size:9px;text-transform:uppercase;width:24px;text-align:center;border-radius:3px;padding:1px 0;color:var(--muted);border:1px solid var(--border)}
-.db-ac-column{color:#d2a8ff;border-color:#d2a8ff}
-.db-ac-table{color:#79c0ff;border-color:#79c0ff}
-.db-ac-function{color:#a5d6ff;border-color:#a5d6ff}
-.db-ac-keyword{color:#ff7b72;border-color:#ff7b72}
+.db-ac-column{color:var(--code-function);border-color:var(--code-function)}
+.db-ac-table{color:var(--code-key);border-color:var(--code-key)}
+.db-ac-function{color:var(--code-string);border-color:var(--code-string)}
+.db-ac-keyword{color:var(--code-keyword);border-color:var(--code-keyword)}
 .db-ac-label{font-family:var(--font)}
 .db-ac-detail{color:var(--muted);margin-inline-start:auto;overflow:hidden;text-overflow:ellipsis}
 /* parametri di una query (? e :nome) */
