@@ -207,5 +207,19 @@
   "errors.revert_block_unsupported": "For {file} only all the changes can be discarded (new, renamed or binary file)",
   "errors.diff_changed": "{file} changed in the meantime: changes reloaded, try again",
   "errors.block_invalid": "Change not found in the diff",
-  "errors.revert_failed": "The change can't be reverted: {output}"
+  "errors.revert_failed": "The change can't be reverted: {output}",
+  "drawer.files": {
+    "one": "{count} file changed since the previous commit",
+    "other": "{count} files changed since the previous commit"
+  },
+  "drawer.filesRoot": {
+    "one": "{count} file in the first commit",
+    "other": "{count} files in the first commit"
+  },
+  "drawer.filesTruncated": "(list truncated)",
+  "diff.commitTitle": "Commit {hash} · {file}",
+  "diff.commitLegend": "Left: the previous commit ({parent}); right: commit {hash}.",
+  "diff.rootLegend": "First commit of the repository ({hash}): all the content is added.",
+  "errors.commit_not_found": "Commit {hash} not found",
+  "errors.file_not_in_commit": "The file {file} is not among those changed by the commit"
 }

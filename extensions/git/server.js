@@ -277,6 +277,29 @@ module.exports = function createGit(ctx) {
     return { patch, header, hunks, binary, blocksAllowed };
   }
 
+  // ---- modifiche di un commit rispetto al precedente (primo parent; tutto aggiunto per il primo) ----
+  const MAX_COMMIT_FILES = 2000;
+  async function commitParent(repo, hash) {
+    const r = await gitExec(repo.path, ['rev-parse', '--verify', '-q', `${hash}^1`], { allowFail: true });
+    return r.code === 0 ? r.out.trim() : null;
+  }
+  // [{ status: 'A'|'M'|'D'|'R'|'C'|'T', name, orig }] (orig: nome di prima, per rinominati e copiati)
+  async function commitFiles(repo, hash, parent) {
+    const args = parent
+      ? ['-c', 'core.quotepath=off', 'diff', '--no-color', '--no-ext-diff', '--name-status', '-z', '-M', parent, hash, '--']
+      : ['-c', 'core.quotepath=off', 'diff-tree', '--no-commit-id', '--root', '-r', '-z', '-M', '--name-status', hash, '--'];
+    const r = await gitExec(repo.path, args, { allowFail: true });
+    if (r.code !== 0) throw ctx.error(404, 'commit_not_found', { hash });
+    const tok = r.out.split('\0').filter(s => s !== '');
+    const files = [];
+    for (let i = 0; i < tok.length && files.length < MAX_COMMIT_FILES;) {
+      const status = tok[i++][0];
+      if (status === 'R' || status === 'C') { files.push({ status, orig: tok[i], name: tok[i + 1] }); i += 2; }
+      else { files.push({ status, name: tok[i], orig: null }); i += 1; }
+    }
+    return { files, truncated: tok.length > 0 && files.length >= MAX_COMMIT_FILES };
+  }
+
   // Patch con un solo blocco di modifiche di un hunk, da applicare al contrario sulla cartella:
   // le altre modifiche del blocco restano come sono (le righe aggiunte diventano contesto,
   // quelle tolte non ci sono più nel file). Le righe "\ No newline" seguono la loro riga.
@@ -474,18 +497,46 @@ module.exports = function createGit(ctx) {
         });
       },
 
-      // Messaggio completo di un commit (subject + body)
+      // Messaggio completo di un commit (subject + body) e file cambiati rispetto al precedente
       async commitMessage(req, res) {
         const repo = repoOr404(req);
         if (!isValidCommitHash(req.params.hash)) throw ctx.error(400, 'hash_invalid');
+        let body;
         try {
           const r = await gitExec(repo.path, [
             'show', '--no-patch', '--format=%B', req.params.hash, '--',
           ], { allowFail: true });
-          res.json({ body: r.out.trim() });
+          body = r.out.trim();
         } catch (e) {
           throw ctx.error(500, 'command_failed', { output: e.message });
         }
+        const parent = await commitParent(repo, req.params.hash);
+        const { files, truncated } = await commitFiles(repo, req.params.hash, parent);
+        res.json({ body, parent, files, filesTruncated: truncated });
+      },
+
+      // Differenze di un file del commit rispetto al precedente: { file, orig, status, parent,
+      // patch, binary, truncated }. context come in diff
+      async commitDiff(req, res) {
+        const repo = repoOr404(req);
+        const hash = req.params.hash;
+        if (!isValidCommitHash(hash)) throw ctx.error(400, 'hash_invalid');
+        const parent = await commitParent(repo, hash);
+        const entry = (await commitFiles(repo, hash, parent)).files.find(f => f.name === req.query.file);
+        if (!entry) throw ctx.error(404, 'file_not_in_commit', { file: String(req.query.file ?? '') });
+        const context = req.query.context === 'all' ? 100000 : 3;
+        const paths = ['--', ...(entry.orig ? [entry.orig] : []), entry.name];
+        const args = parent
+          ? ['--no-pager', '-c', 'core.quotepath=off', 'diff', '--no-color', '--no-ext-diff', `-U${context}`, '-M', parent, hash, ...paths]
+          : ['--no-pager', '-c', 'core.quotepath=off', 'diff-tree', '-p', '--no-color', '--no-ext-diff', '--no-commit-id', '--root', `-U${context}`, '-M', hash, ...paths];
+        const r = await gitExec(repo.path, args, { allowFail: true });
+        if (r.code !== 0) throw ctx.error(500, 'command_failed', { output: r.err.trim() });
+        const patch = r.out;
+        res.json({
+          file: entry.name, orig: entry.orig, status: entry.status, parent,
+          binary: /^Binary files .* differ$/m.test(patch) || /^GIT binary patch$/m.test(patch),
+          truncated: patch.length > MAX_DIFF, patch: patch.length > MAX_DIFF ? patch.slice(0, MAX_DIFF) : patch,
+        });
       },
 
       // Per il widget: ultimi commit del branch e commit non ancora su nessun remoto (quelli

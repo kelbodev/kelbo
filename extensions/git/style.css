@@ -77,6 +77,15 @@
 .git-drawer-main{flex:1;min-width:0}
 .git-drawer-subject{font-weight:600;font-size:13px;color:var(--text);margin-bottom:6px;white-space:normal;word-break:break-word}
 .git-drawer-body{font-family:var(--font);font-size:11px;color:var(--muted);white-space:pre-wrap;word-break:break-word;margin-bottom:6px;line-height:1.6}
+.git-drawer-files{display:flex;flex-direction:column;max-height:150px;overflow:auto;margin-bottom:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg)}
+.git-drawer-files:empty{display:none}
+.git-drawer-files-head{position:sticky;top:0;background:var(--surface);color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.05em;padding:4px 8px;border-bottom:1px solid var(--border)}
+.git-cf{display:flex;align-items:center;gap:6px;width:100%;background:none;border:none;color:var(--text);font-family:var(--font);font-size:11px;padding:3px 8px;cursor:pointer;text-align:start;min-width:0}
+.git-cf:hover{background:var(--surface2)}
+.git-cf .git-file-name{white-space:nowrap}
+.git-cf .git-file-dir{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.xy-C{color:var(--purple)}
+.xy-T{color:var(--warning)}
 .git-drawer-meta{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:11px}
 .git-mono{font-family:var(--font)}
 .git-drawer-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:0;flex-shrink:0}

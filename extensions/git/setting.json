@@ -51,6 +51,11 @@
       },
       {
         "method": "GET",
+        "path": "/repos/:id/commit/:hash/diff",
+        "handler": "commitDiff"
+      },
+      {
+        "method": "GET",
         "path": "/repos/:id/diff",
         "handler": "diff"
       },
