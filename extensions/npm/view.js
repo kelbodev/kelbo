@@ -105,16 +105,47 @@ export default {
       try { state = await ctx.apiFor('tunnels').get('/state'); } catch (e) { toast(e.message, 'error'); return; }
       const chosen = new Set(projectTunnels.id === p.id ? projectTunnels.tunnels : []);
       const grouped = new Set(state.groups.flatMap(g => g.servers.map(s => s.key)));
-      const row = s => `<label class="npm-tn-row"><input type="checkbox" name="npm_tn" value="${esc(s.key)}" ${chosen.has(s.key) ? 'checked' : ''}>
+      // testo cercato: nome, chiave, porta, destinazione, alias ssh e gruppo
+      const haystack = (s, group) => [s.label, s.key, s.port, s.remote, s.alias, group].filter(Boolean).join(' ').toLowerCase();
+      const row = (s, group = '') => `<label class="npm-tn-row" data-search="${esc(haystack(s, group))}"><input type="checkbox" name="npm_tn" value="${esc(s.key)}" ${chosen.has(s.key) ? 'checked' : ''} onchange="Ext.npm.countTunnels()">
         <span>${esc(s.label || s.key)}</span><span class="npm-tn-meta">:${esc(s.port)} → ${esc(s.remote || '')} · ${esc(s.alias || '')}</span></label>`;
       const others = state.servers.filter(s => !grouped.has(s.key));
       const body = state.servers.length
-        ? state.groups.filter(g => g.servers.length).map(g => `<div class="npm-tn-group">${esc(g.label)}</div>${g.servers.map(row).join('')}`).join('')
-          + (others.length ? `<div class="npm-tn-group">${esc(t('tunnels.ungrouped'))}</div>${others.map(row).join('')}` : '')
+        ? `<input type="search" class="npm-tn-search" placeholder="${esc(t('tunnels.search'))}" oninput="Ext.npm.filterTunnels(this.value)">
+           <div class="npm-tn-list">
+             ${state.groups.filter(g => g.servers.length).map(g => `<div class="npm-tn-section"><div class="npm-tn-group">${esc(g.label)}</div>${g.servers.map(s => row(s, g.label)).join('')}</div>`).join('')}
+             ${others.length ? `<div class="npm-tn-section"><div class="npm-tn-group">${esc(t('tunnels.ungrouped'))}</div>${others.map(s => row(s)).join('')}</div>` : ''}
+             <p class="npm-muted npm-tn-nomatch" hidden>${esc(t('tunnels.noMatch'))}</p>
+           </div>
+           <div class="npm-muted npm-tn-count"></div>`
         : `<p class="npm-muted">${esc(t('tunnels.none'))}</p>`;
       openModal(t('tunnels.title', { project: p.label }), `<p class="npm-muted">${esc(t('tunnels.intro'))}</p>${body}`,
         `<button class="btn btn-ghost" onclick="UI.closeModal()">${esc(t('core.action.cancel'))}</button>
          ${state.servers.length ? `<button class="btn btn-npm" onclick="Ext.npm.saveTunnels()">${esc(t('core.action.save'))}</button>` : ''}`);
+      countTunnels();
+      setTimeout(() => document.querySelector('.npm-tn-search')?.focus(), 50);
+    }
+
+    // ricerca: righe e gruppi senza corrispondenze nascosti (le scelte nascoste restano)
+    function filterTunnels(text) {
+      const words = String(text || '').toLowerCase().split(/\s+/).filter(Boolean);
+      let shown = 0;
+      for (const section of document.querySelectorAll('.npm-tn-section')) {
+        let any = false;
+        for (const r of section.querySelectorAll('.npm-tn-row')) {
+          const ok = words.every(w => r.dataset.search.includes(w));
+          r.hidden = !ok;
+          if (ok) { any = true; shown++; }
+        }
+        section.hidden = !any;
+      }
+      const none = document.querySelector('.npm-tn-nomatch');
+      if (none) none.hidden = shown > 0;
+    }
+    // quanti scelti (lo stesso tunnel in più gruppi conta una volta)
+    function countTunnels() {
+      const el = document.querySelector('.npm-tn-count');
+      if (el) el.textContent = t('tunnels.selected', { count: new Set([...document.querySelectorAll('input[name="npm_tn"]:checked')].map(i => i.value)).size });
     }
 
     async function saveTunnels() {
@@ -265,6 +296,8 @@ export default {
       select(id) { activeProject = id; renderProjects(); renderTab(); },
       tunnels: tunnelsDialog,
       saveTunnels,
+      filterTunnels,
+      countTunnels,
 
       async run(projectId, script) {
         try {
