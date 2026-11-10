@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.28.2] - 2026-11-10
+
+### Fixed
+- NPM: the list of tunnels of a project did not scroll, and with many tunnels the dialog went off screen. The list now scrolls inside the dialog with the group names fixed at the top, and every dialog of Kelbo has a maximum height (its content scrolls instead of leaving the screen).
+
+### Added
+- NPM: search in the list of tunnels (name, key, port, remote host, SSH alias, group; several words narrow it down), with the number of tunnels chosen; the choices hidden by the search are kept.
+
 ## [2.28.1] - 2026-11-09
 
 ### Fixed

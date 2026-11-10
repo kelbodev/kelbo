@@ -81,5 +81,11 @@
   "errors.project_id": "Invalid project id: {id}",
   "errors.tunnel_list": "Invalid tunnel list for project {id} (server keys, at most 20, no repetitions)",
   "errors.tunnels_unavailable": "The SSH Tunnels extension is not installed or is turned off",
-  "errors.tunnel_unknown": "Unknown tunnel server: {tunnel}"
+  "errors.tunnel_unknown": "Unknown tunnel server: {tunnel}",
+  "tunnels.search": "Search by name, port, host or group",
+  "tunnels.noMatch": "No tunnel matches the search",
+  "tunnels.selected": {
+    "one": "{count} tunnel chosen",
+    "other": "{count} tunnels chosen"
+  }
 }

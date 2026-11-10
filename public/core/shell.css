@@ -279,10 +279,10 @@
   ================================================================ */
   .modal-overlay{position:fixed;inset:0;background:var(--overlay);z-index:300;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
   .modal-overlay.open{opacity:1;pointer-events:auto}
-  .modal{background:var(--surface);border:1px solid var(--border);border-radius:8px;width:460px;max-width:95vw;display:flex;flex-direction:column}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:8px;width:460px;max-width:95vw;max-height:92vh;display:flex;flex-direction:column}
   .modal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
   .modal-header h3{font-size:14px;font-weight:600}
-  .modal-body{padding:18px;display:flex;flex-direction:column;gap:14px}
+  .modal-body{padding:18px;display:flex;flex-direction:column;gap:14px;min-height:0;overflow:auto} /* rete di sicurezza: un contenuto lungo scorre invece di uscire dallo schermo */
   .modal-footer{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--border)}
 
   /* ================================================================

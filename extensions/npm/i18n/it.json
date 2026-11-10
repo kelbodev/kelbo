@@ -81,5 +81,11 @@
   "errors.project_id": "Id di progetto non valido: {id}",
   "errors.tunnel_list": "Elenco dei tunnel del progetto {id} non valido (chiavi dei server, al massimo 20, senza ripetizioni)",
   "errors.tunnels_unavailable": "L'estensione Tunnel SSH non è installata o è spenta",
-  "errors.tunnel_unknown": "Server tunnel sconosciuto: {tunnel}"
+  "errors.tunnel_unknown": "Server tunnel sconosciuto: {tunnel}",
+  "tunnels.search": "Cerca per nome, porta, host o gruppo",
+  "tunnels.noMatch": "Nessun tunnel corrisponde alla ricerca",
+  "tunnels.selected": {
+    "one": "{count} tunnel scelto",
+    "other": "{count} tunnel scelti"
+  }
 }

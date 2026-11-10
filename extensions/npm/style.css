@@ -44,7 +44,11 @@
 .npm-detail-meta{display:flex;align-items:center;gap:10px}
 .npm-tunnels-btn{margin-inline-start:auto;font-size:11px}
 .npm-tunnels-btn.linked{color:var(--ext-tunnels, var(--info));border-color:color-mix(in srgb,var(--ext-tunnels, var(--info)) 45%,var(--border))}
-.npm-tn-group{margin:10px 0 4px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.npm-tn-search{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:7px 9px;font-size:13px}
+.npm-tn-list{max-height:50vh;overflow:auto;border:1px solid var(--border);border-radius:var(--radius);padding:0 10px 6px}
+.npm-tn-section[hidden],.npm-tn-row[hidden]{display:none}
+.npm-tn-count{font-size:11px;margin-top:-6px}
+.npm-tn-group{position:sticky;top:0;background:var(--surface);padding-top:10px;margin:0 0 4px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 .npm-tn-row{display:flex;align-items:center;gap:8px;padding:4px 2px;cursor:pointer;font-size:13px}
 .npm-tn-row>span:first-of-type{white-space:nowrap}
 .npm-tn-row .npm-tn-meta{color:var(--muted);font-family:var(--font);font-size:11px;margin-inline-start:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
