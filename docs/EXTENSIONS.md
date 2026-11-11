@@ -13,6 +13,7 @@ Every feature that can be added or removed is an **extension**: a folder under `
 | `npm` | tab | 20 | — | — | — | yes |
 | `env` | tab | 22 | — | — | — | no |
 | `db-client` | tab | 25 | `dbConnections`, `dbFolders` | Connessioni database | `tunnels`, `git` (optional) | no |
+| `db-mysql` | — (provider) | 41 | — | — | `db-client` | — |
 | `git` | tab | 30 | — | — | — | no |
 | `http-client` | tab | 38 | `httpSections` | Richieste HTTP | — | no |
 | `mock-server` | tab | 39 | `mockServers` | Mock server | — | yes |
@@ -21,7 +22,7 @@ The official installable extensions (`pm2`, `ports`, `mongo-client`, `swagger`) 
 
 The core owns `projects` and `projectFolders` (see *Projects and folders*) and their **Progetti e cartelle** export checkbox, `layout` (the tab order chosen by the user, not exported) and `vault` (the master password, see *Secrets*).
 
-Services offered by the built-in extensions to the others (`ctx.require(code)`): `npm` → `readPackage(project)`, `processes()` (with `projectId`), `stopProcess(id)`; `tunnels` → `getServer(key)`, `ensureTunnel(key)`, `activeTunnels()`, `stopTunnel(id)`; `git` → `repos()`; `db-client` → `decryptPassword(connection)`.
+Services offered by the built-in extensions to the others (`ctx.require(code)`): `npm` → `readPackage(project)`, `processes()` (with `projectId`), `stopProcess(id)`; `tunnels` → `getServer(key)`, `ensureTunnel(key)`, `activeTunnels()`, `stopTunnel(id)`; `git` → `repos()`; `db-client` → `decryptPassword(connection)`. Providers (`ctx.providers(capability)`): `db-mysql` → `db-engine` `mysql`; the interface of a database engine is in [`extensions/db-client/engine.md`](../extensions/db-client/engine.md).
 
 
 ## Folder layout

@@ -1,0 +1,34 @@
+{
+  "name": {
+    "it": "MySQL / MariaDB",
+    "en": "MySQL / MariaDB"
+  },
+  "code": "db-mysql",
+  "version": "1.0.0",
+  "kelbo": "^2.29",
+  "devdock": "^2.29",
+  "description": {
+    "it": "Motore MySQL e MariaDB per la sezione Database (driver mysql2)",
+    "en": "MySQL and MariaDB engine for the Database section (mysql2 driver)"
+  },
+  "color": "#d29922",
+  "icon": "database",
+  "order": 41,
+  "dependencies": [
+    {
+      "code": "db-client",
+      "required": true
+    }
+  ],
+  "provides": [
+    {
+      "capability": "db-engine",
+      "id": "mysql",
+      "title": "MySQL / MariaDB",
+      "handler": "mysql"
+    }
+  ],
+  "backend": {
+    "module": "server.js"
+  }
+}

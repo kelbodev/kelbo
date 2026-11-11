@@ -6,6 +6,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.29.0] - 2026-11-11
+
+### Added
+- **Providers between extensions** (`docs/EXTENSIONS.md`, *Providers*): an extension declares in `provides` that it implements a named capability with an object of its backend, and another extension reads the implementations with `ctx.providers(capability)` at the moment of the call, so installs, switch-offs and hot reloads are followed. It is the base of the database engines (M5) and of the tunnel transports (M9).
+- **Extension kinds**: *component* (it has an interface), *provider* (it provides something), *theme* (it brings themes) — derived from the manifest, more than one at a time — as tags in the Extensions panel and in the catalog, with a filter; `kinds` in `/api/core/extensions` and in the catalogs (`extensionKinds()` in the test kit).
+- **Database: engines as extensions.** The Database section is now the host and every database is an engine provided by an extension (`db-engine`, interface in `extensions/db-client/engine.md`). MySQL/MariaDB is the new built-in extension **db-mysql** (driver `mysql2`), with no visible change. A connection has a `type` (MySQL when missing); a connection whose engine is not installed stays saved, marked in the sidebar with a link to the Extensions panel. The connection form has the **Database** choice and shows the fields of the engine; highlighting, completion, quoting, the quick queries of the table menu and the designer's types come from the engine's dialect.
+
+### Changed
+- Database errors are `db-client.database` with the database's code in `params.dbCode` (was `db-client.mysql` and `mysqlCode`).
+- The MCP tool `db_client_connections` reports the `type` of each connection.
+
+### Fixed
+- Catalog entries with a Lucide icon name longer than 8 characters (`notebook-pen`, `scroll-text`) lost the end of the name.
+
 ## [2.28.2] - 2026-11-10
 
 ### Fixed

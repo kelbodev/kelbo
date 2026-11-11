@@ -271,7 +271,7 @@
   "errors.connection_project": "connessione \"{id}\": progetto non valido",
   "errors.connection_read_only": "connessione \"{id}\": readOnly deve essere true o false",
   "errors.connection_not_found": "Connessione non trovata: {id}",
-  "errors.mysql": "{error}",
+  "errors.database": "{error}",
   "errors.tunnels_unavailable": "Estensione Tunnels SSH non attiva: connessione via tunnel non disponibile",
   "errors.tunnel_unknown": "Server tunnel inesistente: {tunnel}",
   "errors.name_invalid": "Nome non valido",
@@ -573,5 +573,14 @@
   "mgrun.stopped": "fermato",
   "mgrun.stop": "Ferma",
   "mgrun.again": "Esegui di nuovo",
-  "mgrun.lost": "[collegamento all'output perso]"
+  "mgrun.lost": "[collegamento all'output perso]",
+  "errors.engine_missing": "Motore \"{type}\" non installato o spento: installalo dal pannello Estensioni",
+  "errors.engine_no_tunnel": "Questo motore non si collega tramite un tunnel SSH",
+  "form.engine": "Database",
+  "form.engineMissing": "{engine} (motore non installato)",
+  "conn.engineMissing": "Motore {engine} non installato o spento",
+  "conn.installEngine": "Estensioni",
+  "menu.showCreate": "Istruzione CREATE della tabella",
+  "menu.showCreateView": "Istruzione CREATE della vista",
+  "designer.noEngineDesigner": "Il motore {engine} non offre il designer delle tabelle"
 }

@@ -89,7 +89,7 @@ test('migration: file nel repository, DDL, errori e schema letto di nuovo', asyn
     r = await migrate({ operations: bad });
     r = await migrate({ operations: bad, confirm: r.json.token, acknowledgeWarnings: true });
     assert.equal(r.status, 400);
-    assert.equal(r.json.params.mysqlCode, 'ER_CANT_DROP_FIELD_OR_KEY');
+    assert.equal(r.json.params.dbCode, 'ER_CANT_DROP_FIELD_OR_KEY');
     assert.deepEqual(r.json.executed, []);
     assert.ok(!fs.readdirSync(dir).some(f => f.startsWith('006_')), 'file tolto');
 

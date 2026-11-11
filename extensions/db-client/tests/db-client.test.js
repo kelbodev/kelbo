@@ -119,9 +119,10 @@ test('connessioni: CRUD, password mai esposte, prova di connessione', async t =>
 });
 
 test('connessioni via tunnel non disponibili se l\'estensione tunnels non è attiva', async () => {
-  // cartella estensioni con il solo db-client
+  // cartella estensioni con il solo db-client e il suo motore MySQL
   const dir = tmpDir('devdock-ext-db-');
   fs.symlinkSync(path.join(__dirname, '..'), path.join(dir, 'db-client'));
+  fs.symlinkSync(path.join(__dirname, '..', '..', 'db-mysql'), path.join(dir, 'db-mysql'));
   const s = await startServer(undefined, { env: { DEVDOCK_EXTENSIONS_DIR: dir } });
   try {
     const ext = (await s.request('GET', '/api/core/extensions')).json.find(e => e.code === 'db-client');
@@ -217,7 +218,7 @@ test('query: letture subito, scritture solo con la conferma della stessa istruzi
     assert.equal((await q('rw', { sql: 'USE mysql' })).status, 400);
     r = await q('rw', { sql: 'SELECT * FROM tabella_inesistente' });
     assert.equal(r.status, 400);
-    assert.equal(r.json.params.mysqlCode, 'ER_NO_SUCH_TABLE');
+    assert.equal(r.json.params.dbCode, 'ER_NO_SUCH_TABLE');
 
     // database
     r = await api('GET', '/connections/rw/databases');
@@ -245,7 +246,7 @@ test('query: letture subito, scritture solo con la conferma della stessa istruzi
     assert.equal(r.json.results[2].affectedRows, 2);
     assert.equal(String(r.json.results[4].rows[0][0]), '2');
     assert.deepEqual(r.json.results[5].rows, [['Lotto']]);
-    assert.equal(r.json.results[6].mysqlCode, 'ER_NO_SUCH_TABLE');
+    assert.equal(r.json.results[6].dbCode, 'ER_NO_SUCH_TABLE');
     assert.ok((await q('rw', { sql: 'SELECT COUNT(*) FROM clienti' })).json.rows[0][0] > 0); // il DELETE dopo l'errore non è partito
     // il token vale per quel testo: un'istruzione in più chiede di nuovo la conferma
     assert.equal((await q('rw', { sql: `${batch}; DELETE FROM clienti`, confirm: 'x' })).status, 428);
@@ -523,7 +524,7 @@ test('creazione tabella da definizione strutturata, solo dopo conferma', async t
     r = await create({ definition });
     r = await create({ definition, confirm: r.json.token });
     assert.equal(r.status, 400);
-    assert.equal(r.json.params.mysqlCode, 'ER_TABLE_EXISTS_ERROR');
+    assert.equal(r.json.params.dbCode, 'ER_TABLE_EXISTS_ERROR');
   } finally {
     await s.stop();
     await mysqlDb.stop();
