@@ -122,6 +122,13 @@
   [dir=rtl] .ext-switch input:checked+span::before{transform:translateX(-14px)}
   .ext-foot{display:flex;justify-content:space-between;align-items:center;gap:8px}
   .ext-search{display:flex;gap:6px}
+  .ext-kinds{display:flex;gap:4px;flex-wrap:wrap}
+  .ext-kind-btn{background:var(--surface);border:1px solid var(--border);color:var(--muted);font-size:11px;padding:2px 10px;border-radius:12px;cursor:pointer}
+  .ext-kind-btn.active{color:var(--text);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--surface))}
+  .ext-kind{color:var(--muted)}
+  .ext-kind-provider{color:var(--purple);border-color:color-mix(in srgb,var(--purple) 40%,var(--border))}
+  .ext-kind-theme{color:var(--orange);border-color:color-mix(in srgb,var(--orange) 40%,var(--border))}
+  .ext-kind-component{color:var(--info);border-color:color-mix(in srgb,var(--info) 40%,var(--border))}
   .ext-code{font-family:var(--font);font-size:12px}
   .ext-changelog{max-height:220px;overflow:auto;margin:0;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:var(--font);font-size:11px;white-space:pre-wrap}
   .ext-deps{margin:0;padding-inline-start:18px;font-size:12px;display:flex;flex-direction:column;gap:4px}

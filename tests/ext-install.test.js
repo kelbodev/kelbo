@@ -58,7 +58,7 @@ before(async () => {
   catalogServer = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ extensions: [
-      { code: 'greet', name: 'Greet', description: 'Saluta', repo: repoB, path: 'tools/greet' },
+      { code: 'greet', name: 'Greet', description: 'Saluta', repo: repoB, path: 'tools/greet', icon: 'notebook-pen', kinds: ['component', 'provider', 'nope', 'component'] },
       { code: 'hello', name: 'Hello', repo: repoA },
       { code: 'bad code!', repo: 'x' },
     ] }));
@@ -109,6 +109,10 @@ test('catalogo: voci valide, installate segnate; installazione da una cartella c
   assert.deepEqual(c.catalogs.map(x => [x.url, x.ok, x.count]), [[catalogUrl, true, 2]]);
   assert.equal(c.extensions.find(e => e.code === 'hello').installed.version, '1.1.0');
   assert.equal(c.extensions.find(e => e.code === 'greet').installed, null);
+  // icona Lucide intera e tipi noti, senza ripetizioni
+  assert.equal(c.extensions.find(e => e.code === 'greet').icon, 'notebook-pen');
+  assert.deepEqual(c.extensions.find(e => e.code === 'greet').kinds, ['component', 'provider']);
+  assert.deepEqual(c.extensions.find(e => e.code === 'hello').kinds, []);
   const p = (await call('POST', '/extensions-admin/preview', { code: 'greet' })).json;
   assert.deepEqual([p.version, p.tag, p.path], ['1.2.0', 'greet@1.2.0', 'tools/greet']);
   assert.deepEqual(p.versions.map(v => v.tag), ['greet@1.2.0', 'greet@1.0.0']);

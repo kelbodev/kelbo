@@ -331,5 +331,15 @@
     "other": "+ {count} progetti non di questa sezione"
   },
   "core.projects.hiddenTitle": "Progetti senza i tratti usati da questa sezione: si gestiscono nel pannello Progetti",
-  "core.errors.layout_theme": "Tema non valido: { id, system, light, dark } con chiavi \"<estensione>/<tema>\""
+  "core.errors.layout_theme": "Tema non valido: { id, system, light, dark } con chiavi \"<estensione>/<tema>\"",
+  "core.ext.kind.component": "componente",
+  "core.ext.kind.provider": "provider",
+  "core.ext.kind.theme": "tema",
+  "core.ext.kindHint.component": "Ha una sua interfaccia: una sezione, un pulsante o un widget",
+  "core.ext.kindHint.provider": "Offre un'implementazione ad altre estensioni (es. un motore di database o un tipo di tunnel)",
+  "core.ext.kindHint.theme": "Porta uno o più temi dei colori",
+  "core.ext.kindAll": "Tutte",
+  "core.ext.kindPlural.component": "Componenti",
+  "core.ext.kindPlural.provider": "Provider",
+  "core.ext.kindPlural.theme": "Temi"
 }
