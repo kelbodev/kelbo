@@ -73,6 +73,11 @@ module.exports = function createDbClient(ctx) {
     return e;
   }
   const ENGINE_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
+  // Livello sotto la connessione ("db" nelle route, nell'albero e nelle tab): il database per i
+  // motori senza schemi (MySQL), lo schema per quelli con schemi (PostgreSQL: il database è fisso,
+  // quello della connessione). Predefinito: il database della connessione, o lo schema del motore
+  const hasSchemas = engine => !!engine?.dialect?.schemas;
+  const defaultScope = (conn, engine = engineOf(conn)) => (hasSchemas(engine) ? engine.defaultSchema || null : conn.database || null);
   const connections = () => ctx.config.get('dbConnections');
   const folders = () => ctx.config.get('dbFolders');
 
@@ -128,7 +133,7 @@ module.exports = function createDbClient(ctx) {
   const publicConnection = c => ({
     ...pick(c, CONNECTION_FIELDS.filter(f => f !== 'password')), type: engineType(c), hasPassword: !!c.password,
     ...(tunnelMissing(c) ? { tunnelMissing: true } : {}),
-    ...(engineOf(c) ? {} : { engineMissing: true }),
+    ...(engineOf(c) ? { defaultDb: defaultScope(c) } : { engineMissing: true }),
   });
 
   // Risposta di errore: gli errori con codice (anche di altre estensioni, es. tunnel non
@@ -209,7 +214,7 @@ module.exports = function createDbClient(ctx) {
     return conn;
   }
   function mcpDatabase(conn, database) {
-    const db = database || conn.database;
+    const db = database || defaultScope(conn);
     if (!db) throw ctx.error(400, 'mcp_database_required');
     if (!DB_NAME_RE.test(db)) throw ctx.error(400, 'database_invalid');
     return db;
@@ -290,9 +295,12 @@ module.exports = function createDbClient(ctx) {
     if (cached && cached.signature === signature && cached.engine === engine) return cached.pool;
     if (cached) { try { cached.engine.closePool(cached.pool); } catch { /* già chiuso */ } pools.delete(k); }
     const { options } = await connectionTarget(conn);
-    const db = database === false ? undefined : database || options.database;
+    // motori con schemi: il database resta quello della connessione, "database" è lo schema
+    const target = hasSchemas(engine)
+      ? { ...options, schema: database === false ? undefined : database || defaultScope(conn, engine) }
+      : { ...options, database: database === false ? undefined : database || options.database };
     // readOnly: sola lettura anche lato server, una scrittura sfuggita al controllo fallisce comunque
-    const pool = engine.createPool({ ...options, database: db }, { readOnly: !!conn.readOnly });
+    const pool = engine.createPool(target, { readOnly: !!conn.readOnly });
     pools.set(k, { pool, signature, engine });
     return pool;
   }
@@ -308,13 +316,14 @@ module.exports = function createDbClient(ctx) {
     const where = [], params = [];
     const text = typeof search === 'string' ? search.trim() : '';
     if (text) {
-      where.push('(' + columns.map(c => `${engine.asText(quoteId(c.name))} LIKE ?`).join(' OR ') + ')');
+      // likeOperator: ILIKE dove LIKE distingue maiuscole e minuscole (PostgreSQL), come in MySQL
+      where.push('(' + columns.map(c => `${engine.asText(quoteId(c.name))} ${engine.likeOperator || 'LIKE'} ?`).join(' OR ') + ')');
       columns.forEach(() => params.push(`%${escapeLike(text)}%`));
     }
     for (const f of Array.isArray(filters) ? filters : []) {
       const op = FILTER_OPS[f?.op];
       if (!op || !names.has(f.column)) throw ctx.error(400, 'filter_invalid', { column: String(f?.column), op: String(f?.op) });
-      where.push(`${quoteId(f.column)} ${op.sql}`);
+      where.push(`${quoteId(f.column)} ${op.like && engine.likeOperator ? op.sql.replace('LIKE', engine.likeOperator) : op.sql}`);
       if (!op.noValue) params.push(op.like ? op.like(escapeLike(f.value ?? '')) : f.value ?? '');
     }
     let orderSql = '';
@@ -614,7 +623,8 @@ module.exports = function createDbClient(ctx) {
         try {
           // senza database predefinito: l'elenco arriva anche se quello della connessione non esiste
           const databases = await engine.listDatabases(await poolFor(conn, false));
-          res.json({ databases, default: conn.database || null, defaultMissing: !!conn.database && !databases.includes(conn.database) });
+          const def = defaultScope(conn, engine);
+          res.json({ databases, default: def, defaultMissing: !!def && !databases.includes(def), schemas: hasSchemas(engine) });
         } catch (e) {
           sendFailure(res, e, 502, {}, engine);
         }
@@ -689,7 +699,7 @@ module.exports = function createDbClient(ctx) {
           } else if (source?.type === 'query') {
             const c = engine.sql.classify(source.sql);
             if (c.kind !== 'read') throw ctx.error(400, 'export_read_only');
-            const database = source.database || conn.database || null;
+            const database = source.database || defaultScope(conn, engine);
             if (database && !DB_NAME_RE.test(database)) throw ctx.error(400, 'database_invalid');
             spec = { sql: source.sql, params: [], database, table: 'result', db: null, withCreate: false };
             name = 'query';
@@ -852,7 +862,7 @@ module.exports = function createDbClient(ctx) {
           if (bound.missing) throw ctx.error(400, 'params_missing', { params: bound.missing.map(k => wanted.find(w => w.key === k)?.name || k).join(', ') });
           sql = bound.sql;
         }
-        const database = req.body.database || conn.database || null;
+        const database = req.body.database || defaultScope(conn, engine);
         if (database && !DB_NAME_RE.test(database)) throw ctx.error(400, 'database_invalid');
         const limit = Math.min(Math.max(parseInt(req.body.limit) || DEFAULT_ROW_LIMIT, 1), MAX_ROW_LIMIT);
 
@@ -1079,7 +1089,8 @@ module.exports = function createDbClient(ctx) {
       },
     },
 
-    services: { decryptPassword },
+    // sqlText(opzioni): istruzioni, segnaposto e conteggio con le regole di un dialetto (per i motori)
+    services: { decryptPassword, sqlText: require('./sqltext'), schemaDiff: require('./schemadiff') },
 
     // Strumenti MCP: solo letture e solo con il vault sbloccato dall'interfaccia
     // (l'agente non riceve né può inserire la master password)
@@ -1113,7 +1124,7 @@ module.exports = function createDbClient(ctx) {
       },
       async query({ connection, database, sql, limit = 100 }) {
         const conn = mcpConnection(connection);
-        const db = database ? mcpDatabase(conn, database) : conn.database || null;
+        const db = database ? mcpDatabase(conn, database) : defaultScope(conn);
         const engine = engineFor(conn);
         const c = engine.sql.classify(sql);
         if (c.kind !== 'read') throw ctx.error(400, 'mcp_read_only', { verb: c.verb || '?' });

@@ -258,6 +258,7 @@
   "reason.row_lock": "row locks",
   "reason.explain_analyze_write": "EXPLAIN ANALYZE of a write",
   "reason.write_word": "contains {word}",
+  "reason.write_function": "calls {word}, which changes something",
   "errors.connection_invalid": "Invalid connection",
   "errors.connection_id": "connection \"{id}\": invalid id (letters, digits, _ and -)",
   "errors.connection_label": "connection \"{id}\": name is required",

@@ -258,6 +258,7 @@
   "reason.row_lock": "lock sulle righe",
   "reason.explain_analyze_write": "EXPLAIN ANALYZE di una scrittura",
   "reason.write_word": "contiene {word}",
+  "reason.write_function": "chiama {word}, che modifica qualcosa",
   "errors.connection_invalid": "Connessione non valida",
   "errors.connection_id": "connessione \"{id}\": id non valido (lettere, numeri, _ e -)",
   "errors.connection_label": "connessione \"{id}\": nome obbligatorio",

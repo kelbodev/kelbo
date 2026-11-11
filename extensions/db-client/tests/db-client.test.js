@@ -78,7 +78,7 @@ test('connessioni: CRUD, password mai esposte, prova di connessione', async t =>
 
     const list = (await api('GET', '/connections')).json;
     assert.equal(list.tunnelsAvailable, true);
-    assert.deepEqual(Object.keys(list.connections[0]).sort(), ['database', 'hasPassword', 'host', 'id', 'label', 'port', 'readOnly', 'type', 'user']);
+    assert.deepEqual(Object.keys(list.connections[0]).sort(), ['database', 'defaultDb', 'hasPassword', 'host', 'id', 'label', 'port', 'readOnly', 'type', 'user']);
 
     r = await api('POST', '/connections/locale/test');
     assert.equal(r.status, 200, r.text);

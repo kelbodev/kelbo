@@ -47,6 +47,7 @@ MySQL/MariaDB is the built-in `db-mysql` (`extensions/db-mysql/engine.js`): read
 | `quoteId(name)`, `qualify(db, table)` | Quoted identifier, qualified table name |
 | `escape(value)`, `literal(value)`, `format(template, params)` | A value as SQL; a cell value for an SQL export file; `?` replaced by escaped values |
 | `asText(columnSql)` | Text expression of a column for the search with `LIKE` |
+| `likeOperator` | Optional: the operator of the search and of the *contains*/*starts with* filters when `LIKE` is case-sensitive (`ILIKE` in PostgreSQL), so searching behaves as in MySQL |
 | `page(sql, params, limit, offset)` | `{ sql, params }` of one page of a `SELECT` |
 
 ### Metadata

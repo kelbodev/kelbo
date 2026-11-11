@@ -265,13 +265,15 @@ export default {
     // I risultati della tab non visibile restano nel suo stato (griglia, designer, risultato,
     // ordinamento, modifiche in sospeso) e nei nodi del pannello, staccati e rimessi al cambio
     const TABS_KEY = 'kelbo.db-client.tabs'; // tab della sessione del browser (senza risultati)
+    // livello sotto la connessione all'apertura: database (MySQL) o schema (PostgreSQL)
+    const defaultDb = c => (c ? (c.defaultDb !== undefined ? c.defaultDb : c.database) || null : null);
     let tabs = [];
     let current = null;
     let tabSeq = 0;
     const tabDb = () => current?.db || null;
     function makeTab({ connId = null, db = null, sql = '', title = null, key = null } = {}) {
       const c = connections.find(x => x.id === connId);
-      return { id: ++tabSeq, connId, db: db || c?.database || null, sql, title, key, running: false, frag: null,
+      return { id: ++tabSeq, connId, db: db || defaultDb(c), sql, title, key, running: false, frag: null,
         st: { grid: null, designer: null, lastResult: null, resultSort: null, lastParamInfo: null, edits: null, batch: null } };
     }
     // Stato dei risultati della tab visibile → nella tab (nodi del pannello compresi)
@@ -355,7 +357,7 @@ export default {
     function setTarget(connId, db) {
       if (!current) { addTab({ connId, db }); return; }
       const c = connections.find(x => x.id === connId);
-      if (current.connId !== connId) current.db = db ?? c?.database ?? null;
+      if (current.connId !== connId) current.db = db ?? defaultDb(c);
       else if (db !== undefined) current.db = db;
       current.connId = connId;
       activeId = connId;
@@ -425,7 +427,7 @@ export default {
         const d = e?.dialect || {};
         dialectCache.set(key, {
           quote: d.quote || '`', keywords: d.keywords ? new Set(d.keywords) : SQL_KEYWORDS,
-          snippets: { ...MYSQL_SNIPPETS, ...(d.snippets || {}) }, ddl: d.ddl || null, schemas: !!d.schemas,
+          snippets: d.snippets || MYSQL_SNIPPETS, ddl: d.ddl || null, schemas: !!d.schemas,
         });
       }
       return dialectCache.get(key);
@@ -435,7 +437,7 @@ export default {
       dialectCache.clear();
     }
     const quoteFor = c => name => quoteWith(dialectOf(c).quote, name);
-    const snippet = (c, name, vars) => dialectOf(c).snippets[name].replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m);
+    const snippet = (c, name, vars) => (dialectOf(c).snippets[name] || MYSQL_SNIPPETS[name]).replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m);
     const engineTitle = type => engines.get(type)?.title ? ctx.i18n.pick(engines.get(type).title) : type;
 
     // ---- vault ----
@@ -861,8 +863,8 @@ export default {
         lastResult = null;
         designer = {
           connId: c.id, db, mode: 'create', table: null,
-          def: { name: '', engine: 'InnoDB', charset: 'utf8mb4', comment: '',
-                 columns: [newColumn({ name: 'id', type: 'INT', length: '', unsigned: true, nullable: false, autoIncrement: true, pk: true })],
+          def: { name: '', engine: ddlInfo.engines?.[0] || '', charset: ddlInfo.features?.charset === false ? '' : 'utf8mb4', comment: '',
+                 columns: [newColumn({ name: 'id', type: ddlInfo.features?.idType || 'INT', length: '', unsigned: feat('unsigned'), nullable: false, autoIncrement: true, pk: true })],
                  indexes: [], foreignKeys: [] },
         };
         renderDesigner();
@@ -890,6 +892,11 @@ export default {
     const txt = (name, value, attrs = '') => `<input class="form-input db-dz" data-dz="${name}" value="${esc(value ?? '')}" ${attrs}>`;
     const chk = (name, value) => `<input type="checkbox" data-dz="${name}" ${value ? 'checked' : ''}>`;
     const TEMPORAL = new Set(['DATETIME', 'TIMESTAMP']);
+    // capacità del designer secondo il motore (ddl.features; senza: quelle di MySQL)
+    const feat = name => ddlInfo?.features?.[name] !== false;
+    const isTemporal = type => (ddlInfo?.features?.temporalTypes ? ddlInfo.features.temporalTypes.includes(type) : TEMPORAL.has(type));
+    const isDecimal = type => (ddlInfo?.features?.decimalTypes ? ddlInfo.features.decimalTypes.includes(type) : type === 'DECIMAL');
+    const hasValues = type => (ddlInfo?.features?.valueTypes ? ddlInfo.features.valueTypes.includes(type) : ['ENUM', 'SET'].includes(type));
 
     function columnRow(c, i, count) {
       // tipo non gestito dal designer (es. GEOMETRY): la colonna resta com'è
@@ -901,12 +908,12 @@ export default {
         <td>${txt('name', c.name, `placeholder="${esc(t('designer.columnPlaceholder'))}"`)}${c._orig && c._orig !== c.name ? `<div class="db-muted db-dz-was">${esc(t('designer.was', { name: c._orig }))}</div>` : ''}</td>
         <td>${sel('type', ddlInfo.types, c.type)}</td>
         <td>${txt('length', c.length, 'style="width:70px"')}</td>
-        <td>${c.type === 'DECIMAL' ? txt('scale', c.scale ?? 0, 'style="width:50px"') : ''}</td>
-        <td>${['ENUM', 'SET'].includes(c.type) ? txt('values', (c.values || []).join(','), 'placeholder="a,b,c"') : ''}</td>
-        <td>${chk('unsigned', c.unsigned)}</td>
+        <td>${isDecimal(c.type) ? txt('scale', c.scale ?? 0, 'style="width:50px"') : ''}</td>
+        <td>${hasValues(c.type) ? txt('values', (c.values || []).join(','), 'placeholder="a,b,c"') : ''}</td>
+        <td>${feat('unsigned') ? chk('unsigned', c.unsigned) : ''}</td>
         <td>${chk('nullable', c.nullable)}</td>
         <td class="db-dz-default">${sel('defaultKind', ['none', 'null', 'value', 'current_timestamp'], c.default?.kind || 'none')}${c.default?.kind === 'value' ? txt('defaultValue', c.default.value, 'style="width:90px"') : ''}</td>
-        <td>${TEMPORAL.has(c.type) ? chk('onUpdateCurrentTimestamp', c.onUpdateCurrentTimestamp) : ''}</td>
+        <td>${feat('onUpdate') && isTemporal(c.type) ? chk('onUpdateCurrentTimestamp', c.onUpdateCurrentTimestamp) : ''}</td>
         <td>${chk('autoIncrement', c.autoIncrement)}</td>
         <td>${chk('pk', c.pk)}</td>
         <td>${txt('comment', c.comment)}</td>
@@ -928,13 +935,13 @@ export default {
           <div class="db-designer-head">
             <strong>${esc(mode === 'alter' ? t('designer.editTitle', { table: `${db}.${designer.table}` }) : t('designer.title', { db }))}</strong>
             ${txt('name', def.name, `placeholder="${esc(t('designer.tableName'))}" data-scope="table"`)}
-            ${sel('engine', ['', ...ddlInfo.engines].filter((e, i) => e || mode === 'alter' && !def.engine || i), def.engine, 'data-scope="table"')}
-            ${mode === 'create' ? txt('charset', def.charset, `placeholder="${esc(t('designer.charset'))}" data-scope="table" style="width:100px"`) : ''}
+            ${ddlInfo.engines?.length ? sel('engine', ['', ...ddlInfo.engines].filter((e, i) => e || mode === 'alter' && !def.engine || i), def.engine, 'data-scope="table"') : ''}
+            ${mode === 'create' && feat('charset') ? txt('charset', def.charset, `placeholder="${esc(t('designer.charset'))}" data-scope="table" style="width:100px"`) : ''}
             ${txt('comment', def.comment, `placeholder="${esc(t('designer.comment'))}" data-scope="table"`)}
           </div>
           <p class="db-muted">${esc(t(linked ? 'designer.linkedHint' : 'designer.notLinkedHint'))}</p>
           <h4>${esc(t('designer.columns'))} <button class="btn btn-ghost btn-sm" data-dz-act="add-col">${esc(t('designer.addColumn'))}</button></h4>
-          <table class="data-table db-dz-table"><thead><tr>${['name', 'type', 'length', 'scale', 'values', 'unsigned', 'null', 'default', 'onUpdate', 'ai', 'pk', 'comment'].map(k => `<th>${esc(t(`designer.col.${k}`))}</th>`).join('')}<th></th></tr></thead>
+          <table class="data-table db-dz-table"><thead><tr>${['name', 'type', 'length', 'scale', 'values', 'unsigned', 'null', 'default', 'onUpdate', 'ai', 'pk', 'comment'].map(k => `<th>${(k === 'unsigned' || k === 'onUpdate') && !feat(k) ? '' : esc(t(`designer.col.${k}`))}</th>`).join('')}<th></th></tr></thead>
           <tbody>${def.columns.map((c, i) => columnRow(c, i, def.columns.length)).join('')}</tbody></table>
           <h4>${esc(t('designer.indexes'))} <button class="btn btn-ghost btn-sm" data-dz-act="add-index">${esc(t('designer.addIndex'))}</button></h4>
           ${def.indexes.map((ix, i) => `<div class="db-dz-line" data-index="${i}">
@@ -2567,7 +2574,7 @@ export default {
           closeModal();
           toast(t('connections.saved'), 'success');
           // tab della connessione modificata: ripartono dal database predefinito (forse cambiato)
-          if (existingId) for (const tb of tabs) if (tb.connId === existingId) { tb.connId = r.connection.id; tb.db = r.connection.database || null; }
+          if (existingId) for (const tb of tabs) if (tb.connId === existingId) { tb.connId = r.connection.id; tb.db = defaultDb(r.connection) ?? null; }
           await loadConnections();
           if (!existingId || !current?.connId) setTarget(r.connection.id);
           // errori e dati vecchi della connessione non valgono più
