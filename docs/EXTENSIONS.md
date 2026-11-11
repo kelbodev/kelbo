@@ -13,6 +13,7 @@ Every feature that can be added or removed is an **extension**: a folder under `
 | `npm` | tab | 20 | — | — | — | yes |
 | `env` | tab | 22 | — | — | — | no |
 | `db-client` | tab | 25 | `dbConnections`, `dbFolders` | Connessioni database | `tunnels`, `git` (optional) | no |
+| `db-mysql` | — (provider) | 41 | — | — | `db-client` | — |
 | `git` | tab | 30 | — | — | — | no |
 | `http-client` | tab | 38 | `httpSections` | Richieste HTTP | — | no |
 | `mock-server` | tab | 39 | `mockServers` | Mock server | — | yes |
@@ -21,7 +22,7 @@ The official installable extensions (`pm2`, `ports`, `mongo-client`, `swagger`) 
 
 The core owns `projects` and `projectFolders` (see *Projects and folders*) and their **Progetti e cartelle** export checkbox, `layout` (the tab order chosen by the user, not exported) and `vault` (the master password, see *Secrets*).
 
-Services offered by the built-in extensions to the others (`ctx.require(code)`): `npm` → `readPackage(project)`, `processes()` (with `projectId`), `stopProcess(id)`; `tunnels` → `getServer(key)`, `ensureTunnel(key)`, `activeTunnels()`, `stopTunnel(id)`; `git` → `repos()`; `db-client` → `decryptPassword(connection)`.
+Services offered by the built-in extensions to the others (`ctx.require(code)`): `npm` → `readPackage(project)`, `processes()` (with `projectId`), `stopProcess(id)`; `tunnels` → `getServer(key)`, `ensureTunnel(key)`, `activeTunnels()`, `stopTunnel(id)`; `git` → `repos()`; `db-client` → `decryptPassword(connection)`. Providers (`ctx.providers(capability)`): `db-mysql` → `db-engine` `mysql`; the interface of a database engine is in [`extensions/db-client/engine.md`](../extensions/db-client/engine.md).
 
 
 ## Folder layout
@@ -98,6 +99,7 @@ Only `setting.json` is mandatory: an extension can be frontend-only (`swagger`, 
 | `projects` | no | `{ traits: ["node", …] }`: the extension works with the projects having at least one of these traits; `ctx.projects` (backend `list({ traits })`, frontend `load()`) and the dashboard widgets leave the others out (see *Projects and folders*). Without it the extension sees every project (Kelbo ≥ 2.18) |
 | `projectTraits` | no | Traits the extension adds to the core's `git`, `node`, `env`: `[{ id, label, files?, dependencies?, detect? }]` — present when one of `files` (relative paths, folders too) exists in the project folder or one of the npm packages in `dependencies` is in its `package.json` (dependencies, devDependencies, peerDependencies); with `detect: true` the backend has the last word (see *Traits*, Kelbo ≥ 2.19). At least one of the three. A trait with the id of a core trait or of an extension loaded earlier is ignored (Kelbo ≥ 2.18) |
 | `themes` | no | Color themes the extension brings: `[{ id, name, scheme: "dark" \| "light", css }]`; `css` is a stylesheet in the extension folder, served like the `frontend` files (see *Themes*, Kelbo ≥ 2.26) |
+| `provides` | no | Implementations the extension offers to other extensions: `[{ capability, id, title, handler }]`; `handler` names an object in `instance.providers` of the backend (see *Providers*, Kelbo ≥ 2.29) |
 | `frontend.preload` | no | `true`: the module is mounted at startup (hidden) instead of on first open — for extensions that keep header pills, badges or notifications up to date in the background |
 
 ### Loading and states
@@ -162,6 +164,7 @@ Only `handlers` is needed when the manifest declares routes (and `mcp` when it d
 | `ctx.code`, `ctx.dir` | Extension code and folder |
 | `ctx.config.get(key)` / `ctx.config.set(key, value)` | Read/write a key declared in `setting.json → config`; every write is validated and saved atomically. Other keys throw |
 | `ctx.config.update({ key: value, … })` | Writes several of the extension's keys in a single atomic save (e.g. data that must change together) |
+| `ctx.providers(capability)` | Implementations of a capability offered by the loaded extensions, read at the moment of the call (installs, switch-offs and hot reloads are followed): `[{ id, title, extension, impl }]`, `impl` being the provider's object; with the same `id` the first loaded wins (see *Providers*, Kelbo ≥ 2.29) |
 | `ctx.require(code)` | `services` of a dependency declared in the manifest (`null` if an optional dependency is missing) |
 | `ctx.sse(res)` | Opens an SSE response; returns `send(type, data)`, with `send.end()` to close it |
 | `ctx.error(status, name, params, extra)` | Error with a translatable code (see *Errors*): `throw ctx.error(404, 'repo_not_found')`. `ctx.error.config(name, params)` for config validation (400), `ctx.error.send(res, status, name, params)` where throwing is not possible (callbacks), `ctx.error.message(name, params)` for the source-language text |
@@ -481,6 +484,41 @@ Kelbo ships the whole [Lucide](https://lucide.dev/icons) icon set (ISC license) 
 
 Icons take the colour and size of the text around them (`currentColor`, about 1.15em): a button in the extension's colour gets an icon in that colour. They are icons, not text: for meaning use a `title` on the button, and keep symbols that belong to a sentence (✓, →) in the translated text. Before Kelbo 2.25 there is no sprite: an extension for older versions keeps emoji.
 
+## Providers
+
+An extension can **provide** the implementation of a named *capability* that another extension uses — a database engine for the Database section, a kind of tunnel for SSH Tunnels — without either depending on the other: the consumer asks the core which implementations are there.
+
+```json
+"provides": [{ "capability": "db-engine", "id": "postgres", "title": "PostgreSQL", "handler": "postgres" }]
+```
+
+```js
+// provider: server.js
+module.exports = ctx => ({
+  providers: { postgres: { connect(options) { /* … */ }, classify(sql) { /* … */ } } },
+});
+
+// consumer: server.js
+const engine = ctx.providers('db-engine').find(p => p.id === conn.type)?.impl;
+```
+
+- `capability`: lowercase letters, digits and `-`; the consumer documents what an implementation must do (its methods and data).
+- `id`: unique for that capability; `title`: a string or a map by language tag, shown to the user.
+- `handler`: the key of the object in `instance.providers`. An extension that declares a provider missing from its backend is not loaded (with the reason).
+- `ctx.providers()` reads the list at every call: don't keep the implementations in a variable, so a provider switched off or reloaded is never used stale.
+
+### Kinds
+
+The Extensions panel and the catalog tag every extension with its kinds, derived from the manifest — an extension can be more than one:
+
+| Kind | When |
+|---|---|
+| `component` | it has an interface (`frontend.js`) |
+| `provider` | it declares `provides` |
+| `theme` | it declares `themes` |
+
+`GET /api/core/extensions` reports them in `kinds`; catalogs list them for each entry (`kinds`, written by the catalog script of kelbo-extensions with `extensionKinds(manifest)` of the test kit).
+
 ## Themes
 
 Every colour of the interface is a CSS variable defined on `:root` in the core's `public/core/shell.css`; the values there are the built-in theme, *Kelbo Dark*. A **theme** is a stylesheet that gives those variables other values. Extensions bring themes through the manifest:
@@ -631,6 +669,7 @@ Each extension keeps its tests in its own `tests/` folder (`*.test.js`, `node:te
 | `manifest(code, extra)`, `writeExtension(root, code, files)` | Minimal valid manifest and fixture extensions written to disk |
 | `i18nProblems(extDir)` | The translation checks for one extension: catalogs valid and consistent with the source language, keys used in the code present in `i18n/it.json`, no UI text written in the code (exceptions in `tests/i18n-allowlist.txt`); `[]` when everything is fine |
 | `parseSse(text)` | Events of a Server-Sent Events response |
+| `extensionKinds(manifest)` | The kinds of an extension (`component`, `provider`, `theme`) from its manifest, for the scripts that build a catalog (Kelbo ≥ 2.29) |
 | `themeTokens()`, `themeProblems(cssText)` | The colour variables a theme must define, and the checks on a theme stylesheet (only `:root…` rules with variables, no `url()`/`@import`, every variable defined); `[]` when it is fine (Kelbo ≥ 2.26) |
 | `validateManifest(json)`, `coreVersion()` | The loader's manifest checks (throws with the reason) and the Kelbo version of the kit, for the scripts of an extensions repository (e.g. generating its catalog) |
 

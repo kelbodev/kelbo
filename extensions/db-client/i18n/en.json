@@ -271,7 +271,7 @@
   "errors.connection_project": "connection \"{id}\": invalid project",
   "errors.connection_read_only": "connection \"{id}\": readOnly must be true or false",
   "errors.connection_not_found": "Connection not found: {id}",
-  "errors.mysql": "{error}",
+  "errors.database": "{error}",
   "errors.tunnels_unavailable": "The SSH Tunnels extension is not active: tunnel connections are not available",
   "errors.tunnel_unknown": "Unknown tunnel server: {tunnel}",
   "errors.name_invalid": "Invalid name",
@@ -573,5 +573,14 @@
   "mgrun.stopped": "stopped",
   "mgrun.stop": "Stop",
   "mgrun.again": "Run again",
-  "mgrun.lost": "[connection to the output lost]"
+  "mgrun.lost": "[connection to the output lost]",
+  "errors.engine_missing": "Engine \"{type}\" not installed or turned off: install it from the Extensions panel",
+  "errors.engine_no_tunnel": "This engine doesn't connect through an SSH tunnel",
+  "form.engine": "Database",
+  "form.engineMissing": "{engine} (engine not installed)",
+  "conn.engineMissing": "Engine {engine} not installed or turned off",
+  "conn.installEngine": "Extensions",
+  "menu.showCreate": "CREATE statement of the table",
+  "menu.showCreateView": "CREATE statement of the view",
+  "designer.noEngineDesigner": "The {engine} engine has no table designer"
 }

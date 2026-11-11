@@ -25,7 +25,7 @@ test('database: solo con il vault sbloccato dall\'interfaccia, solo letture, nie
     await api('POST', '/connections', { id: 'c', label: 'Locale', host: '127.0.0.1', port: mysqlDb.port, database: 'app', user: 'devdock', password: 'devdock-pass' });
 
     r = await call('db_client_connections');
-    assert.deepEqual(r.structuredContent.connections[0], { id: 'c', label: 'Locale', host: '127.0.0.1', port: mysqlDb.port, tunnel: null, database: 'app', readOnly: false });
+    assert.deepEqual(r.structuredContent.connections[0], { id: 'c', label: 'Locale', type: 'mysql', host: '127.0.0.1', port: mysqlDb.port, tunnel: null, database: 'app', readOnly: false });
     assert.doesNotMatch(r.content[0].text, /devdock-pass|password|"user"/);
     r = await call('db_client_tables', { connection: 'c' });
     assert.deepEqual(r.structuredContent.tables.map(x => x.name), ['clienti']);

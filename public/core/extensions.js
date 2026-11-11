@@ -12,6 +12,11 @@ window.Extensions = (() => {
   let catalog = null;     // /extensions-admin/catalog
   let tab = 'installed';
   let search = '';
+  let kind = ''; // filtro per tipo: '' tutti, component, provider, theme
+  const KINDS = ['component', 'provider', 'theme'];
+  const kindTags = list => (list || []).map(k => `<span class="ext-pill ext-kind ext-kind-${esc(k)}" title="${esc(t(`core.ext.kindHint.${k}`))}">${esc(t(`core.ext.kind.${k}`))}</span>`).join('');
+  const ofKind = e => !kind || (e.kinds || []).includes(kind);
+  const kindFilter = () => `<div class="ext-kinds">${['', ...KINDS].map(k => `<button class="ext-kind-btn ${k === kind ? 'active' : ''}" onclick="Extensions.kind(${js(k)})">${esc(t(k ? `core.ext.kindPlural.${k}` : 'core.ext.kindAll'))}</button>`).join('')}</div>`;
   let preview = null;     // anteprima mostrata
   let busy = false;
   let progress = null;    // { steps: [], log: '' } durante l'installazione
@@ -81,7 +86,7 @@ window.Extensions = (() => {
       return `<div class="ext-row">
         <div class="ext-icon" style="--c:${UI.extColor(e.code, e.color)}">${UI.iconOrText(e.icon)}</div>
         <div class="ext-info">
-          <div class="ext-name">${esc(pick(e.name))} <span class="ext-muted">${esc(e.code)} · ${esc(e.version || '?')}</span> ${stateLabel(e)}
+          <div class="ext-name">${esc(pick(e.name))} <span class="ext-muted">${esc(e.code)} · ${esc(e.version || '?')}</span> ${stateLabel(e)} ${kindTags(e.kinds)}
             ${upd?.available ? `<span class="ext-pill ext-pill-upd">${esc(t('core.ext.updateAvailable', { version: upd.latest || '' }))}</span>` : ''}
             ${upd?.moved ? `<span class="ext-pill ext-pill-warn" title="${esc(t('core.ext.movedTitle'))}">${esc(t('core.ext.moved'))}</span>` : ''}</div>
           <div class="ext-muted ext-desc">${esc(pick(e.description))}</div>
@@ -105,9 +110,10 @@ window.Extensions = (() => {
         </div>
       </div>`;
     };
-    const builtin = data.extensions.filter(e => e.source === 'builtin');
-    const installed = data.extensions.filter(e => e.source !== 'builtin');
+    const builtin = data.extensions.filter(e => e.source === 'builtin' && ofKind(e));
+    const installed = data.extensions.filter(e => e.source !== 'builtin' && ofKind(e));
     return `
+      ${kindFilter()}
       ${data.pending.length ? `<div class="ext-section"><h4>${esc(t('core.ext.pendingTitle'))}</h4><p class="ext-muted">${esc(t('core.ext.pendingHint'))}</p>
         ${data.pending.map(p => `<div class="ext-row"><div class="ext-icon">${UI.icon('download')}</div><div class="ext-info"><div class="ext-name">${esc(p.code)}</div>
           <div class="ext-muted ext-source">${esc(p.repo)}${p.path ? ` · ${esc(p.path)}` : ''}${p.tag ? ` @ ${esc(p.tag)}` : ''}</div></div>
@@ -141,15 +147,17 @@ window.Extensions = (() => {
   function renderCatalog() {
     if (!catalog) return `<p class="ext-muted">${esc(t('core.ext.loading'))}</p>`;
     const q = search.trim().toLowerCase();
-    const list = catalog.extensions.filter(e => !q || [e.code, pick(e.name), pick(e.description)].some(x => String(x || '').toLowerCase().includes(q)));
+    const list = catalog.extensions.filter(e => ofKind(e) && (!q || [e.code, pick(e.name), pick(e.description)].some(x => String(x || '').toLowerCase().includes(q))));
     const failed = catalog.catalogs.filter(c => !c.ok);
     return `
       <div class="ext-search"><input class="form-input" type="search" value="${esc(search)}" placeholder="${esc(t('core.ext.search'))}" oninput="Extensions.search(this.value)">
         <button class="btn btn-ghost btn-sm" onclick="Extensions.reloadCatalog()" title="${esc(t('core.action.refresh'))}">${UI.icon('refresh-cw')}</button></div>
+      ${kindFilter()}
       ${failed.map(c => `<p class="ext-warn">${esc(t('core.ext.catalogFailed', { url: c.url, error: c.error }))}</p>`).join('')}
       ${list.length ? list.map(e => `<div class="ext-row">
           <div class="ext-icon">${UI.iconOrText(e.icon)}</div>
           <div class="ext-info"><div class="ext-name">${esc(pick(e.name))} <span class="ext-muted">${esc(e.code)}${e.version ? ` · ${esc(e.version)}` : ''}</span>
+            ${kindTags(e.kinds)}
             ${e.installed ? `<span class="ext-pill ext-pill-ok">${esc(t('core.ext.alreadyInstalled', { version: e.installed.version || '' }))}</span>` : ''}
             ${e.update?.available ? `<span class="ext-pill ext-pill-upd">${esc(t('core.ext.updateAvailable', { version: e.update.latest || '' }))}</span>` : ''}</div>
             <div class="ext-muted ext-desc">${esc(pick(e.description))}</div>
@@ -291,6 +299,7 @@ window.Extensions = (() => {
   return {
     init, open, load,
     tab(x) { tab = x; render(); },
+    kind(k) { kind = KINDS.includes(k) ? k : ''; render(); },
     search(v) { search = v; const el = root(); const pos = el?.querySelector('input[type=search]')?.selectionStart; render(); const input = root()?.querySelector('input[type=search]'); input?.focus(); if (pos != null) input?.setSelectionRange(pos, pos); },
     reloadCatalog() { catalog = null; render(); loadCatalog(true); },
     position(code, position) { act(() => api.put(`/layout/positions/${encodeURIComponent(code)}`, { position })); },

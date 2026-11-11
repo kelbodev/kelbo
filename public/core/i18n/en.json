@@ -331,5 +331,15 @@
     "other": "+ {count} projects not for this section"
   },
   "core.projects.hiddenTitle": "Projects without the traits this section uses: manage them in the Projects panel",
-  "core.errors.layout_theme": "Invalid theme: { id, system, light, dark } with \"<extension>/<theme>\" keys"
+  "core.errors.layout_theme": "Invalid theme: { id, system, light, dark } with \"<extension>/<theme>\" keys",
+  "core.ext.kind.component": "component",
+  "core.ext.kind.provider": "provider",
+  "core.ext.kind.theme": "theme",
+  "core.ext.kindHint.component": "It has its own interface: a section, a button or a widget",
+  "core.ext.kindHint.provider": "It offers an implementation to other extensions (e.g. a database engine or a kind of tunnel)",
+  "core.ext.kindHint.theme": "It brings one or more color themes",
+  "core.ext.kindAll": "All",
+  "core.ext.kindPlural.component": "Components",
+  "core.ext.kindPlural.provider": "Providers",
+  "core.ext.kindPlural.theme": "Themes"
 }

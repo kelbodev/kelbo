@@ -4,8 +4,8 @@
   "version": "1.0.0",
   "kelbo": "^2.0",
   "description": {
-    "it": "Client MySQL/MariaDB: connessioni con password cifrate da una master password, query e risultati in tabella",
-    "en": "MySQL/MariaDB client: connections with passwords encrypted by a master password, queries and results in a table"
+    "it": "Client database: connessioni con password cifrate dalla master password, query, dati, designer e migration; i database sono motori offerti da estensioni (MySQL/MariaDB integrato)",
+    "en": "Database client: connections with passwords encrypted by the master password, queries, data, designer and migrations; databases are engines provided by extensions (MySQL/MariaDB built in)"
   },
   "color": "#d29922",
   "icon": "database",

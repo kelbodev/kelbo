@@ -1,23 +1,18 @@
-// Database: connessioni MySQL/MariaDB (sezione "dbConnections", raggruppate nelle
-// cartelle della sidebar della sezione "dbFolders"), password cifrate
-// con una master password (sezione "vault"), query con timeout e limite di righe.
+// Database: connessioni (sezione "dbConnections", raggruppate nelle cartelle della sidebar
+// della sezione "dbFolders"), password cifrate con la master password (sezione "vault"),
+// query con timeout e limite di righe. Il db-client è l'host: tutto ciò che dipende dal
+// database (driver, dialetto, metadati, DDL) lo fa il motore della connessione, offerto da
+// un'estensione con la capacità "db-engine" (MySQL: db-mysql, integrata). Vedi engine.md.
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const mysqlCb = require('mysql2');
-const mysql = require('mysql2/promise');
-const { classify, splitStatements, schemaChange, describeParams, bindParams, countQuery } = require('./sql');
-const ddl = require('./ddl');
 const mig = require('./migrations');
-const schemaOps = require('./ops');
-const { introspect } = require('./introspect');
 
 const CONNECTION_FIELDS = ['id', 'label', 'type', 'host', 'port', 'database', 'user', 'password', 'projectId', 'tunnel', 'readOnly', 'migrations', 'folder'];
 const FOLDER_FIELDS = ['id', 'label'];
 const HOST_RE = /^(\[[0-9a-f:.]+\]|[A-Za-z0-9._-]{1,253})$/i;  // nome host, IPv4 o [IPv6]
 const DB_NAME_RE = /^[^`\\/\x00]{1,64}$/;                       // nome database MySQL (niente backtick, slash, NUL)
 const CONNECT_TIMEOUT_MS = 8000;
-const QUERY_TIMEOUT_MS = 30000;
 const DEFAULT_ROW_LIMIT = 1000;
 const MAX_ROW_LIMIT = 10000;
 
@@ -33,6 +28,7 @@ const FILTER_OPS = {
   null:     { sql: 'IS NULL', noValue: true },
   notnull:  { sql: 'IS NOT NULL', noValue: true },
 };
+const DEFAULT_ENGINE = 'mysql'; // connessioni senza "type" (create prima dei motori)
 // Formati di export
 const EXPORT_FORMATS = {
   csv:  { type: 'text/csv; charset=utf-8' },
@@ -45,15 +41,11 @@ const csvField = v => {
   return str === '' || /[",\r\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
 };
 // Binari in esadecimale nei file (senza troncamento), il resto invariato
-// Le colonne JSON arrivano da mysql2 come oggetti: si passano come testo JSON
+// Le colonne JSON possono arrivare dal driver come oggetti: si passano come testo JSON
 const isJsonValue = v => v !== null && typeof v === 'object' && !Buffer.isBuffer(v) && !(v instanceof Date);
 
 const exportValue = v => Buffer.isBuffer(v) ? `0x${v.toString('hex')}` : isJsonValue(v) ? JSON.stringify(v) : v;
 const escapeLike = v => String(v).replace(/[\\%_]/g, m => '\\' + m);
-const quoteId = name => '`' + String(name).replace(/`/g, '``') + '`';
-
-// Nome del tipo MySQL dal codice numerico del protocollo
-const TYPE_NAMES = Object.fromEntries(Object.entries(mysqlCb.Types).map(([name, code]) => [code, name]));
 
 // Valori pronti per il JSON: i binari diventano esadecimale (troncato)
 function cell(v) {
@@ -70,6 +62,17 @@ module.exports = function createDbClient(ctx) {
   const git = ctx.require('git');         // opzionale: repository per le migration
 
   const vault = ctx.vault; // vault della master password del core
+
+  // ---- motori (estensioni con la capacità "db-engine"), letti a ogni uso ----
+  const engineType = c => c?.type || DEFAULT_ENGINE;
+  const engineEntry = type => ctx.providers('db-engine').find(e => e.id === type) || null;
+  const engineOf = c => engineEntry(engineType(c))?.impl || null;
+  function engineFor(conn) {
+    const e = engineOf(conn);
+    if (!e) throw ctx.error(400, 'engine_missing', { type: engineType(conn) });
+    return e;
+  }
+  const ENGINE_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
   const connections = () => ctx.config.get('dbConnections');
   const folders = () => ctx.config.get('dbFolders');
 
@@ -97,7 +100,8 @@ module.exports = function createDbClient(ctx) {
     const bad = field => ctx.error.config(`connection_${field}`, { id: String(c.id ?? '') });
     if (!KEY_RE.test(c.id || '')) throw bad('id');
     if (!isText(c.label)) throw bad('label');
-    if ((c.type ?? 'mysql') !== 'mysql') throw bad('type');
+    // il motore può non essere installato (connessione importata o motore spento): resta valida
+    if (c.type != null && !ENGINE_RE.test(c.type)) throw bad('type');
     if (c.tunnel != null) {
       if (!KEY_RE.test(c.tunnel)) throw bad('tunnel');
     } else {
@@ -122,17 +126,22 @@ module.exports = function createDbClient(ctx) {
   // Ciò che vede il frontend; tunnelMissing: il server tunnel usato è stato eliminato (o l'estensione non c'è)
   const tunnelMissing = c => !!c.tunnel && (!tunnels || !tunnels.getServer(c.tunnel));
   const publicConnection = c => ({
-    ...pick(c, CONNECTION_FIELDS.filter(f => f !== 'password')), hasPassword: !!c.password,
+    ...pick(c, CONNECTION_FIELDS.filter(f => f !== 'password')), type: engineType(c), hasPassword: !!c.password,
     ...(tunnelMissing(c) ? { tunnelMissing: true } : {}),
+    ...(engineOf(c) ? {} : { engineMissing: true }),
   });
 
   // Risposta di errore: gli errori con codice (anche di altre estensioni, es. tunnel non
-  // pronto) passano com'erano; quelli di MySQL o di sistema diventano db-client.mysql
-  // con il messaggio originale (non tradotto) e il codice MySQL in params.mysqlCode
-  function sendFailure(res, e, status = 400, extra = {}) {
+  // pronto) passano com'erano; quelli del database o di sistema diventano db-client.database
+  // con il messaggio originale (non tradotto) e il codice del database in params.dbCode
+  const dbError = (e, engine) => {
+    const info = engine?.errorInfo ? engine.errorInfo(e) : { message: e?.message || String(e), ...(e?.code ? { code: e.code } : {}) };
+    return { error: info.message, ...(info.code ? { dbCode: info.code } : {}) };
+  };
+  function sendFailure(res, e, status = 400, extra = {}, engine = null) {
     if (e instanceof ApiError) return res.status(e.status).json({ ...errorBody(e), ...extra });
-    if (e?.key) e = ctx.error(400, e.key, e.params); // vault.js
-    else e = ctx.error(e?.status || status, 'mysql', { error: e?.message || String(e), ...(e?.code ? { mysqlCode: e.code } : {}) });
+    if (e?.key && !(e?.status)) e = ctx.error(400, e.key, e.params); // vault.js
+    else e = ctx.error(e?.status || status, 'database', dbError(e, engine));
     return res.status(e.status).json({ ...errorBody(e), ...extra });
   }
   // ---- migration: repository, cartelle, numerazione ----
@@ -172,20 +181,20 @@ module.exports = function createDbClient(ctx) {
     return abs ? { repo, dir: conn.migrations.dir, abs } : null;
   }
 
-  // Errori del modello di schema (ddl.js / ops.js) → errori con codice
-  const ddlCall = fn => {
+  // Errori del modello di schema del motore (DdlError con key) → errori con codice
+  const ddlCall = (engine, fn) => {
     try { return fn(); } catch (e) {
-      if (e instanceof ddl.DdlError) throw ctx.error(400, `ddl_${e.key}`, e.params);
+      if (engine.ddl?.DdlError && e instanceof engine.ddl.DdlError) throw ctx.error(400, `ddl_${e.key}`, e.params);
       throw e;
     }
   };
 
   // Le istruzioni scritte a mano (raw) devono essere una sola istruzione di schema
   const SCHEMA_VERBS = new Set(['CREATE', 'ALTER', 'RENAME', 'DROP']);
-  function checkRaw(operations) {
+  function checkRaw(engine, operations) {
     for (const op of operations || []) {
       if (op?.op !== 'raw') continue;
-      const c = classify(op.sql);
+      const c = engine.sql.classify(op.sql);
       if (c.kind !== 'write' || !SCHEMA_VERBS.has(c.verb)) throw ctx.error(400, 'raw_not_schema');
       if (op.table && !DB_NAME_RE.test(op.table)) throw ctx.error(400, 'name_invalid');
     }
@@ -217,7 +226,11 @@ module.exports = function createDbClient(ctx) {
   function buildConnection(body, existing = {}) {
     const c = { ...existing, ...pick(body || {}, ['label', 'host', 'port', 'database', 'user', 'projectId', 'tunnel', 'readOnly', 'folder']) };
     if (!existing.id) c.id = body.id;
-    c.type = 'mysql';
+    // motore: quello scelto (deve essere installato), altrimenti quello che aveva, altrimenti MySQL
+    const type = body?.type ?? existing.type ?? DEFAULT_ENGINE;
+    if (typeof type !== 'string' || !engineEntry(type)) throw ctx.error(400, 'engine_missing', { type: String(type) });
+    c.type = type;
+    if (c.tunnel && engineEntry(type).impl.connection?.tunnel === false) throw ctx.error(400, 'engine_no_tunnel');
     if (c.port !== undefined && c.port !== null && c.port !== '') c.port = Number(c.port);
     for (const k of ['database', 'projectId', 'tunnel']) if (c[k] === '') c[k] = null;
     if (!c.folder) delete c.folder; // nella radice della sidebar
@@ -238,7 +251,7 @@ module.exports = function createDbClient(ctx) {
     return c;
   }
 
-  // Parametri di connessione per mysql2 (avvia il tunnel se la connessione lo usa)
+  // Parametri di connessione per il motore (avvia il tunnel se la connessione lo usa)
   async function connectionTarget(conn) {
     let host = conn.host, port = conn.port, via = null;
     if (conn.tunnel) {
@@ -248,14 +261,7 @@ module.exports = function createDbClient(ctx) {
       host = '127.0.0.1'; port = t.port; via = t.label;
     }
     return {
-      options: {
-        host, port, user: conn.user, password: decryptPassword(conn),
-        database: conn.database || undefined,
-        connectTimeout: CONNECT_TIMEOUT_MS,
-        multipleStatements: false, // una sola istruzione per richiesta
-        dateStrings: true,
-        supportBigNumbers: true, bigNumberStrings: true,
-      },
+      options: { host, port, user: conn.user, password: decryptPassword(conn), database: conn.database || undefined, connectTimeout: CONNECT_TIMEOUT_MS },
       via,
     };
   }
@@ -264,48 +270,45 @@ module.exports = function createDbClient(ctx) {
 
   // ---- pool e query ----
 
-  const pools = new Map(); // "id\0database" → { pool, signature }
+  const pools = new Map(); // "id\0database" → { pool, signature, engine }
   const confirmSecret = crypto.randomBytes(32); // i token di conferma valgono solo fino al riavvio
 
   function closePools(id) {
     for (const [k, p] of pools) {
       if (id && !k.startsWith(id + '\0')) continue;
-      p.pool.end(() => {});
+      try { p.engine.closePool(p.pool); } catch { /* già chiuso */ }
       pools.delete(k);
     }
   }
 
   // database: quello da usare; false = nessuno, nemmeno quello predefinito della connessione
   async function poolFor(conn, database) {
+    const engine = engineFor(conn);
     const k = `${conn.id}\0${database === false ? '\0none' : database || ''}`;
     const signature = JSON.stringify(conn);
     const cached = pools.get(k);
-    if (cached && cached.signature === signature) return cached.pool;
-    if (cached) { cached.pool.end(() => {}); pools.delete(k); }
+    if (cached && cached.signature === signature && cached.engine === engine) return cached.pool;
+    if (cached) { try { cached.engine.closePool(cached.pool); } catch { /* già chiuso */ } pools.delete(k); }
     const { options } = await connectionTarget(conn);
     const db = database === false ? undefined : database || options.database;
-    const pool = mysqlCb.createPool({ ...options, database: db, connectionLimit: 3, waitForConnections: true });
-    // Sola lettura anche lato server: una scrittura sfuggita al controllo fallisce comunque
-    if (conn.readOnly) pool.on('connection', c => c.query('SET SESSION TRANSACTION READ ONLY'));
-    pools.set(k, { pool, signature });
+    // readOnly: sola lettura anche lato server, una scrittura sfuggita al controllo fallisce comunque
+    const pool = engine.createPool({ ...options, database: db }, { readOnly: !!conn.readOnly });
+    pools.set(k, { pool, signature, engine });
     return pool;
   }
 
   // Parti comuni di anteprima ed export di una tabella: colonne verificate, WHERE con
   // parametri (ricerca su tutte le colonne + filtri), ORDER BY su una colonna esistente
-  async function tableQuery(q, db, table, { search, filters, sort } = {}) {
+  async function tableQuery(engine, pool, db, table, { search, filters, sort } = {}) {
     if (!DB_NAME_RE.test(db || '') || !DB_NAME_RE.test(table || '')) throw ctx.error(400, 'name_invalid');
-    const [cols] = await q.query(
-      `SELECT COLUMN_NAME AS name, COLUMN_TYPE AS type, DATA_TYPE AS dataType, IS_NULLABLE = 'YES' AS nullable,
-              COLUMN_KEY AS \`key\`, COLUMN_DEFAULT AS \`default\`, EXTRA AS extra
-         FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION`, [db, table]);
-    if (!cols.length) throw ctx.error(404, 'table_not_found', { table });
-    const columns = cols.map(c => ({ ...c, nullable: !!Number(c.nullable) }));
+    const columns = await engine.columns(pool, db, table);
+    if (!columns.length) throw ctx.error(404, 'table_not_found', { table });
+    const quoteId = engine.quoteId;
     const names = new Set(columns.map(c => c.name));
     const where = [], params = [];
     const text = typeof search === 'string' ? search.trim() : '';
     if (text) {
-      where.push('(' + columns.map(c => `CAST(${quoteId(c.name)} AS CHAR) LIKE ?`).join(' OR ') + ')');
+      where.push('(' + columns.map(c => `${engine.asText(quoteId(c.name))} LIKE ?`).join(' OR ') + ')');
       columns.forEach(() => params.push(`%${escapeLike(text)}%`));
     }
     for (const f of Array.isArray(filters) ? filters : []) {
@@ -319,7 +322,7 @@ module.exports = function createDbClient(ctx) {
       if (!names.has(sort.column)) throw ctx.error(400, 'column_unknown', { columns: String(sort.column) });
       orderSql = ` ORDER BY ${quoteId(sort.column)} ${sort.dir === 'desc' ? 'DESC' : 'ASC'}`;
     }
-    return { columns, from: `${quoteId(db)}.${quoteId(table)}`, whereSql: where.length ? ` WHERE ${where.join(' AND ')}` : '', params, orderSql };
+    return { columns, from: engine.qualify(db, table), whereSql: where.length ? ` WHERE ${where.join(' AND ')}` : '', params, orderSql };
   }
 
   // ---- export ----
@@ -343,135 +346,61 @@ module.exports = function createDbClient(ctx) {
   // Scrive su res rispettando il backpressure (attende 'drain' se il buffer è pieno)
   const writeOut = (res, text) => res.write(text) ? null : new Promise(r => res.once('drain', r));
 
-  function streamExport(pool, job, res) {
-    return new Promise((resolve, reject) => {
-      pool.getConnection(async (err, connection) => {
-        if (err) return reject(err);
-        const { format, spec } = job;
-        let header = '';
-        if (spec.withCreate) {
-          try {
-            const [[row]] = await connection.promise().query(`SHOW CREATE TABLE ${quoteId(spec.db)}.${quoteId(spec.table)}`);
-            header = `-- Structure\nDROP TABLE IF EXISTS ${quoteId(spec.table)};\n${row['Create Table']};\n\n`;
-          } catch (e) { connection.release(); return reject(e); }
-        }
-        res.setHeader('Content-Type', EXPORT_FORMATS[format].type);
-        res.setHeader('Content-Disposition', `attachment; filename="${job.filename}"`);
-        res.write(format === 'sql' ? `-- Export Kelbo ${new Date().toISOString()}\n${header}` : '');
-
-        let fields = null, count = 0, batch = [];
-        const flushSql = () => {
-          if (!batch.length) return null;
-          const cols = fields.map(f => quoteId(f.name)).join(', ');
-          const text = `INSERT INTO ${quoteId(spec.table)} (${cols}) VALUES\n${batch.join(',\n')};\n`;
-          batch = [];
-          return writeOut(res, text);
-        };
-        const q = connection.query({ sql: spec.sql, values: spec.params, rowsAsArray: true });
-        const stream = q.stream({ highWaterMark: 100 });
-        stream.on('fields', f => {
-          fields = f;
-          if (format === 'csv') res.write(f.map(x => csvField(x.name)).join(',') + '\r\n');
-          if (format === 'json') res.write('[');
-        });
-        stream.on('data', async row => {
-          // in SQL i binari diventano X'..' con escape(); il JSON resta testo JSON (escape() di un oggetto darebbe `k` = v)
-          const values = format === 'sql' ? row.map(v => (isJsonValue(v) ? JSON.stringify(v) : v)) : row.map(exportValue);
-          let wait = null;
-          if (format === 'csv') wait = writeOut(res, values.map(v => v === null ? '' : csvField(v)).join(',') + '\r\n');
-          else if (format === 'json') wait = writeOut(res, (count ? ',\n' : '\n') + JSON.stringify(Object.fromEntries(fields.map((f, i) => [f.name, values[i]]))));
-          else { batch.push('(' + values.map(v => mysqlCb.escape(v)).join(', ') + ')'); if (batch.length >= 100) wait = flushSql(); }
-          count++;
-          if (wait) { stream.pause(); await wait; stream.resume(); }
-        });
-        stream.on('error', e => { connection.destroy(); res.destroy(e); reject(e); });
-        stream.on('end', async () => {
-          if (format === 'json') res.write(count ? '\n]\n' : ']\n');
-          if (format === 'sql') { await flushSql(); res.write(`-- ${count} rows\n`); }
-          connection.release();
-          res.end();
-          resolve(count);
-        });
-        res.on('close', () => { if (!res.writableEnded) { connection.destroy(); } }); // download interrotto
-      });
-    });
+  // Export riga per riga dal flusso del motore, rispettando il backpressure della risposta
+  async function streamExport(engine, pool, job, res) {
+    const { format, spec } = job;
+    const quoteId = engine.quoteId;
+    let header = '';
+    if (spec.withCreate) header = `-- Structure\nDROP TABLE IF EXISTS ${quoteId(spec.table)};\n${await engine.createTableText(pool, spec.db, spec.table)};\n\n`;
+    res.setHeader('Content-Type', EXPORT_FORMATS[format].type);
+    res.setHeader('Content-Disposition', `attachment; filename="${job.filename}"`);
+    res.write(format === 'sql' ? `-- Export Kelbo ${new Date().toISOString()}\n${header}` : '');
+    let fields = null, count = 0, batch = [], aborted = false;
+    res.on('close', () => { if (!res.writableEnded) aborted = true; }); // download interrotto
+    const flushSql = () => {
+      if (!batch.length) return null;
+      const text = `INSERT INTO ${quoteId(spec.table)} (${fields.map(quoteId).join(', ')}) VALUES\n${batch.join(',\n')};\n`;
+      batch = [];
+      return writeOut(res, text);
+    };
+    for await (const item of engine.stream(pool, spec.sql, spec.params)) {
+      if (aborted) break; // chiude il flusso del motore
+      if (!Array.isArray(item)) {
+        fields = item.fields;
+        if (format === 'csv') res.write(fields.map(csvField).join(',') + '\r\n');
+        if (format === 'json') res.write('[');
+        continue;
+      }
+      let wait = null;
+      if (format === 'csv') wait = writeOut(res, item.map(exportValue).map(v => v === null ? '' : csvField(v)).join(',') + '\r\n');
+      else if (format === 'json') { const values = item.map(exportValue); wait = writeOut(res, (count ? ',\n' : '\n') + JSON.stringify(Object.fromEntries(fields.map((f, i) => [f, values[i]])))); }
+      // in SQL i binari diventano letterali del dialetto; il JSON resta testo JSON
+      else { batch.push('(' + item.map(v => engine.literal(v)).join(', ') + ')'); if (batch.length >= 100) wait = flushSql(); }
+      count++;
+      if (wait) await wait;
+    }
+    if (aborted) return count;
+    if (format === 'json') res.write(count ? '\n]\n' : ']\n');
+    if (format === 'sql') { await flushSql(); res.write(`-- ${count} rows\n`); }
+    res.end();
+    return count;
   }
 
   // Token di conferma legato a connessione, database e testo esatto dell'istruzione
   const confirmToken = (conn, database, sql) =>
     crypto.createHmac('sha256', confirmSecret).update(`${conn.id}\0${database || ''}\0${sql}`).digest('hex');
 
-  // Esegue l'istruzione: le righe arrivano in streaming e oltre il limite si interrompe.
-  // readOnly: dentro una transazione READ ONLY (annullata alla fine), per gli agenti MCP
-  // session: connessione già presa (più istruzioni sulla stessa sessione), non viene rilasciata;
-  // oltre il limite le righe si leggono e si scartano invece di chiudere la connessione
-  function execute(pool, sql, limit, { readOnly = false, session = null } = {}) {
-    return new Promise((resolve, reject) => {
-      const take = session ? cb => cb(null, session) : cb => pool.getConnection(cb);
-      take((err, connection) => {
-        if (err) return reject(err);
-        if (!readOnly) return run(connection);
-        connection.query('START TRANSACTION READ ONLY', e => (e ? (connection.release(), reject(e)) : run(connection)));
-      });
-      function run(connection) {
-        const started = Date.now();
-        let fields = null, header = null, truncated = false, settled = false;
-        const rows = [];
-        const finish = (error, destroy) => {
-          if (settled) return;
-          settled = true;
-          if (session) { /* la rilascia chi l'ha presa */ }
-          else if (destroy) connection.destroy();
-          else if (readOnly) connection.query('ROLLBACK', () => connection.release());
-          else connection.release();
-          if (error) return reject(error);
-          const ms = Date.now() - started;
-          if (fields) {
-            resolve({
-              kind: 'rows', ms, truncated, rowCount: rows.length,
-              // origine di ogni colonna (anche con alias): database, tabella e colonna reali, o null se calcolata
-              columns: fields.map(f => ({
-                name: f.name, table: f.orgTable || null, db: f.orgTable ? f.schema || null : null, column: f.orgTable ? f.orgName || null : null,
-                type: TYPE_NAMES[f.columnType] || String(f.columnType),
-              })),
-              rows,
-            });
-          } else {
-            resolve({
-              kind: 'result', ms,
-              affectedRows: header?.affectedRows ?? 0, changedRows: header?.changedRows ?? null,
-              insertId: header?.insertId ?? null, warningStatus: header?.warningStatus ?? 0, info: header?.info || '',
-            });
-          }
-        };
-        const q = connection.query({ sql, timeout: QUERY_TIMEOUT_MS, rowsAsArray: true });
-        q.on('error', e => finish(e, true));
-        q.on('fields', f => { fields = f; });
-        q.on('result', r => {
-          if (!fields) { header = r; return; }
-          if (rows.length >= limit) {
-            truncated = true;
-            if (!session) finish(null, true); // il resto non serve: si chiude la connessione
-            return;
-          }
-          rows.push(r.map(cell));
-        });
-        q.on('end', () => finish(null, false));
-      }
-    });
-  }
-
   // Righe totali senza il limite di Kelbo né il LIMIT della query: quelle restituite se non
   // c'erano limiti, altrimenti un COUNT(*) della stessa SELECT (null se non riesce, es. colonne
   // con lo stesso nome in una JOIN)
-  async function totalsOf(pool, sql, result, session = null) {
+  async function totalsOf(engine, pool, sql, result, session = null) {
     let total = null, queryLimit = null;
-    const counting = result.kind === 'rows' ? countQuery(sql) : null;
+    const counting = result.kind === 'rows' ? engine.sql.countQuery(sql) : null;
     if (counting) {
       queryLimit = counting.limit;
       if (!result.truncated && !counting.limit) total = result.rowCount;
       else {
-        try { total = Number((await execute(pool, counting.sql, 1, { session })).rows[0]?.[0]); } catch { total = null; }
+        try { total = Number((await engine.execute(pool, counting.sql, 1, { session })).rows[0]?.[0]); } catch { total = null; }
         if (!Number.isFinite(total)) total = null;
       }
     }
@@ -483,9 +412,9 @@ module.exports = function createDbClient(ctx) {
   // tabelle temporanee, START TRANSACTION … COMMIT), fermandosi al primo errore. Ogni istruzione
   // va da sola in autocommit, come in un client SQL.
   const MAX_STATEMENTS = 100;
-  async function runBatch(req, res, conn, statements, { sql, database, limit, confirm, bound }) {
+  async function runBatch(req, res, engine, conn, statements, { sql, database, limit, confirm, bound }) {
     if (statements.length > MAX_STATEMENTS) throw ctx.error(400, 'batch_too_many', { max: MAX_STATEMENTS });
-    const kinds = statements.map(s => classify(s.sql));
+    const kinds = statements.map(s => engine.sql.classify(s.sql));
     const bad = kinds.findIndex(k => k.kind === 'invalid' || k.kind === 'empty');
     if (bad !== -1) throw ctx.error(400, 'batch_statement', { n: bad + 1, error: ctx.error(400, `sql_${kinds[bad].reason}`).message });
     const writes = kinds.filter(k => k.kind === 'write');
@@ -499,23 +428,23 @@ module.exports = function createDbClient(ctx) {
       }
     }
     const pool = await poolFor(conn, database);
-    const session = await new Promise((resolve, reject) => pool.getConnection((e, c) => (e ? reject(e) : resolve(c))));
+    const session = await engine.acquire(pool);
     const started = Date.now();
     const results = [];
     let failed = null;
     try {
       for (const [i, s] of statements.entries()) {
         try {
-          const result = await execute(pool, s.sql, limit, { session });
-          const totals = kinds[i].kind === 'read' ? await totalsOf(pool, s.sql, result, session) : { total: null, queryLimit: null };
+          const result = await engine.execute(pool, s.sql, limit, { session });
+          const totals = kinds[i].kind === 'read' ? await totalsOf(engine, pool, s.sql, result, session) : { total: null, queryLimit: null };
           results.push({ n: i + 1, sql: s.sql, start: s.start, statement: kinds[i].kind, verb: kinds[i].verb, ...result, ...totals, limit });
         } catch (e) {
           failed = i + 1;
-          results.push({ n: i + 1, sql: s.sql, start: s.start, statement: kinds[i].kind, verb: kinds[i].verb, kind: 'error', error: e?.message || String(e), ...(e?.code ? { mysqlCode: e.code } : {}) });
+          results.push({ n: i + 1, sql: s.sql, start: s.start, statement: kinds[i].kind, verb: kinds[i].verb, kind: 'error', ...dbError(e, engine) });
           break;
         }
       }
-    } finally { session.release(); }
+    } finally { engine.release(session); }
     res.json({
       kind: 'batch', ms: Date.now() - started, database, limit, statements: statements.length, failed,
       skipped: failed ? statements.length - failed : 0, results, ...(bound ? { sql } : {}),
@@ -565,10 +494,17 @@ module.exports = function createDbClient(ctx) {
       .map(c => ({ key: 'links.connection', params: { name: c.label } })),
 
     handlers: {
+      // Motori installati con i dati che servono al frontend (campi, dialetto, driver)
       info(req, res) {
+        const engines = ctx.providers('db-engine').map(e => ({
+          id: e.id, title: e.title, extension: e.extension,
+          connection: e.impl.connection, dialect: e.impl.dialect, driver: e.impl.driver?.() || null,
+        }));
+        const mysqlInfo = engines.find(e => e.id === DEFAULT_ENGINE);
         res.json({
-          driver: 'mysql2', version: require('mysql2/package.json').version, ready: typeof mysql.createPool === 'function',
-          ddl: { types: ddl.TYPES, fkActions: ddl.FK_ACTIONS, engines: ddl.ENGINES },
+          engines, defaultEngine: mysqlInfo ? DEFAULT_ENGINE : engines[0]?.id || null,
+          // campi di prima (dalla 2.29 ogni motore ha i suoi in engines[].dialect.ddl)
+          ...(mysqlInfo ? { driver: mysqlInfo.driver?.name, version: mysqlInfo.driver?.version, ready: true, ddl: mysqlInfo.dialect.ddl } : { ready: false }),
         });
       },
 
@@ -599,7 +535,8 @@ module.exports = function createDbClient(ctx) {
       // ---- connessioni ----
 
       listConnections(req, res) {
-        res.json({ connections: connections().map(publicConnection), folders: folders(), tunnelsAvailable: !!tunnels });
+        res.json({ connections: connections().map(publicConnection), folders: folders(), tunnelsAvailable: !!tunnels,
+          engines: ctx.providers('db-engine').map(e => ({ id: e.id, title: e.title })) });
       },
 
       // ---- cartelle della sidebar (un livello) ----
@@ -659,76 +596,54 @@ module.exports = function createDbClient(ctx) {
       // Prova di connessione: versione del server e utente effettivo
       async testConnection(req, res) {
         const conn = connectionOr404(req.params.id);
-        let db;
+        const engine = engineFor(conn);
         try {
           const { options, via } = await connectionTarget(conn);
           const started = Date.now();
-          db = await mysql.createConnection(options);
-          const [[row]] = await db.query('SELECT VERSION() AS version, CURRENT_USER() AS user, DATABASE() AS db');
+          const row = await engine.test(options);
           res.json({ ok: true, ...row, via, ms: Date.now() - started });
         } catch (e) {
-          sendFailure(res, e, 502);
-        } finally {
-          db?.end().catch(() => {});
+          sendFailure(res, e, 502, {}, engine);
         }
       },
 
       // Elenco dei database visibili dalla connessione (per il selettore)
       async databases(req, res) {
         const conn = connectionOr404(req.params.id);
+        const engine = engineFor(conn);
         try {
           // senza database predefinito: l'elenco arriva anche se quello della connessione non esiste
-          const r = await execute(await poolFor(conn, false), 'SHOW DATABASES', MAX_ROW_LIMIT);
-          const databases = r.rows.map(row => row[0]);
+          const databases = await engine.listDatabases(await poolFor(conn, false));
           res.json({ databases, default: conn.database || null, defaultMissing: !!conn.database && !databases.includes(conn.database) });
         } catch (e) {
-          sendFailure(res, e, 502);
+          sendFailure(res, e, 502, {}, engine);
         }
       },
 
       // Tabelle e viste di un database (letture su information_schema, con parametri)
       async tables(req, res) {
         const conn = connectionOr404(req.params.id);
+        const engine = engineFor(conn);
         if (!DB_NAME_RE.test(req.params.db)) throw ctx.error(400, 'database_invalid');
         try {
-          const [rows] = await (await poolFor(conn)).promise().query(
-            `SELECT TABLE_NAME AS name, TABLE_TYPE AS type, ENGINE AS engine, TABLE_ROWS AS rowsEstimate, TABLE_COMMENT AS comment
-               FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME`, [req.params.db]);
-          res.json({ tables: rows.map(t => ({ ...t, view: t.type === 'VIEW' })) });
+          res.json({ tables: await engine.listTables(await poolFor(conn), req.params.db) });
         } catch (e) {
-          sendFailure(res, e, 502);
+          sendFailure(res, e, 502, {}, engine);
         }
       },
 
       // Struttura di una tabella: colonne, indici, chiavi esterne
       async tableInfo(req, res) {
         const conn = connectionOr404(req.params.id);
+        const engine = engineFor(conn);
         const { db, table } = req.params;
         if (!DB_NAME_RE.test(db) || !DB_NAME_RE.test(table)) throw ctx.error(400, 'name_invalid');
         try {
-          const q = (await poolFor(conn)).promise();
-          const [[columns], [indexes], [foreignKeys]] = await Promise.all([
-            q.query(`SELECT COLUMN_NAME AS name, COLUMN_TYPE AS type, IS_NULLABLE = 'YES' AS nullable, COLUMN_KEY AS \`key\`,
-                            COLUMN_DEFAULT AS \`default\`, EXTRA AS extra, COLUMN_COMMENT AS comment
-                       FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION`, [db, table]),
-            q.query(`SELECT INDEX_NAME AS name, NON_UNIQUE = 0 AS \`unique\`, GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX) AS columns
-                       FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? GROUP BY INDEX_NAME, NON_UNIQUE`, [db, table]),
-            q.query(`SELECT CONSTRAINT_NAME AS name, GROUP_CONCAT(COLUMN_NAME ORDER BY ORDINAL_POSITION) AS columns,
-                            REFERENCED_TABLE_SCHEMA AS refDatabase, REFERENCED_TABLE_NAME AS refTable,
-                            GROUP_CONCAT(REFERENCED_COLUMN_NAME ORDER BY ORDINAL_POSITION) AS refColumns
-                       FROM information_schema.KEY_COLUMN_USAGE
-                      WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND REFERENCED_TABLE_NAME IS NOT NULL
-                      GROUP BY CONSTRAINT_NAME, REFERENCED_TABLE_SCHEMA, REFERENCED_TABLE_NAME`, [db, table]),
-          ]);
-          if (!columns.length) throw ctx.error(404, 'table_not_found', { table });
-          const split = list => list.map(x => ({ ...x, columns: String(x.columns).split(','), ...(x.refColumns ? { refColumns: String(x.refColumns).split(',') } : {}) }));
-          res.json({
-            columns: columns.map(c => ({ ...c, nullable: !!Number(c.nullable) })),
-            indexes: split(indexes).map(i => ({ ...i, unique: !!Number(i.unique) })),
-            foreignKeys: split(foreignKeys),
-          });
+          const info = await engine.tableInfo(await poolFor(conn), db, table);
+          if (!info) throw ctx.error(404, 'table_not_found', { table });
+          res.json(info);
         } catch (e) {
-          sendFailure(res, e, 502);
+          sendFailure(res, e, 502, {}, engine);
         }
       },
 
@@ -736,15 +651,17 @@ module.exports = function createDbClient(ctx) {
       // Colonne e operatori sono verificati, i valori passano come parametri.
       async rows(req, res) {
         const conn = connectionOr404(req.params.id);
+        const engine = engineFor(conn);
         const { db, table } = req.params;
         const pageSize = PAGE_SIZES.includes(Number(req.body.pageSize)) ? Number(req.body.pageSize) : 50;
         const page = Math.max(1, parseInt(req.body.page) || 1);
         try {
-          const q = (await poolFor(conn)).promise();
-          const t = await tableQuery(q, db, table, req.body);
-          const [[{ total }]] = await q.query(`SELECT COUNT(*) AS total FROM ${t.from}${t.whereSql}`, t.params);
-          const [rows] = await q.query({ sql: `SELECT * FROM ${t.from}${t.whereSql}${t.orderSql} LIMIT ? OFFSET ?`, rowsAsArray: true },
-            [...t.params, pageSize, (page - 1) * pageSize]);
+          const pool = await poolFor(conn);
+          const t = await tableQuery(engine, pool, db, table, req.body);
+          const { rows: [counted] } = await engine.query(pool, `SELECT COUNT(*) AS total FROM ${t.from}${t.whereSql}`, t.params);
+          const total = counted.total ?? Object.values(counted)[0];
+          const paged = engine.page(`SELECT * FROM ${t.from}${t.whereSql}${t.orderSql}`, t.params, pageSize, (page - 1) * pageSize);
+          const { rows } = await engine.query(pool, paged.sql, paged.params, { rowsAsArray: true });
           res.json({
             columns: t.columns,
             primaryKey: t.columns.filter(c => c.key === 'PRI').map(c => c.name),
@@ -752,25 +669,25 @@ module.exports = function createDbClient(ctx) {
             total: Number(total), page, pageSize, pageSizes: PAGE_SIZES,
           });
         } catch (e) {
-          sendFailure(res, e);
+          sendFailure(res, e, 400, {}, engine);
         }
       },
 
       // Export (passo 1): valida sorgente e formato e restituisce un id usa e getta
       async createExport(req, res) {
         const conn = connectionOr404(req.params.id);
+        const engine = engineFor(conn);
         const { format, source } = req.body;
         if (!EXPORT_FORMATS[format]) throw ctx.error(400, 'format_invalid');
         try {
           let spec, name;
           if (source?.type === 'table') {
-            const q = (await poolFor(conn)).promise();
-            const t = await tableQuery(q, source.db, source.table, source);
+            const t = await tableQuery(engine, await poolFor(conn), source.db, source.table, source);
             spec = { sql: `SELECT * FROM ${t.from}${t.whereSql}${t.orderSql}`, params: t.params, database: null,
                      table: source.table, db: source.db, withCreate: format === 'sql' && source.withCreate !== false };
             name = source.table;
           } else if (source?.type === 'query') {
-            const c = classify(source.sql);
+            const c = engine.sql.classify(source.sql);
             if (c.kind !== 'read') throw ctx.error(400, 'export_read_only');
             const database = source.database || conn.database || null;
             if (database && !DB_NAME_RE.test(database)) throw ctx.error(400, 'database_invalid');
@@ -784,7 +701,7 @@ module.exports = function createDbClient(ctx) {
           pendingExports.set(id, { connId: conn.id, format, spec, filename, expires: Date.now() + 60000 });
           res.json({ id, filename });
         } catch (e) {
-          sendFailure(res, e);
+          sendFailure(res, e, 400, {}, engine);
         }
       },
 
@@ -794,11 +711,12 @@ module.exports = function createDbClient(ctx) {
         pendingExports.delete(req.params.exportId);
         if (!job || job.expires < Date.now()) throw ctx.error(404, 'export_expired');
         const conn = connectionOr404(job.connId);
+        const engine = engineFor(conn);
         try {
           const pool = await poolFor(conn, job.spec.database);
-          await streamExport(pool, job, res);
+          await streamExport(engine, pool, job, res);
         } catch (e) {
-          if (!res.headersSent) sendFailure(res, e);
+          if (!res.headersSent) sendFailure(res, e, 400, {}, engine);
           else res.destroy(e);
         }
       },
@@ -810,20 +728,20 @@ module.exports = function createDbClient(ctx) {
       // per riga eseguiti in un'unica transazione (tutti o nessuno).
       async row(req, res) {
         const conn = connectionOr404(req.params.id);
+        const engine = engineFor(conn);
         const { db, table } = req.params;
         if (!DB_NAME_RE.test(db) || !DB_NAME_RE.test(table)) throw ctx.error(400, 'name_invalid');
         const { op, key, keys, values, confirm, changes } = req.body;
         if (!['insert', 'update', 'update-many', 'delete', 'delete-many'].includes(op)) throw ctx.error(400, 'operation_invalid');
         if (conn.readOnly) throw ctx.error(403, 'read_only');
         try {
-          const q = (await poolFor(conn, db)).promise();
-          const [columns] = await q.query(
-            `SELECT COLUMN_NAME AS name, COLUMN_KEY AS \`key\` FROM information_schema.COLUMNS
-              WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION`, [db, table]);
+          const pool = await poolFor(conn, db);
+          const columns = await engine.columns(pool, db, table);
           if (!columns.length) throw ctx.error(404, 'table_not_found', { table });
           const names = new Set(columns.map(c => c.name));
           const pk = columns.filter(c => c.key === 'PRI').map(c => c.name);
-          const from = `${quoteId(db)}.${quoteId(table)}`;
+          const from = engine.qualify(db, table);
+          const keyOf = k => Object.fromEntries(pk.map(c => [c, k[c]]));
 
           const scalar = v => v === null || ['string', 'number', 'boolean'].includes(typeof v);
           const checkValues = v => {
@@ -840,10 +758,8 @@ module.exports = function createDbClient(ctx) {
             }
           };
           const updateSql = (k, vals) => {
-            const cols = Object.keys(vals);
-            if (!cols.length) throw ctx.error(400, 'nothing_to_update');
-            return mysqlCb.format(`UPDATE ${from} SET ${cols.map(c => `${quoteId(c)} = ?`).join(', ')} WHERE ${pk.map(c => `${quoteId(c)} = ?`).join(' AND ')} LIMIT 1`,
-              [...cols.map(c => vals[c]), ...pk.map(c => k[c])]);
+            if (!Object.keys(vals).length) throw ctx.error(400, 'nothing_to_update');
+            return engine.dml.update(from, vals, keyOf(k));
           };
           const askOrCheck = (sql, verb) => {
             const token = confirmToken(conn, db, sql);
@@ -858,67 +774,39 @@ module.exports = function createDbClient(ctx) {
             const statements = changes.map(ch => { checkKey(ch?.key); return updateSql(ch.key, checkValues(ch.values)); });
             const sql = statements.join(';\n');
             if (!askOrCheck(sql, 'UPDATE')) return;
-            const cx = await (await poolFor(conn, db)).promise().getConnection();
-            let affectedRows = 0;
-            try {
-              await cx.beginTransaction();
-              for (const statement of statements) affectedRows += (await cx.query({ sql: statement, timeout: QUERY_TIMEOUT_MS }))[0].affectedRows;
-              await cx.commit();
-            } catch (e) {
-              await cx.rollback().catch(() => {});
-              throw e;
-            } finally { cx.release(); }
+            const affectedRows = await engine.transaction(pool, statements);
             return res.json({ kind: 'write', affectedRows, statements: statements.length, sql });
           }
 
           const vals = checkValues(values);
 
           // WHERE sulla chiave primaria completa (niente modifiche senza)
-          let whereSql = '', whereParams = [];
+          let sql;
           if (op === 'delete-many') {
             if (!pk.length) throw ctx.error(400, 'no_primary_key');
             if (!Array.isArray(keys) || !keys.length || keys.length > 1000) throw ctx.error(400, 'rows_range');
             const valid = k => k && typeof k === 'object' && pk.every(c => c in k && scalar(k[c]) && k[c] !== null);
             if (!keys.every(valid)) throw ctx.error(400, 'primary_key_missing', { columns: pk.join(', ') });
-            const tuple = pk.length > 1 ? `(${pk.map(quoteId).join(', ')})` : quoteId(pk[0]);
-            const one = pk.length > 1 ? `(${pk.map(() => '?').join(', ')})` : '?';
-            whereSql = `${tuple} IN (${keys.map(() => one).join(', ')})`;
-            whereParams = keys.flatMap(k => pk.map(c => k[c]));
-          } else if (op !== 'insert') {
-            checkKey(key);
-            whereSql = pk.map(k => `${quoteId(k)} = ?`).join(' AND ');
-            whereParams = pk.map(k => key[k]);
-          }
-
-          let template, params;
-          const cols = Object.keys(vals);
-          if (op === 'insert') {
-            template = cols.length
-              ? `INSERT INTO ${from} (${cols.map(quoteId).join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`
-              : `INSERT INTO ${from} () VALUES ()`;
-            params = cols.map(c => vals[c]);
-          } else if (op === 'update') {
-            if (!cols.length) throw ctx.error(400, 'nothing_to_update');
-            template = `UPDATE ${from} SET ${cols.map(c => `${quoteId(c)} = ?`).join(', ')} WHERE ${whereSql} LIMIT 1`;
-            params = [...cols.map(c => vals[c]), ...whereParams];
-          } else if (op === 'delete-many') {
-            template = `DELETE FROM ${from} WHERE ${whereSql} LIMIT ${keys.length}`;
-            params = whereParams;
+            sql = engine.dml.deleteMany(from, pk, keys);
+          } else if (op === 'insert') {
+            sql = engine.dml.insert(from, vals);
           } else {
-            template = `DELETE FROM ${from} WHERE ${whereSql} LIMIT 1`;
-            params = whereParams;
+            checkKey(key);
+            if (op === 'update') {
+              if (!Object.keys(vals).length) throw ctx.error(400, 'nothing_to_update');
+              sql = engine.dml.update(from, vals, keyOf(key));
+            } else sql = engine.dml.delete(from, keyOf(key));
           }
-          const sql = mysqlCb.format(template, params);
 
           const token = confirmToken(conn, db, sql);
           const given = typeof confirm === 'string' ? Buffer.from(confirm) : Buffer.alloc(0);
           if (given.length !== token.length || !crypto.timingSafeEqual(given, Buffer.from(token))) {
             return res.status(428).json({ needsConfirmation: true, token, verb: op === 'delete-many' ? 'DELETE' : op.toUpperCase(), database: db, sql });
           }
-          const result = await execute(await poolFor(conn, db), sql, 1);
+          const result = await engine.execute(pool, sql, 1);
           res.json({ ...result, sql });
         } catch (e) {
-          sendFailure(res, e);
+          sendFailure(res, e, 400, {}, engine);
         }
       },
 
@@ -927,22 +815,21 @@ module.exports = function createDbClient(ctx) {
       // (la risposta 428 fa anche da anteprima per il designer)
       async createTable(req, res) {
         const conn = connectionOr404(req.params.id);
+        const engine = engineFor(conn);
         const { db } = req.params;
         if (!DB_NAME_RE.test(db)) throw ctx.error(400, 'database_invalid');
         if (conn.readOnly) throw ctx.error(403, 'read_only');
-        let sql;
-        try { sql = ddl.createTableSql(db, req.body.definition); }
-        catch (e) { if (e instanceof ddl.DdlError) throw ctx.error(400, `ddl_${e.key}`, e.params); throw e; }
+        const sql = ddlCall(engine, () => engine.ddl.createTableSql(db, req.body.definition));
         const token = confirmToken(conn, db, sql);
         const given = typeof req.body.confirm === 'string' ? Buffer.from(req.body.confirm) : Buffer.alloc(0);
         if (given.length !== token.length || !crypto.timingSafeEqual(given, Buffer.from(token))) {
           return res.status(428).json({ needsConfirmation: true, token, verb: 'CREATE', database: db, sql });
         }
         try {
-          const result = await execute(await poolFor(conn, db), sql, 1);
+          const result = await engine.execute(await poolFor(conn, db), sql, 1);
           res.json({ ...result, sql });
         } catch (e) {
-          sendFailure(res, e, 400, { sql });
+          sendFailure(res, e, 400, { sql }, engine);
         }
       },
 
@@ -953,14 +840,15 @@ module.exports = function createDbClient(ctx) {
       // (la conferma mostra e firma l'istruzione con i valori).
       async query(req, res) {
         const conn = connectionOr404(req.params.id);
+        const engine = engineFor(conn);
         const { confirm, params } = req.body;
         let { sql } = req.body;
-        const wanted = typeof sql === 'string' ? describeParams(sql) : [];
+        const wanted = typeof sql === 'string' ? engine.sql.describeParams(sql) : [];
         if (wanted.length) {
           if (!params || typeof params !== 'object' || Array.isArray(params)) return res.status(422).json({ needsParams: true, params: wanted });
           const scalar = v => v === null || ['string', 'number', 'boolean'].includes(typeof v);
           if (!Object.values(params).every(scalar)) throw ctx.error(400, 'params_invalid');
-          const bound = bindParams(sql, params, mysqlCb.escape);
+          const bound = engine.sql.bindParams(sql, params);
           if (bound.missing) throw ctx.error(400, 'params_missing', { params: bound.missing.map(k => wanted.find(w => w.key === k)?.name || k).join(', ') });
           sql = bound.sql;
         }
@@ -968,10 +856,10 @@ module.exports = function createDbClient(ctx) {
         if (database && !DB_NAME_RE.test(database)) throw ctx.error(400, 'database_invalid');
         const limit = Math.min(Math.max(parseInt(req.body.limit) || DEFAULT_ROW_LIMIT, 1), MAX_ROW_LIMIT);
 
-        const statements = splitStatements(sql);
-        if (statements.length > 1) return runBatch(req, res, conn, statements, { sql, database, limit, confirm, bound: wanted.length > 0 });
+        const statements = engine.sql.splitStatements(sql);
+        if (statements.length > 1) return runBatch(req, res, engine, conn, statements, { sql, database, limit, confirm, bound: wanted.length > 0 });
 
-        const c = classify(sql);
+        const c = engine.sql.classify(sql);
         if (c.kind === 'invalid' || c.kind === 'empty') throw ctx.error(400, `sql_${c.reason}`);
         if (c.kind === 'write') {
           if (conn.readOnly) throw ctx.error(403, 'read_only_statement', { verb: c.verb || '?' });
@@ -980,30 +868,31 @@ module.exports = function createDbClient(ctx) {
           if (given.length !== token.length || !crypto.timingSafeEqual(given, Buffer.from(token))) {
             // istruzione di schema su una connessione collegata: la UI propone di salvarla come migration
             const migration = SCHEMA_VERBS.has(c.verb) && linkedFolder(conn) && database
-              ? { proposal: schemaChange(sql) || { table: '', operation: 'alter' } } : null;
+              ? { proposal: engine.sql.schemaChange(sql) || { table: '', operation: 'alter' } } : null;
             return res.status(428).json({ needsConfirmation: true, token, verb: c.verb, reason: c.reason || null, word: c.word || null, database, sql, migration });
           }
         }
         try {
           const pool = await poolFor(conn, database);
-          const result = await execute(pool, sql, limit);
-          const totals = c.kind === 'read' ? await totalsOf(pool, sql, result) : { total: null, queryLimit: null };
+          const result = await engine.execute(pool, sql, limit);
+          const totals = c.kind === 'read' ? await totalsOf(engine, pool, sql, result) : { total: null, queryLimit: null };
           res.json({ ...result, ...totals, statement: c.kind, database, limit, ...(wanted.length ? { sql } : {}) });
         } catch (e) {
-          sendFailure(res, e);
+          sendFailure(res, e, 400, {}, engine);
         }
       },
 
       // Definizione di una tabella nel modello del designer (per modificarla)
       async tableDefinition(req, res) {
         const conn = connectionOr404(req.params.id);
+        const engine = engineFor(conn);
         const { db, table } = req.params;
         if (!DB_NAME_RE.test(db) || !DB_NAME_RE.test(table)) throw ctx.error(400, 'name_invalid');
         try {
-          const schema = await introspect((await poolFor(conn)).promise(), db, [table]);
+          const schema = await engine.introspect(await poolFor(conn), db, [table]);
           if (!schema.tables[table]) throw ctx.error(404, 'table_not_found', { table });
           res.json({ table, definition: schema.tables[table] });
-        } catch (e) { sendFailure(res, e, 502); }
+        } catch (e) { sendFailure(res, e, 502, {}, engine); }
       },
 
       // Modifica di schema da un elenco di operazioni (designer, istruzioni dell'editor, confronto).
@@ -1014,6 +903,8 @@ module.exports = function createDbClient(ctx) {
       // gestore delle migration del progetto).
       async migrate(req, res) {
         const conn = connectionOr404(req.params.id);
+        const engine = engineFor(conn);
+        const schemaOps = engine.schema;
         const { db } = req.params;
         if (!DB_NAME_RE.test(db)) throw ctx.error(400, 'database_invalid');
         if (conn.readOnly) throw ctx.error(403, 'read_only');
@@ -1023,24 +914,24 @@ module.exports = function createDbClient(ctx) {
         const run = migration.run !== false;
 
         try {
-          const q = (await poolFor(conn, db)).promise();
+          const pool = await poolFor(conn, db);
           // Designer di una tabella esistente: operazioni dal confronto tra la struttura
           // attuale (letta ora dal DB) e quella modificata; renames { nuovo: vecchio }
           let operations = req.body.operations;
           if (design) {
             const t = design.table;
             if (!DB_NAME_RE.test(t || '')) throw ctx.error(400, 'name_invalid');
-            const current = (await introspect(q, db, [t])).tables[t];
+            const current = (await engine.introspect(pool, db, [t])).tables[t];
             if (!current) throw ctx.error(404, 'table_not_found', { table: t });
             const renames = Object.fromEntries(Object.entries(design.renames || {}).map(([to, from]) => [`${t}.${to}`, String(from)]));
             operations = schemaOps.diff({ tables: { [t]: current } }, { tables: { [t]: design.definition || {} } }, renames).ops;
             if (design.newName && design.newName !== t) operations.push({ op: 'rename_table', table: t, to: String(design.newName) });
           }
-          checkRaw(operations);
-          const statements = ddlCall(() => schemaOps.statements(db, operations));
+          checkRaw(engine, operations);
+          const statements = ddlCall(engine, () => schemaOps.statements(db, operations));
           const sql = statements.join(';\n\n');
           const tables = [...new Set(operations.map(o => o.table).filter(Boolean))];
-          const before = await introspect(q, db, tables);
+          const before = await engine.introspect(pool, db, tables);
           const warnings = schemaOps.destructive(operations, before);
           const proposal = schemaOps.proposeName(operations);
           const table = migration.table || proposal.table;
@@ -1078,18 +969,18 @@ module.exports = function createDbClient(ctx) {
           const executed = [];
           for (const statement of statements) {
             try {
-              await execute(await poolFor(conn, db), statement, 1);
+              await engine.execute(pool, statement, 1);
               executed.push(statement);
             } catch (e) {
               // repository coerente con il DB: niente file se non è cambiato nulla,
               // altrimenti solo le istruzioni eseguite davvero
               if (abs && !executed.length) fs.rmSync(abs, { force: true });
               else if (abs) mig.writeAtomic(abs, mig.migrationContent(file, { connection: conn.label, database: db }, executed));
-              return sendFailure(res, e, 400, { executed, failed: statement, file: executed.length ? file : null });
+              return sendFailure(res, e, 400, { executed, failed: statement, file: executed.length ? file : null }, engine);
             }
           }
           res.json({ ok: true, ran: true, executed, file, dir: save ? folder.dir : null, sql });
-        } catch (e) { sendFailure(res, e); }
+        } catch (e) { sendFailure(res, e, 400, {}, engine); }
       },
 
       // ---- migration ----
@@ -1197,39 +1088,37 @@ module.exports = function createDbClient(ctx) {
         mcpUnlocked();
         return {
           connections: connections().map(c => ({
-            id: c.id, label: c.label, host: c.tunnel ? null : c.host, port: c.tunnel ? null : c.port,
+            id: c.id, label: c.label, type: engineType(c), host: c.tunnel ? null : c.host, port: c.tunnel ? null : c.port,
             tunnel: c.tunnel || null, database: c.database || null, readOnly: !!c.readOnly,
           })),
         };
       },
       async databases({ connection }) {
         const conn = mcpConnection(connection);
-        const r = await execute(await poolFor(conn), 'SHOW DATABASES', MAX_ROW_LIMIT, { readOnly: true });
-        return { databases: r.rows.map(row => row[0]) };
+        return { databases: await engineFor(conn).listDatabases(await poolFor(conn), { readOnly: true }) };
       },
       async tables({ connection, database }) {
         const conn = mcpConnection(connection);
         const db = mcpDatabase(conn, database);
-        const [rows] = await (await poolFor(conn)).promise().query(
-          `SELECT TABLE_NAME AS name, TABLE_TYPE AS type, ENGINE AS engine, TABLE_ROWS AS rowsEstimate, TABLE_COMMENT AS comment
-             FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME`, [db]);
-        return { database: db, tables: rows.map(t => ({ ...t, view: t.type === 'VIEW', type: undefined })) };
+        const tables = await engineFor(conn).listTables(await poolFor(conn), db);
+        return { database: db, tables: tables.map(t => ({ ...t, type: undefined })) };
       },
       async describe({ connection, database, table }) {
         const conn = mcpConnection(connection);
         const db = mcpDatabase(conn, database);
         if (!DB_NAME_RE.test(table || '')) throw ctx.error(400, 'name_invalid');
-        const schema = await introspect((await poolFor(conn)).promise(), db, [table]);
+        const schema = await engineFor(conn).introspect(await poolFor(conn), db, [table]);
         if (!schema.tables[table]) throw ctx.error(404, 'table_not_found', { table });
         return { database: db, table, ...schema.tables[table] };
       },
       async query({ connection, database, sql, limit = 100 }) {
         const conn = mcpConnection(connection);
         const db = database ? mcpDatabase(conn, database) : conn.database || null;
-        const c = classify(sql);
+        const engine = engineFor(conn);
+        const c = engine.sql.classify(sql);
         if (c.kind !== 'read') throw ctx.error(400, 'mcp_read_only', { verb: c.verb || '?' });
         const n = Math.min(Math.max(parseInt(limit) || 100, 1), 1000);
-        const r = await execute(await poolFor(conn, db), sql, n, { readOnly: true });
+        const r = await engine.execute(await poolFor(conn, db), sql, n, { readOnly: true });
         return { database: db, columns: r.columns.map(col => col.name), rows: r.rows, rowCount: r.rowCount, truncated: r.truncated, ms: r.ms };
       },
     },

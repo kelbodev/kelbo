@@ -8,13 +8,14 @@ SELECT SET SHOW SMALLINT TABLE TABLES TEXT THEN TIME TIMESTAMP TINYINT TRUE TRUN
 WHEN WHERE WITH`.split(/\s+/));
 
 // Evidenziazione leggera: commenti, stringhe, identificatori quotati, numeri, parole chiave
-function highlightSql(sql, esc) {
+// (keywords: quelle del dialetto del motore; di base quelle di MySQL)
+function highlightSql(sql, esc, keywords = SQL_KEYWORDS) {
   const re = /(--[^\n]*|#[^\n]*|\/\*[\s\S]*?(?:\*\/|$))|('(?:[^'\\]|\\.|'')*'?|"(?:[^"\\]|\\.|"")*"?)|(`(?:[^`]|``)*`?)|(\b\d+(?:\.\d+)?\b)|([A-Za-z_][A-Za-z0-9_$]*)/g;
   let out = '', last = 0, m;
   while ((m = re.exec(sql))) {
     out += esc(sql.slice(last, m.index));
     const [tok, comment, str, ident, num, word] = m;
-    const cls = comment ? 'c' : str ? 's' : ident ? 'i' : num ? 'n' : word && SQL_KEYWORDS.has(word.toUpperCase()) ? 'k' : null;
+    const cls = comment ? 'c' : str ? 's' : ident ? 'i' : num ? 'n' : word && keywords.has(word.toUpperCase()) ? 'k' : null;
     out += cls ? `<span class="sql-${cls}">${esc(tok)}</span>` : esc(tok);
     last = m.index + tok.length;
   }
@@ -30,7 +31,12 @@ JSON_OBJECT JSON_ARRAY JSON_CONTAINS GROUP_CONCAT CAST CONVERT UUID`.split(/\s+/
 const NOT_ALIAS = new Set(['WHERE', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'CROSS', 'ON', 'USING', 'SET', 'GROUP', 'ORDER',
   'LIMIT', 'HAVING', 'VALUES', 'SELECT', 'UNION', 'NATURAL', 'STRAIGHT_JOIN', 'FOR', 'LOCK', 'WINDOW', 'PARTITION', 'AS']);
 const unq = id => String(id).replace(/^`|`$/g, '').replace(/``/g, '`');
-const quoteIfNeeded = name => (/^[A-Za-z_][A-Za-z0-9_$]*$/.test(name) && !SQL_KEYWORDS.has(name.toUpperCase()) ? name : '`' + name.replace(/`/g, '``') + '`');
+// Identificatore quotato con il carattere del dialetto: ` (MySQL), " (standard), [ ] (SQL Server)
+const quoteWith = (q, name) => (q === '['
+  ? `[${String(name).replace(/]/g, ']]')}]`
+  : q + String(name).split(q).join(q + q) + q);
+const quoteIfNeeded = (name, d = { quote: '`', keywords: SQL_KEYWORDS }) =>
+  (/^[A-Za-z_][A-Za-z0-9_$]*$/.test(name) && !d.keywords.has(name.toUpperCase()) ? name : quoteWith(d.quote, name));
 
 // Tabelle citate nel testo (FROM/JOIN/UPDATE/INTO/TABLE, anche "a x, b y") e alias → tabella
 function sqlReferences(text) {
@@ -109,18 +115,19 @@ function createAutocomplete({ input, container, esc, source }) {
     let list = [];
     if (qualifier) {
       const table = refs.aliases.get(qualifier.toLowerCase()) || qualifier;
+      const d = source.dialect();
       list = (await source.columns(table)).filter(c => c.name.toLowerCase().startsWith(p))
-        .map(c => ({ kind: 'column', label: c.name, detail: c.type, insert: quoteIfNeeded(c.name) }));
+        .map(c => ({ kind: 'column', label: c.name, detail: c.type, insert: quoteIfNeeded(c.name, d) }));
     } else {
-      const cols = [];
+      const cols = [], d = source.dialect();
       for (const table of refs.tables) for (const c of await source.columns(table)) cols.push({ ...c, table });
       const seen = new Set();
       const add = it => { const k = it.kind + it.label; if (!seen.has(k) && it.label.toLowerCase().startsWith(p)) { seen.add(k); list.push(it); } };
-      cols.forEach(c => add({ kind: 'column', label: c.name, detail: `${c.table} · ${c.type}`, insert: quoteIfNeeded(c.name) }));
+      cols.forEach(c => add({ kind: 'column', label: c.name, detail: `${c.table} · ${c.type}`, insert: quoteIfNeeded(c.name, d) }));
       for (const [alias, table] of refs.aliases) add({ kind: 'table', label: alias, detail: table, insert: alias });
-      (await source.tables()).forEach(name => add({ kind: 'table', label: name, detail: '', insert: quoteIfNeeded(name) }));
+      (await source.tables()).forEach(name => add({ kind: 'table', label: name, detail: '', insert: quoteIfNeeded(name, d) }));
       SQL_FUNCTIONS.forEach(f => add({ kind: 'function', label: f, detail: '', insert: f + '(' }));
-      [...SQL_KEYWORDS].sort().forEach(k => add({ kind: 'keyword', label: k, detail: '', insert: k }));
+      [...d.keywords].sort().forEach(k => add({ kind: 'keyword', label: k, detail: '', insert: k }));
     }
     if (mine !== seq) return; // nel frattempo l'utente ha scritto altro
     // la parola già scritta per intero non va riproposta da sola
@@ -403,7 +410,33 @@ export default {
     const open = new Set();      // nodi aperti: "c|id", "d|id|db", "t|id|db|table"
     const cache = new Map();     // stesse chiavi → { loading } | { error } | dati
     const nodeKey = (...parts) => parts.join('|');
-    const quoteId = name => '`' + String(name).replace(/`/g, '``') + '`';
+    // ---- motori: dialetto di una connessione (quoting, parole chiave, comandi rapidi, tipi) ----
+    let engines = new Map(); // id → { id, title, connection, dialect } da /info
+    const MYSQL_SNIPPETS = {
+      firstRows: 'SELECT * FROM {table} LIMIT 100;', count: 'SELECT COUNT(*) AS {alias} FROM {table};',
+      showCreate: 'SHOW CREATE TABLE {table};', showCreateView: 'SHOW CREATE VIEW {table};',
+      distinct: 'SELECT DISTINCT {column} FROM {table} ORDER BY {column};',
+    };
+    const dialectCache = new Map();
+    function dialectOf(c) {
+      const e = engines.get(c?.type || 'mysql');
+      const key = e ? e.id : '';
+      if (!dialectCache.has(key)) {
+        const d = e?.dialect || {};
+        dialectCache.set(key, {
+          quote: d.quote || '`', keywords: d.keywords ? new Set(d.keywords) : SQL_KEYWORDS,
+          snippets: { ...MYSQL_SNIPPETS, ...(d.snippets || {}) }, ddl: d.ddl || null, schemas: !!d.schemas,
+        });
+      }
+      return dialectCache.get(key);
+    }
+    async function loadEngines() {
+      try { engines = new Map((await ctx.api.get('/info')).engines.map(e => [e.id, e])); } catch { /* restano quelli di prima */ }
+      dialectCache.clear();
+    }
+    const quoteFor = c => name => quoteWith(dialectOf(c).quote, name);
+    const snippet = (c, name, vars) => dialectOf(c).snippets[name].replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m);
+    const engineTitle = type => engines.get(type)?.title ? ctx.i18n.pick(engines.get(type).title) : type;
 
     // ---- vault ----
     async function loadVault() {
@@ -432,6 +465,7 @@ export default {
     async function loadConnections() {
       try {
         ({ connections, folders, tunnelsAvailable } = await ctx.api.get('/connections'));
+        await loadEngines(); // motori installati o tolti nel frattempo
       } catch (e) { toast(e.message, 'error'); return; }
       // tab su connessioni eliminate: restano, senza connessione (se ne sceglie un'altra)
       for (const tb of tabs) if (tb.connId && !connections.some(c => c.id === tb.connId)) tb.connId = null;
@@ -527,6 +561,7 @@ export default {
         <div class="db-row db-row-conn ${c.id === activeId ? 'active' : ''}" ${attrs('conn', c)} title="${esc(target(c))}">
           ${caret(k)}<span class="db-row-icon">${ctx.ui.icon(c.readOnly ? 'lock' : 'database')}</span><span class="db-row-label">${esc(c.label)}</span>
           ${c.tunnelMissing ? `<span class="db-row-warn" title="${esc(t('conn.tunnelMissing', { tunnel: c.tunnel }))}"><i data-icon="triangle-alert"></i></span>` : ''}
+          ${c.engineMissing ? `<span class="db-row-warn" title="${esc(t('conn.engineMissing', { engine: c.type }))}"><i data-icon="plug-zap"></i></span>` : ''}
         </div>
         ${open.has(k) ? `<div class="db-children">${loading(entry) || [
           entry.defaultMissing ? `<div class="db-tree-msg db-tree-err">${esc(t('conn.dbMissing', { db: entry.default }))}</div>` : '',
@@ -818,7 +853,9 @@ export default {
       if (c.readOnly) { toast(t('designer.readOnly'), 'error'); return; }
       if (!db) { toast(t('designer.chooseDb'), 'error'); return; }
       const tab = current;
-      try { ddlInfo = ddlInfo || (await ctx.api.get('/info')).ddl; } catch (e) { toast(e.message, 'error'); return; }
+      if (!engines.size) await loadEngines();
+      ddlInfo = dialectOf(c).ddl;
+      if (!ddlInfo) { toast(t('designer.noEngineDesigner', { engine: engineTitle(c.type) }), 'error'); return; }
       if (!table) return inTab(tab, () => {
         grid = null;
         lastResult = null;
@@ -1524,17 +1561,21 @@ export default {
 
     function tableMenu(ev, c, db, name) {
       const tb = (cache.get(nodeKey('d', c.id, db)) || []).find?.(x => x.name === name);
+      const quoteId = quoteFor(c);
       const full = `${quoteId(db)}.${quoteId(name)}`;
       const ro = c.readOnly;
       const sqlTab = sql => runSql(sql, { c, db, title: name });
       ctx.ui.contextMenu(ev.clientX, ev.clientY, [
         { icon: 'table-2', label: t('menu.openData'), action: () => openTableData(c, db, name) },
-        { icon: 'play', label: t('menu.first100'), action: () => sqlTab(`SELECT * FROM ${full} LIMIT 100;`) },
-        { icon: '#', label: t('menu.count'), action: () => sqlTab(`SELECT COUNT(*) AS ${quoteId(t('menu.countAlias'))} FROM ${full};`) },
+        { icon: 'play', label: t('menu.first100'), action: () => sqlTab(snippet(c, 'firstRows', { table: full })) },
+        { icon: '#', label: t('menu.count'), action: () => sqlTab(snippet(c, 'count', { table: full, alias: quoteId(t('menu.countAlias')) })) },
         { icon: 'table-2', label: t('menu.structure'), action: () => openInTab(c, db, `structure:${name}`, name, () => showStructure(c, db, name)) },
         ...(tb?.view ? [] : [{ icon: 'pencil', label: t('menu.alter'), disabled: ro, action: () => openInTab(c, db, `alter:${name}`, name, () => openDesigner(c, db, name)) }]),
         ...formats().map(([f, label]) => ({ icon: 'download', label: t('menu.export', { format: label }), action: () => startExport(c, f, { type: 'table', db, table: name }) })),
-        { icon: 'code', label: tb?.view ? 'SHOW CREATE VIEW' : 'SHOW CREATE TABLE', action: () => sqlTab(`SHOW CREATE ${tb?.view ? 'VIEW' : 'TABLE'} ${full};`) },
+        ...(dialectOf(c).snippets[tb?.view ? 'showCreateView' : 'showCreate'] ? [{
+          icon: 'code', label: t(tb?.view ? 'menu.showCreateView' : 'menu.showCreate'),
+          action: () => sqlTab(snippet(c, tb?.view ? 'showCreateView' : 'showCreate', { table: full })),
+        }] : []),
         'separator',
         { icon: 'text-cursor-input', label: t('menu.insertName'), action: () => {
           sqlInput.setRangeText(full, sqlInput.selectionStart, sqlInput.selectionEnd, 'end');
@@ -1552,9 +1593,10 @@ export default {
     function columnMenu(ev, c, db, table, column) {
       ctx.ui.contextMenu(ev.clientX, ev.clientY, [
         { icon: 'copy', label: t('menu.copyName'), action: () => navigator.clipboard?.writeText(column).then(() => toast(t('menu.copied'))) },
-        { icon: 'menu', label: t('menu.distinct'), action: () => runSql(
-          `SELECT DISTINCT ${quoteId(column)} FROM ${quoteId(db)}.${quoteId(table)} ORDER BY ${quoteId(column)};`,
-          { c, db, title: `${table}.${column}` }) },
+        { icon: 'menu', label: t('menu.distinct'), action: () => {
+          const quoteId = quoteFor(c);
+          runSql(snippet(c, 'distinct', { column: quoteId(column), table: `${quoteId(db)}.${quoteId(table)}` }), { c, db, title: `${table}.${column}` });
+        } },
       ]);
     }
 
@@ -1606,6 +1648,8 @@ export default {
         ${c.readOnly ? `<span class="db-badge">${esc(t('conn.readOnly'))}</span>` : ''}
         ${c.hasPassword ? '' : `<span class="db-badge db-badge-warn">${esc(t('conn.noPassword'))}</span>`}
         ${c.tunnelMissing ? `<span class="db-badge db-badge-danger">${esc(t('conn.tunnelMissing', { tunnel: c.tunnel }))}</span>` : ''}
+        ${c.engineMissing ? `<span class="db-badge db-badge-danger">${esc(t('conn.engineMissing', { engine: c.type }))}</span>
+          <button class="btn btn-ghost btn-sm" onclick="Extensions.open()">${ctx.ui.icon('puzzle')} ${esc(t('conn.installEngine'))}</button>` : ''}
         <span class="db-mig-badge" data-role="mig-badge"></span>
         <div class="db-conn-actions">
           <button class="btn btn-ghost btn-sm" onclick="Ext['db-client'].migrationsDialog(${js(c.id)})" title="${esc(t('mig.buttonTitle'))}">${ctx.ui.icon('folder-git-2')} ${esc(t('mig.button'))}</button>
@@ -1756,27 +1800,38 @@ export default {
         ? (await ctx.apiFor('tunnels').get('/state').catch(() => ({ servers: [] }))).servers : [];
       const projectList = await projects();
       const opt = (value, label, selected) => `<option value="${esc(value)}" ${selected ? 'selected' : ''}>${esc(label)}</option>`;
+      if (!engines.size) await loadEngines();
+      const type = c.type || (engines.has('mysql') ? 'mysql' : [...engines.keys()][0] || 'mysql');
+      const engine = engines.get(type);
+      const fields = new Set(engine?.connection?.fields || ['host', 'port', 'user', 'password', 'database']);
+      const canTunnel = engine?.connection?.tunnel !== false;
+      const show = f => (fields.has(f) ? '' : 'hidden');
       return `
+        <div class="form-row"><label>${esc(t('form.engine'))}</label>
+          <select class="form-input" id="f_db_type" onchange="Ext['db-client'].formEngine(this.value)" ${c.id ? 'disabled' : ''}>
+            ${[...engines.values()].map(e => opt(e.id, ctx.i18n.pick(e.title), e.id === type)).join('')}
+            ${engines.has(type) ? '' : opt(type, t('form.engineMissing', { engine: type }), true)}
+          </select></div>
         <div class="form-grid">
           <div class="form-row"><label>${esc(t('form.id'))}</label><input class="form-input" id="f_db_id" value="${esc(c.id || '')}" placeholder="${esc(t('form.idPlaceholder'))}" ${c.id ? 'disabled' : ''}></div>
           <div class="form-row"><label>${esc(t('form.name'))}</label><input class="form-input" id="f_db_label" value="${esc(c.label || '')}" placeholder="${esc(t('form.namePlaceholder'))}"></div>
         </div>
-        ${tunnelsAvailable ? `<div class="form-row"><label>${esc(t('form.link'))}</label>
+        ${tunnelsAvailable && canTunnel && fields.has('host') ? `<div class="form-row"><label>${esc(t('form.link'))}</label>
           <select class="form-input" id="f_db_tunnel" onchange="document.getElementById('f_db_direct').hidden=!!this.value">
             ${opt('', t('form.direct'), !c.tunnel)}
             ${c.tunnelMissing ? opt(c.tunnel, t('form.tunnelDeleted', { tunnel: c.tunnel }), true) : ''}
             ${tunnelServers.map(s => opt(s.key, t('form.tunnel', { name: s.label, remote: s.remote }), c.tunnel === s.key)).join('')}
           </select></div>` : ''}
-        <div class="form-grid" id="f_db_direct" ${c.tunnel ? 'hidden' : ''}>
+        <div class="form-grid" id="f_db_direct" ${c.tunnel || !fields.has('host') ? 'hidden' : ''}>
           <div class="form-row"><label>${esc(t('form.host'))}</label><input class="form-input" id="f_db_host" value="${esc(c.host || '127.0.0.1')}"></div>
-          <div class="form-row"><label>${esc(t('form.port'))}</label><input class="form-input" id="f_db_port" type="number" min="1" max="65535" value="${esc(c.port || 3306)}"></div>
+          <div class="form-row"><label>${esc(t('form.port'))}</label><input class="form-input" id="f_db_port" type="number" min="1" max="65535" value="${esc(c.port || engine?.connection?.defaultPort || '')}"></div>
         </div>
         <div class="form-grid">
-          <div class="form-row"><label>${esc(t('form.user'))}</label><input class="form-input" id="f_db_user" value="${esc(c.user || '')}" autocomplete="off"></div>
-          <div class="form-row"><label>${esc(t(c.id ? 'form.passwordKeep' : 'form.password'))}</label><input class="form-input" id="f_db_password" type="password" autocomplete="new-password" placeholder="${c.hasPassword ? '••••••••' : ''}"></div>
+          <div class="form-row" ${show('user')}><label>${esc(t('form.user'))}</label><input class="form-input" id="f_db_user" value="${esc(c.user || '')}" autocomplete="off"></div>
+          <div class="form-row" ${show('password')}><label>${esc(t(c.id ? 'form.passwordKeep' : 'form.password'))}</label><input class="form-input" id="f_db_password" type="password" autocomplete="new-password" placeholder="${c.hasPassword ? '••••••••' : ''}"></div>
         </div>
         <div class="form-grid">
-          <div class="form-row"><label>${esc(t('form.database'))}</label><input class="form-input" id="f_db_database" value="${esc(c.database || '')}"></div>
+          <div class="form-row" ${show('database')}><label>${esc(t('form.database'))}</label><input class="form-input" id="f_db_database" value="${esc(c.database || '')}"></div>
           ${projectList.length ? `<div class="form-row"><label>${esc(t('form.project'))}</label><select class="form-input" id="f_db_project">
             ${opt('', t('form.noProject'), !c.projectId)}${projectList.map(p => opt(p.id, p.label, c.projectId === p.id)).join('')}</select></div>` : ''}
         </div>
@@ -1791,6 +1846,7 @@ export default {
       const tunnel = v('f_db_tunnel');
       const password = document.getElementById('f_db_password')?.value || '';
       return {
+        type: v('f_db_type') || undefined,
         id: v('f_db_id'), label: v('f_db_label'), user: v('f_db_user'), database: v('f_db_database'),
         projectId: v('f_db_project'), folder: v('f_db_folder'), tunnel,
         ...(tunnel ? {} : { host: v('f_db_host'), port: v('f_db_port') }),
@@ -1802,7 +1858,7 @@ export default {
     // ---- editor ----
     const sqlInput = $(ctx.root, 'sql');
     function syncHighlight() {
-      $(ctx.root, 'highlight').innerHTML = highlightSql(sqlInput.value, esc);
+      $(ctx.root, 'highlight').innerHTML = highlightSql(sqlInput.value, esc, dialectOf(active()).keywords);
       const pre = $(ctx.root, 'highlight').parentElement;
       pre.scrollTop = sqlInput.scrollTop;
       pre.scrollLeft = sqlInput.scrollLeft;
@@ -1820,6 +1876,7 @@ export default {
     const ac = createAutocomplete({
       input: sqlInput, container: $(ctx.root, 'editor'), esc,
       source: {
+        dialect: () => dialectOf(active()),
         async tables() {
           const c = active(), db = c && tabDb();
           if (!c || !db) return [];
@@ -2485,13 +2542,24 @@ export default {
         } catch (e) { toast(e.message, 'error'); }
       },
       async addConnection() { openModal(t('connections.newTitle'), await connectionForm(), modalButtons(t('connections.create'), "Ext['db-client'].saveConnection()")); },
+      // cambio di motore nel form di una nuova connessione: campi del motore, valori scritti tenuti
+      async formEngine(type) {
+        const v = id => document.getElementById(id)?.value ?? '';
+        const body = document.getElementById('modalBody');
+        if (!body) return;
+        body.innerHTML = await connectionForm({ type, label: v('f_db_label'), host: v('f_db_host') || undefined, user: v('f_db_user'), database: v('f_db_database') });
+        const id = document.getElementById('f_db_id');
+        if (id) id.value = v('f_db_id') || '';
+        ctx.i18n.apply(body);
+      },
       async editConnection(id) {
         const c = connections.find(x => x.id === id);
         if (c) openModal(t('connections.editTitle'), await connectionForm(c), modalButtons(t('core.action.save'), `Ext['db-client'].saveConnection(${JSON.stringify(id)})`));
       },
       async saveConnection(existingId) {
         const body = formValues();
-        if (!body.label || !body.user || (!existingId && !body.id)) { toast(t('connections.required'), 'error'); return; }
+        const fields = new Set(engines.get(body.type || connections.find(c => c.id === existingId)?.type || 'mysql')?.connection?.fields || ['user']);
+        if (!body.label || (fields.has('user') && !body.user) || (!existingId && !body.id)) { toast(t('connections.required'), 'error'); return; }
         try {
           const r = existingId
             ? await ctx.api.put(`/connections/${encodeURIComponent(existingId)}`, body)
