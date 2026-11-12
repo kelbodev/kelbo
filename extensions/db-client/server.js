@@ -8,7 +8,9 @@ const fs = require('fs');
 const path = require('path');
 const mig = require('./migrations');
 
-const CONNECTION_FIELDS = ['id', 'label', 'type', 'host', 'port', 'database', 'user', 'password', 'projectId', 'tunnel', 'readOnly', 'migrations', 'folder'];
+const CONNECTION_FIELDS = ['id', 'label', 'type', 'host', 'port', 'database', 'user', 'password', 'projectId', 'tunnel', 'readOnly', 'migrations', 'folder', 'options', 'file'];
+// opzioni del motore (connection.options): chiave → booleano, numero o testo breve
+const OPTION_KEY_RE = /^[A-Za-z][A-Za-z0-9_]{0,40}$/;
 const FOLDER_FIELDS = ['id', 'label'];
 const HOST_RE = /^(\[[0-9a-f:.]+\]|[A-Za-z0-9._-]{1,253})$/i;  // nome host, IPv4 o [IPv6]
 const DB_NAME_RE = /^[^`\\/\x00]{1,64}$/;                       // nome database MySQL (niente backtick, slash, NUL)
@@ -73,6 +75,13 @@ module.exports = function createDbClient(ctx) {
     return e;
   }
   const ENGINE_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
+  // Livello sotto la connessione ("db" nelle route, nell'albero e nelle tab): il database per i
+  // motori senza schemi (MySQL), lo schema per quelli con schemi (PostgreSQL: il database è fisso,
+  // quello della connessione). Predefinito: il database della connessione, o lo schema del motore
+  const hasSchemas = engine => !!engine?.dialect?.schemas;
+  const defaultScope = (conn, engine = engineOf(conn)) => (hasSchemas(engine)
+    ? (typeof engine.defaultSchema === 'function' ? engine.defaultSchema(conn) : engine.defaultSchema) || null
+    : conn.database || null);
   const connections = () => ctx.config.get('dbConnections');
   const folders = () => ctx.config.get('dbFolders');
 
@@ -102,18 +111,23 @@ module.exports = function createDbClient(ctx) {
     if (!isText(c.label)) throw bad('label');
     // il motore può non essere installato (connessione importata o motore spento): resta valida
     if (c.type != null && !ENGINE_RE.test(c.type)) throw bad('type');
-    if (c.tunnel != null) {
+    // motori su file (SQLite): il file al posto di host, porta e utente
+    if (c.file != null) {
+      if (typeof c.file !== 'string' || !c.file.trim() || c.file.length > 1024 || c.file.includes('\0')) throw bad('file');
+    } else if (c.tunnel != null) {
       if (!KEY_RE.test(c.tunnel)) throw bad('tunnel');
     } else {
       if (!HOST_RE.test(c.host || '')) throw bad('host');
       if (!isPort(c.port)) throw bad('port');
     }
     if (c.database != null && c.database !== '' && !DB_NAME_RE.test(c.database)) throw bad('database');
-    if (!isText(c.user, 80)) throw bad('user');
+    if (c.file == null ? !isText(c.user, 80) : (c.user != null && c.user !== '' && !isText(c.user, 80))) throw bad('user');
     if (c.password != null && !vault.isBox(c.password)) throw bad('password');
     if (c.projectId != null && !KEY_RE.test(c.projectId)) throw bad('project');
     if (c.readOnly != null && typeof c.readOnly !== 'boolean') throw bad('read_only');
     if (c.folder != null && !KEY_RE.test(c.folder)) throw bad('folder');
+    if (c.options != null && (typeof c.options !== 'object' || Array.isArray(c.options) || Object.keys(c.options).length > 20
+        || Object.entries(c.options).some(([k, v]) => !OPTION_KEY_RE.test(k) || !(typeof v === 'boolean' || Number.isFinite(v) || (typeof v === 'string' && v.length <= 200))))) throw bad('options');
     if (c.migrations != null) {
       const m = c.migrations;
       // "applied" veniva scritto dalla 1.8.0: accettato e ignorato
@@ -128,7 +142,7 @@ module.exports = function createDbClient(ctx) {
   const publicConnection = c => ({
     ...pick(c, CONNECTION_FIELDS.filter(f => f !== 'password')), type: engineType(c), hasPassword: !!c.password,
     ...(tunnelMissing(c) ? { tunnelMissing: true } : {}),
-    ...(engineOf(c) ? {} : { engineMissing: true }),
+    ...(engineOf(c) ? { defaultDb: defaultScope(c) } : { engineMissing: true }),
   });
 
   // Risposta di errore: gli errori con codice (anche di altre estensioni, es. tunnel non
@@ -209,7 +223,7 @@ module.exports = function createDbClient(ctx) {
     return conn;
   }
   function mcpDatabase(conn, database) {
-    const db = database || conn.database;
+    const db = database || defaultScope(conn);
     if (!db) throw ctx.error(400, 'mcp_database_required');
     if (!DB_NAME_RE.test(db)) throw ctx.error(400, 'database_invalid');
     return db;
@@ -224,13 +238,34 @@ module.exports = function createDbClient(ctx) {
   // Dati dal form → connessione da salvare. password: stringa = nuova (cifrata subito),
   // '' o assente = invariata, null = rimossa
   function buildConnection(body, existing = {}) {
-    const c = { ...existing, ...pick(body || {}, ['label', 'host', 'port', 'database', 'user', 'projectId', 'tunnel', 'readOnly', 'folder']) };
+    const c = { ...existing, ...pick(body || {}, ['label', 'host', 'port', 'database', 'user', 'projectId', 'tunnel', 'readOnly', 'folder', 'file']) };
     if (!existing.id) c.id = body.id;
     // motore: quello scelto (deve essere installato), altrimenti quello che aveva, altrimenti MySQL
     const type = body?.type ?? existing.type ?? DEFAULT_ENGINE;
     if (typeof type !== 'string' || !engineEntry(type)) throw ctx.error(400, 'engine_missing', { type: String(type) });
     c.type = type;
     if (c.tunnel && engineEntry(type).impl.connection?.tunnel === false) throw ctx.error(400, 'engine_no_tunnel');
+    // campi che il motore non usa: tolti (un motore su file non ha host, porta, utente né tunnel)
+    const fields = new Set(engineEntry(type).impl.connection?.fields || ['host', 'port', 'user', 'password', 'database']);
+    if (fields.has('file')) {
+      if (typeof c.file !== 'string' || !c.file.trim()) throw ctx.error(400, 'file_required');
+      c.file = c.file.trim();
+      for (const k of ['host', 'port', 'tunnel', 'user', 'database']) delete c[k];
+      connectionFile(c); // percorso relativo senza progetto, o fuori dal progetto: rifiutato subito
+    } else delete c.file;
+    // opzioni dichiarate dal motore, con il tipo giusto (le altre sono ignorate)
+    const declared = engineEntry(type).impl.connection?.options || [];
+    if (body?.options && typeof body.options === 'object') {
+      const opts = {};
+      for (const o of declared) {
+        const v = body.options[o.key];
+        if (v === undefined || v === '' || v === null) continue;
+        if (o.type === 'boolean') opts[o.key] = v === true || v === 'true';
+        else if (o.type === 'select') { if ((o.choices || []).some(ch => ch.value === v)) opts[o.key] = v; else throw ctx.error(400, 'option_invalid', { option: o.key }); }
+        else opts[o.key] = String(v).slice(0, 200);
+      }
+      if (Object.keys(opts).length) c.options = opts; else delete c.options;
+    }
     if (c.port !== undefined && c.port !== null && c.port !== '') c.port = Number(c.port);
     for (const k of ['database', 'projectId', 'tunnel']) if (c[k] === '') c[k] = null;
     if (!c.folder) delete c.folder; // nella radice della sidebar
@@ -252,6 +287,17 @@ module.exports = function createDbClient(ctx) {
   }
 
   // Parametri di connessione per il motore (avvia il tunnel se la connessione lo usa)
+  // File di un motore su file: assoluto, o relativo alla cartella del progetto collegato (senza uscirne)
+  function connectionFile(conn) {
+    if (!conn.file) return undefined;
+    if (path.isAbsolute(conn.file)) return path.normalize(conn.file);
+    const project = conn.projectId && ctx.projects.get(conn.projectId);
+    if (!project) throw ctx.error(400, 'file_relative_project', { file: conn.file });
+    const abs = path.resolve(project.path, conn.file);
+    if (abs !== project.path && !abs.startsWith(project.path + path.sep)) throw ctx.error(400, 'file_outside_project', { file: conn.file });
+    return abs;
+  }
+
   async function connectionTarget(conn) {
     let host = conn.host, port = conn.port, via = null;
     if (conn.tunnel) {
@@ -261,7 +307,7 @@ module.exports = function createDbClient(ctx) {
       host = '127.0.0.1'; port = t.port; via = t.label;
     }
     return {
-      options: { host, port, user: conn.user, password: decryptPassword(conn), database: conn.database || undefined, connectTimeout: CONNECT_TIMEOUT_MS },
+      options: { host, port, user: conn.user, password: decryptPassword(conn), database: conn.database || undefined, connectTimeout: CONNECT_TIMEOUT_MS, options: conn.options || {}, file: connectionFile(conn) },
       via,
     };
   }
@@ -290,9 +336,12 @@ module.exports = function createDbClient(ctx) {
     if (cached && cached.signature === signature && cached.engine === engine) return cached.pool;
     if (cached) { try { cached.engine.closePool(cached.pool); } catch { /* già chiuso */ } pools.delete(k); }
     const { options } = await connectionTarget(conn);
-    const db = database === false ? undefined : database || options.database;
+    // motori con schemi: il database resta quello della connessione, "database" è lo schema
+    const target = hasSchemas(engine)
+      ? { ...options, schema: database === false ? undefined : database || defaultScope(conn, engine) }
+      : { ...options, database: database === false ? undefined : database || options.database };
     // readOnly: sola lettura anche lato server, una scrittura sfuggita al controllo fallisce comunque
-    const pool = engine.createPool({ ...options, database: db }, { readOnly: !!conn.readOnly });
+    const pool = engine.createPool(target, { readOnly: !!conn.readOnly });
     pools.set(k, { pool, signature, engine });
     return pool;
   }
@@ -308,13 +357,15 @@ module.exports = function createDbClient(ctx) {
     const where = [], params = [];
     const text = typeof search === 'string' ? search.trim() : '';
     if (text) {
-      where.push('(' + columns.map(c => `${engine.asText(quoteId(c.name))} LIKE ?`).join(' OR ') + ')');
+      // likeOperator: ILIKE dove LIKE distingue maiuscole e minuscole (PostgreSQL), come in MySQL
+      // search(colonna): espressione del motore con un ? (es. Oracle: UPPER(…) LIKE UPPER(?))
+      where.push('(' + columns.map(c => (engine.search ? engine.search(quoteId(c.name)) : `${engine.asText(quoteId(c.name))} ${engine.likeOperator || 'LIKE'} ?`)).join(' OR ') + ')');
       columns.forEach(() => params.push(`%${escapeLike(text)}%`));
     }
     for (const f of Array.isArray(filters) ? filters : []) {
       const op = FILTER_OPS[f?.op];
       if (!op || !names.has(f.column)) throw ctx.error(400, 'filter_invalid', { column: String(f?.column), op: String(f?.op) });
-      where.push(`${quoteId(f.column)} ${op.sql}`);
+      where.push(`${quoteId(f.column)} ${op.like && engine.likeOperator ? op.sql.replace('LIKE', engine.likeOperator) : op.sql}`);
       if (!op.noValue) params.push(op.like ? op.like(escapeLike(f.value ?? '')) : f.value ?? '');
     }
     let orderSql = '';
@@ -614,7 +665,8 @@ module.exports = function createDbClient(ctx) {
         try {
           // senza database predefinito: l'elenco arriva anche se quello della connessione non esiste
           const databases = await engine.listDatabases(await poolFor(conn, false));
-          res.json({ databases, default: conn.database || null, defaultMissing: !!conn.database && !databases.includes(conn.database) });
+          const def = defaultScope(conn, engine);
+          res.json({ databases, default: def, defaultMissing: !!def && !databases.includes(def), schemas: hasSchemas(engine) });
         } catch (e) {
           sendFailure(res, e, 502, {}, engine);
         }
@@ -689,7 +741,7 @@ module.exports = function createDbClient(ctx) {
           } else if (source?.type === 'query') {
             const c = engine.sql.classify(source.sql);
             if (c.kind !== 'read') throw ctx.error(400, 'export_read_only');
-            const database = source.database || conn.database || null;
+            const database = source.database || defaultScope(conn, engine);
             if (database && !DB_NAME_RE.test(database)) throw ctx.error(400, 'database_invalid');
             spec = { sql: source.sql, params: [], database, table: 'result', db: null, withCreate: false };
             name = 'query';
@@ -852,7 +904,7 @@ module.exports = function createDbClient(ctx) {
           if (bound.missing) throw ctx.error(400, 'params_missing', { params: bound.missing.map(k => wanted.find(w => w.key === k)?.name || k).join(', ') });
           sql = bound.sql;
         }
-        const database = req.body.database || conn.database || null;
+        const database = req.body.database || defaultScope(conn, engine);
         if (database && !DB_NAME_RE.test(database)) throw ctx.error(400, 'database_invalid');
         const limit = Math.min(Math.max(parseInt(req.body.limit) || DEFAULT_ROW_LIMIT, 1), MAX_ROW_LIMIT);
 
@@ -1079,7 +1131,8 @@ module.exports = function createDbClient(ctx) {
       },
     },
 
-    services: { decryptPassword },
+    // sqlText(opzioni): istruzioni, segnaposto e conteggio con le regole di un dialetto (per i motori)
+    services: { decryptPassword, sqlText: require('./sqltext'), schemaDiff: require('./schemadiff') },
 
     // Strumenti MCP: solo letture e solo con il vault sbloccato dall'interfaccia
     // (l'agente non riceve né può inserire la master password)
@@ -1113,7 +1166,7 @@ module.exports = function createDbClient(ctx) {
       },
       async query({ connection, database, sql, limit = 100 }) {
         const conn = mcpConnection(connection);
-        const db = database ? mcpDatabase(conn, database) : conn.database || null;
+        const db = database ? mcpDatabase(conn, database) : defaultScope(conn);
         const engine = engineFor(conn);
         const c = engine.sql.classify(sql);
         if (c.kind !== 'read') throw ctx.error(400, 'mcp_read_only', { verb: c.verb || '?' });

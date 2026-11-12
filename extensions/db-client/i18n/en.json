@@ -258,6 +258,7 @@
   "reason.row_lock": "row locks",
   "reason.explain_analyze_write": "EXPLAIN ANALYZE of a write",
   "reason.write_word": "contains {word}",
+  "reason.write_function": "calls {word}, which changes something",
   "errors.connection_invalid": "Invalid connection",
   "errors.connection_id": "connection \"{id}\": invalid id (letters, digits, _ and -)",
   "errors.connection_label": "connection \"{id}\": name is required",
@@ -582,5 +583,15 @@
   "conn.installEngine": "Extensions",
   "menu.showCreate": "CREATE statement of the table",
   "menu.showCreateView": "CREATE statement of the view",
-  "designer.noEngineDesigner": "The {engine} engine has no table designer"
+  "designer.noEngineDesigner": "The {engine} engine has no table designer",
+  "errors.connection_options": "connection \"{id}\": invalid options",
+  "errors.option_invalid": "Invalid value for the option {option}",
+  "errors.sql_go_unsupported": "GO separates batches in SQL Server tools, it isn't a statement: split with ;",
+  "errors.connection_file": "connection \"{id}\": invalid file",
+  "errors.file_required": "Enter the database file",
+  "errors.file_relative_project": "The path {file} is relative: link the connection to a project, or write an absolute path",
+  "errors.file_outside_project": "The path {file} leaves the project folder",
+  "form.file": "Database file",
+  "form.filePlaceholder": "e.g. data/app.sqlite (relative to the project) or /absolute/path.db",
+  "errors.ddl_rebuild_required": "In SQLite this change needs the table to be rebuilt: make it from the designer"
 }

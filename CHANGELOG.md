@@ -6,6 +6,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.30.0] - 2026-11-12
+
+### Added
+- **Database: PostgreSQL, SQL Server, SQLite and Oracle** as engine extensions of the official catalog (`db-postgres`, `db-mssql`, `db-sqlite`, `db-oracle` 1.0.0, kelbo-extensions), installed from the Extensions panel: the same features and confirmations as MySQL — tree, SQL editor with several statements and parameters, data browser, export, designer and migrations, MCP reads in a read-only transaction.
+- **Schemas**: for engines with schemas (PostgreSQL, SQL Server, Oracle) the database of the connection is fixed and the level under the connection in the tree is the schema, the engine's default one first (`public`, `dbo`, the connected user).
+- **Engine options and database files in the connection form**: an engine declares extra settings (`connection.options`: on/off, a choice, text — e.g. *encrypted connection* for SQL Server, *service name or SID* for Oracle), and engines working on a file (SQLite) get a **File** field, with a path relative to the folder of the connection's project (which it can't leave) or absolute.
+- **Shared tools for engines** offered by `db-client` (`sqlText`, `schemaDiff`, `extensions/db-client/engine.md` *Shared tools*): statement splitting, placeholders, row counts and the designer's diff, configured with the rules of each dialect; `dbClientTools()` in the test kit to unit-test an engine without starting Kelbo.
+
+### Changed
+- The table designer offers only what the engine can do (`ddl.features`: `UNSIGNED`, `ON UPDATE CURRENT_TIMESTAMP`, storage engine and charset, column positions, the types with length, precision or fraction); the quick queries of the table menu come from the engine only.
+- Search in the data browser is case-insensitive also on engines whose `LIKE` isn't (`likeOperator`, or the engine's whole `search` expression); `defaultSchema` can depend on the connection.
+- The new-row line and the row dialog show *auto* also for identity columns and columns filled by a sequence, instead of the sequence expression.
+
 ## [2.29.0] - 2026-11-11
 
 ### Added

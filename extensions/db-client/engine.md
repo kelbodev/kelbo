@@ -8,7 +8,7 @@ The Database section (`db-client`) is the **host**: connections and folders, pas
 
 A connection names its engine in `type` (`mysql` when missing, for connections saved before engines existed). The host reads the engines with `ctx.providers('db-engine')` at every use: a connection whose engine is missing or off stays saved and is marked *engine not installed*; its operations answer `400 db-client.engine_missing`.
 
-MySQL/MariaDB is the built-in `db-mysql` (`extensions/db-mysql/engine.js`): read it as the reference implementation.
+MySQL/MariaDB is the built-in `db-mysql` (`extensions/db-mysql/engine.js`): read it as the reference implementation. The official catalog (kelbo-extensions) has `db-postgres`, `db-mssql`, `db-sqlite` and `db-oracle`, which show the variations: schemas, a file instead of a server, PL/SQL blocks.
 
 ## The engine object
 
@@ -19,7 +19,8 @@ MySQL/MariaDB is the built-in `db-mysql` (`extensions/db-mysql/engine.js`): read
 | Member | |
 |---|---|
 | `driver()` | `{ name, version }` of the driver, shown in the info |
-| `connection` | `{ fields, defaultPort, tunnel }`: the connection fields the form shows, among `host`, `port`, `user`, `password`, `database` (others are added with the engines that need them); `tunnel: false` when the engine can't go through an SSH tunnel |
+| `connection` | `{ fields, defaultPort, tunnel, options }`: `options` are extra settings of the engine shown in the form and saved in the connection's `options`, `[{ key, type: 'boolean' \| 'select' \| 'text', default, label, choices: [{ value, label }] }]` (labels as strings or maps by language), passed to `createPool`/`test` as `options.options`; the connection fields the form shows, among `host`, `port`, `user`, `password`, `database` and `file` (a database file: path relative to the folder of the connection's project, which it can't leave, or absolute; SQLite); `tunnel: false` when the engine can't go through an SSH tunnel |
+| `defaultSchema` | For engines with schemas: the schema opened first, a name or a function of the connection (Oracle: the connected user) |
 | `dialect` | Data for the frontend: `quote` (`` ` ``, `"` or `[`), `keywords` (array, for highlighting and completion), `schemas` (true if databases contain schemas), `ddl` (`{ types, fkActions, engines }` for the designer, or `null` without a designer), `snippets` (`firstRows`, `count`, `showCreate`, `showCreateView`, `distinct`, with `{table}`, `{column}`, `{alias}` already quoted by the host; a missing snippet hides its menu item) |
 
 ### Connection and execution
@@ -47,6 +48,8 @@ MySQL/MariaDB is the built-in `db-mysql` (`extensions/db-mysql/engine.js`): read
 | `quoteId(name)`, `qualify(db, table)` | Quoted identifier, qualified table name |
 | `escape(value)`, `literal(value)`, `format(template, params)` | A value as SQL; a cell value for an SQL export file; `?` replaced by escaped values |
 | `asText(columnSql)` | Text expression of a column for the search with `LIKE` |
+| `search(columnSql)` | Optional: the whole search expression of a column with one `?` (Oracle: `UPPER(TO_CHAR(col)) LIKE UPPER(?)`), instead of `asText` and `likeOperator` |
+| `likeOperator` | Optional: the operator of the search and of the *contains*/*starts with* filters when `LIKE` is case-sensitive (`ILIKE` in PostgreSQL), so searching behaves as in MySQL |
 | `page(sql, params, limit, offset)` | `{ sql, params }` of one page of a `SELECT` |
 
 ### Metadata
@@ -68,3 +71,14 @@ MySQL/MariaDB is the built-in `db-mysql` (`extensions/db-mysql/engine.js`): read
 | `ddl.createTableSql(db, definition)`, `ddl.DdlError` | `CREATE TABLE` from the designer's definition; errors are `DdlError` with `key` and `params`, translated by the host as `errors.ddl_<key>` |
 | `schema.statements(db, operations)`, `schema.diff(from, to, renames)`, `schema.destructive(operations, before)`, `schema.proposeName(operations)` | The designer's operations (see `db-mysql/ops.js`) as statements, the operations between two structures, the warnings of operations that can lose data, the migration file name |
 | `errorInfo(error)` | `{ message, code }` of a driver error: the host answers `db-client.database` with `params.dbCode` |
+
+## Shared tools
+
+An engine doesn't have to write its SQL lexer or its schema diff: `db-client` offers both as services (`const host = ctx.require('db-client')`, so the engine's manifest declares `db-client` as a required dependency), and engines build themselves from them in their backend factory.
+
+| Service | |
+|---|---|
+| `host.sqlText(options)` | A lexer for one dialect → `{ mask, blank, splitStatements, placeholders, describeParams, bindParams, countQuery, tokenAt }`: strings, quoted identifiers and comments are skipped when splitting at `;`, finding `?`/`:name` placeholders, guessing their names and counting the rows of a `SELECT` without its final limit. Options: `strings` (quote characters), `identifiers` (`{ open: close }`), `backslash`, `eStrings` (PostgreSQL `E''`), `dollarQuotes` (`$tag$…$tag$`), `qQuotes` (Oracle `q'[…]'`), `hashComments` (`#`), `execComments` (MySQL `/*! … */`), `countAlias` (the alias of the counted subquery, e.g. `' AS kelbo_count'`) |
+| `host.schemaDiff(options)` | The designer's operations between two structures → `{ diff, destructive, proposeName }`. Options: `typeKinds` (type → `length`/`decimal`/`temporal`/`plain`…), `typeAliases`, `fkAction(action)` (normalises an `ON DELETE`/`ON UPDATE` action), `positions` (`false` when the engine can't move columns). An engine can wrap `diff` to add what its statements need (the name of the primary key constraint, the column before a change) |
+
+Engines are tested without starting Kelbo with `dbClientTools()` of the test kit (`{ sqlText, schemaDiff }`), and against a real server with `startServer(…, { install: [engineDir] })`: the integration tests of the official engines read the server from an environment variable (`KELBO_TEST_MSSQL`, `KELBO_TEST_ORACLE`) and are skipped without it.

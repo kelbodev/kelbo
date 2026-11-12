@@ -22,7 +22,7 @@ The official installable extensions (`pm2`, `ports`, `mongo-client`, `swagger`) 
 
 The core owns `projects` and `projectFolders` (see *Projects and folders*) and their **Progetti e cartelle** export checkbox, `layout` (the tab order chosen by the user, not exported) and `vault` (the master password, see *Secrets*).
 
-Services offered by the built-in extensions to the others (`ctx.require(code)`): `npm` → `readPackage(project)`, `processes()` (with `projectId`), `stopProcess(id)`; `tunnels` → `getServer(key)`, `ensureTunnel(key)`, `activeTunnels()`, `stopTunnel(id)`; `git` → `repos()`; `db-client` → `decryptPassword(connection)`. Providers (`ctx.providers(capability)`): `db-mysql` → `db-engine` `mysql`; the interface of a database engine is in [`extensions/db-client/engine.md`](../extensions/db-client/engine.md).
+Services offered by the built-in extensions to the others (`ctx.require(code)`): `npm` → `readPackage(project)`, `processes()` (with `projectId`), `stopProcess(id)`; `tunnels` → `getServer(key)`, `ensureTunnel(key)`, `activeTunnels()`, `stopTunnel(id)`; `git` → `repos()`; `db-client` → `decryptPassword(connection)`, `sqlText(options)`, `schemaDiff(options)` (tools for database engines). Providers (`ctx.providers(capability)`): `db-mysql` → `db-engine` `mysql`, and in the official catalog `db-postgres`, `db-mssql`, `db-sqlite`, `db-oracle`; the interface of a database engine is in [`extensions/db-client/engine.md`](../extensions/db-client/engine.md).
 
 
 ## Folder layout
@@ -669,6 +669,7 @@ Each extension keeps its tests in its own `tests/` folder (`*.test.js`, `node:te
 | `manifest(code, extra)`, `writeExtension(root, code, files)` | Minimal valid manifest and fixture extensions written to disk |
 | `i18nProblems(extDir)` | The translation checks for one extension: catalogs valid and consistent with the source language, keys used in the code present in `i18n/it.json`, no UI text written in the code (exceptions in `tests/i18n-allowlist.txt`); `[]` when everything is fine |
 | `parseSse(text)` | Events of a Server-Sent Events response |
+| `dbClientTools()` | `{ sqlText, schemaDiff }` of `db-client`, to unit-test a database engine without starting Kelbo (Kelbo ≥ 2.30) |
 | `extensionKinds(manifest)` | The kinds of an extension (`component`, `provider`, `theme`) from its manifest, for the scripts that build a catalog (Kelbo ≥ 2.29) |
 | `themeTokens()`, `themeProblems(cssText)` | The colour variables a theme must define, and the checks on a theme stylesheet (only `:root…` rules with variables, no `url()`/`@import`, every variable defined); `[]` when it is fine (Kelbo ≥ 2.26) |
 | `validateManifest(json)`, `coreVersion()` | The loader's manifest checks (throws with the reason) and the Kelbo version of the kit, for the scripts of an extensions repository (e.g. generating its catalog) |
