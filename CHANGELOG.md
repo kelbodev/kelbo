@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.31.0] - 2026-11-12
+
+### Added
+- **Two more places for an extension**: besides *tab* and *header*, an **icon-only tab** (`tab-icon`: the icon in the extension's colour, the name as tooltip, the badge as a dot or a small number, reordered with the other tabs) and the **right bar** (`sidebar`): a narrow bar of icons on the right edge of the window, shown only when at least one extension is there, with the active one highlighted, tooltips and badges, ordered by dragging or with Alt+↑/↓ (saved in `layout.rail`, right click restores the order). The Extensions panel moves an extension among the four places without reloading the page; manifests can use the two new `position` values.
+
 ## [2.30.0] - 2026-11-12
 
 ### Added

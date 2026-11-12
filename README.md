@@ -150,7 +150,7 @@ The official extensions live in [kelbo-extensions](https://github.com/kelbodev/k
 
 PM2 and Ports were built in up to Kelbo 1.23, Swagger up to 2.0: after updating, install them from the 🧩 panel (catalog) or with `npm run ext -- install <code>` (`pm2`, `ports`, `swagger`, `mongo-client`, `notes`). The 🧩 button in the header opens the Extensions panel:
 
-- **Installed**: every extension with version, source and state; the **Tab / Header** selector moves an extension between the section bar and a button in the header (the manifest gives the default); the switch turns one off or on (also the built-in ones; those that require it are switched off too), and installed ones can be **updated**, taken back to the **previous version** (kept after every update) or **removed**. The badge on 🧩 counts the available updates and the extensions to install.
+- **Installed**: every extension with version, source and state; the **Position** selector moves an extension between a tab of the section bar (with its name or **icon only**), a button in the header and the **right bar**, a narrow bar of icons on the right edge of the window shown only when something is there (the manifest gives the default; the right bar is reordered by dragging its icons or with Alt+↑/↓, right click restores the order); the switch turns one off or on (also the built-in ones; those that require it are switched off too), and installed ones can be **updated**, taken back to the **previous version** (kept after every update) or **removed**. The badge on 🧩 counts the available updates and the extensions to install.
 - **Catalog**: the extensions listed by the configured catalogs (the official `kelbo-extensions` catalog by default), with a search.
 - **From URL**: any git repository (GitHub, GitLab, a company server, a local folder), with an optional folder for repositories that hold several extensions (`…/tools.git#path=my-extension`). Private repositories work with your own git credentials (SSH keys, credential helper).
 - **Catalogs**: the list of catalog URLs.
@@ -240,7 +240,7 @@ docs/EXTENSIONS.md   extension contract
 
 ## Writing an extension
 
-1. Create `extensions/<code>/setting.json` with name, code, colour and position (tab or header button).
+1. Create `extensions/<code>/setting.json` with name, code, colour and position (tab, icon-only tab, header button or right bar).
 2. Declare the API in `backend.routes` and implement the handlers in `server.js`; they are served under `/api/ext/<code>`.
 3. Declare the `config.json` keys the extension owns (`config`) and the checkboxes it adds to the Export/Import dialogs (`export`).
 4. Add `view.html`, `sidebar.html`, `view.js` and `style.css` for the UI, with the texts in `i18n/it.json` (and `i18n/en.json`), used through `data-i18n` attributes and `ctx.t()`.

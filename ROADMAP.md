@@ -153,14 +153,14 @@ The core keeps one theme (dark); a light theme and a second dark theme are exten
 - [x] **M11.4** Official extensions use the variables (`mongo-client`, `notes`, `ports`, `script`); new `theme-light` (*Kelbo Light*) and `theme-dim` (*Kelbo Dim*) in kelbo-extensions
 - [x] **M11.5** Tests (manifest, API, served files, `layout.theme`, the core's own variables pass the theme check; each theme extension checks its stylesheet), `docs/EXTENSIONS.md` (*Themes*), README, CHANGELOG
 
-## M12 — Two more places for an extension: icon tab and right sidebar — core
+## M12 — Two more places for an extension: icon tab and right sidebar — core ✅ (2.31.0)
 
 Goal: besides *tab* and *header*, an extension can sit in the section bar as an **icon only** tab, or in a **right sidebar**: a narrow bar of icons on the right edge of the window, shown only when at least one extension is placed there; a click opens the extension's panel. The manifest `position` can be `tab`, `tab-icon`, `header` or `sidebar`, and the user moves an extension between the four from the Extensions panel (saved in `layout.positions`, as today).
 
-- [ ] **M12.1** Positions `tab-icon` and `sidebar` in the manifest and in `layout.positions` (validation, `/api/core/extensions`, the move in the Extensions panel)
-- [ ] **M12.2** Icon tab: the extension's icon in its colour, name as tooltip, badge as a dot or a small number, reorderable with the other tabs
-- [ ] **M12.3** Right sidebar: icons in the extension's colour with tooltip and badge, the active one highlighted, order by dragging (saved), hidden when empty
-- [ ] **M12.4** Tests, README, `docs/EXTENSIONS.md`, CHANGELOG
+- [x] **M12.1** Positions `tab-icon` and `sidebar` in the manifest and in `layout.positions` (validation, `/api/core/extensions`, the move in the Extensions panel)
+- [x] **M12.2** Icon tab: the extension's icon in its colour, name as tooltip, badge as a dot or a small number, reorderable with the other tabs
+- [x] **M12.3** Right sidebar: icons in the extension's colour with tooltip and badge, the active one highlighted, order by dragging (saved), hidden when empty
+- [x] **M12.4** Tests, README, `docs/EXTENSIONS.md`, CHANGELOG
 
 ---
 
