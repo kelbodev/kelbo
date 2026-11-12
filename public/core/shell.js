@@ -43,7 +43,9 @@ window.Shell = (() => {
 
   function addEntry(meta) {
     const entry = { meta, panel: createPanel(meta), sidebar: createSidebar(meta), tab: null, module: null, ctx: null, loading: null, css: null };
-    entry.tab = meta.position === 'header' ? createHeaderButton(meta) : createTab(meta);
+    entry.tab = meta.position === 'header' ? createHeaderButton(meta)
+      : meta.position === 'sidebar' ? createRailButton(meta)
+      : createTab(meta, meta.position === 'tab-icon');
     exts.set(meta.code, entry);
     return entry;
   }
@@ -62,6 +64,7 @@ window.Shell = (() => {
     document.querySelector(`#activePills [data-ext="${code}"]`)?.remove();
     delete window.Ext[code];
     exts.delete(code);
+    updateRail();
   }
 
   // Allinea la pagina alle estensioni del server dopo un'installazione, un aggiornamento, una
@@ -84,18 +87,20 @@ window.Shell = (() => {
       if (exts.has(meta.code)) continue;
       const entry = addEntry(meta);
       if (entry.tab?.classList.contains('section-tab')) makeTabDraggable(entry.tab);
+      if (entry.tab?.classList.contains('rail-btn')) makeRailDraggable(entry.tab);
       if (meta.frontend.preload) load(entry).catch(() => {});
     }
     applyTabOrder(savedTabOrder);
+    applyRailOrder(savedRailOrder);
     const next = wasActive && exts.has(wasActive) ? wasActive : active || firstSection();
     active = null;
     if (next) activate(next);
     else document.querySelector('.app').classList.remove('no-sidebar');
   }
 
-  // Prima estensione in ordine di tab: quella aperta all'avvio
+  // Prima estensione in ordine di tab (o della barra a destra): quella aperta all'avvio
   function firstSection() {
-    const first = document.querySelector('.section-nav .section-tab');
+    const first = document.querySelector('.section-nav .section-tab') || document.querySelector('#rightRail .rail-btn');
     return first ? first.id.replace(/^ext-tab-/, '') : null;
   }
 
@@ -104,17 +109,20 @@ window.Shell = (() => {
       ? `<span class="ext-warning" title="${esc((meta.warningInfo || meta.warnings).map(w => window.I18n.errorText(w)).join('\n'))}">${UI.icon('triangle-alert')}</span>` : '';
   }
 
-  function createTab(meta) {
+  // iconOnly: posizione "tab-icon", solo l'icona (il nome nel tooltip) e il badge come un pallino
+  // o un numero piccolo
+  function createTab(meta, iconOnly = false) {
     const btn = document.createElement('button');
-    btn.className = 'section-tab';
+    btn.className = iconOnly ? 'section-tab section-tab-compact' : 'section-tab';
     btn.id = `ext-tab-${meta.code}`;
     btn.style.setProperty('--tab-color', UI.extColor(meta.code, meta.color));
     btn.innerHTML = `
-      <span class="section-tab-icon">${UI.iconOrText(meta.icon)}</span>
-      <span class="section-tab-name">${esc(pick(meta.name))}</span>${warningMark(meta)}
+      <span class="section-tab-icon">${UI.iconOrText(meta.icon || pick(meta.name).slice(0, 2))}</span>
+      ${iconOnly ? '' : `<span class="section-tab-name">${esc(pick(meta.name))}</span>`}${warningMark(meta)}
       <span class="section-tab-badge" style="display:none"></span>`;
     btn.dataset.order = meta.order;
-    btn.title = t('core.tabs.moveHint');
+    btn.title = iconOnly ? `${pick(meta.name)}\n${t('core.tabs.moveHint')}` : t('core.tabs.moveHint');
+    if (iconOnly) btn.setAttribute('aria-label', pick(meta.name));
     btn.addEventListener('click', () => open(meta.code));
     // posizione per "order", insieme ai tab delle sezioni del core (data-order)
     const nav = document.querySelector('.section-nav');
@@ -190,7 +198,9 @@ window.Shell = (() => {
 
   async function setupTabOrder() {
     const nav = navEl();
-    try { savedTabOrder = (await coreApi.get('/layout')).tabs; } catch { /* ordine dei manifest */ }
+    let saved = null;
+    try { saved = await coreApi.get('/layout'); savedTabOrder = saved.tabs; } catch { /* ordine dei manifest */ }
+    setupRail(saved?.rail);
     customTabOrder = savedTabOrder.length > 0;
     applyTabOrder(savedTabOrder);
     tabButtons().forEach(makeTabDraggable);
@@ -210,6 +220,98 @@ window.Shell = (() => {
         { label: t('core.tabs.restore'), icon: 'rotate-ccw', disabled: !customTabOrder, action: restoreTabOrder },
       ]);
     });
+  }
+
+  // ---- barra a destra (posizione "sidebar"): icone nel colore dell'estensione, visibile solo
+  // con almeno un'estensione; ordine per trascinamento (o Alt+↑/↓), salvato in layout.rail ----
+  const railEl = () => document.getElementById('rightRail');
+  const railButtons = () => [...railEl().querySelectorAll('.rail-btn')];
+  let savedRailOrder = [];
+  let railDragged = null, railBefore = '';
+
+  function updateRail() {
+    const has = railButtons().length > 0;
+    railEl().hidden = !has;
+    document.querySelector('.app').classList.toggle('has-rail', has);
+  }
+
+  function createRailButton(meta) {
+    const btn = document.createElement('button');
+    btn.className = 'rail-btn';
+    btn.id = `ext-tab-${meta.code}`;
+    btn.dataset.order = meta.order;
+    btn.style.setProperty('--tab-color', UI.extColor(meta.code, meta.color));
+    btn.title = `${pick(meta.name)}\n${t('core.rail.moveHint')}`;
+    btn.setAttribute('aria-label', pick(meta.name));
+    btn.innerHTML = `<span class="rail-icon">${UI.iconOrText(meta.icon || pick(meta.name).slice(0, 2))}</span>${warningMark(meta)}<span class="section-tab-badge" style="display:none"></span>`;
+    btn.addEventListener('click', () => open(meta.code));
+    railEl().appendChild(btn);
+    applyRailOrder(savedRailOrder);
+    updateRail();
+    return btn;
+  }
+
+  function applyRailOrder(saved) {
+    const key = el => { const code = tabCode(el); const i = saved.indexOf(code); return [i < 0 ? Infinity : i, exts.get(code)?.meta.order ?? Number(el.dataset.order ?? 100), code]; };
+    railButtons().sort((a, b) => { const x = key(a), y = key(b); return x[0] - y[0] || x[1] - y[1] || x[2].localeCompare(y[2]); })
+      .forEach(el => railEl().appendChild(el));
+  }
+
+  async function saveRailOrder() {
+    try { savedRailOrder = (await coreApi.put('/layout/rail', { rail: railButtons().map(tabCode) })).rail; }
+    catch (e) { toast(e.message, 'error'); }
+  }
+  async function restoreRailOrder() {
+    try { await coreApi.del('/layout/rail'); savedRailOrder = []; applyRailOrder([]); }
+    catch (e) { toast(e.message, 'error'); }
+  }
+
+  function makeRailDraggable(btn) {
+    btn.draggable = true;
+    btn.addEventListener('dragstart', e => {
+      railDragged = btn;
+      railBefore = railButtons().map(tabCode).join();
+      btn.classList.add('tab-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', tabCode(btn));
+    });
+    btn.addEventListener('dragend', () => {
+      btn.classList.remove('tab-dragging');
+      railDragged = null;
+      if (railButtons().map(tabCode).join() !== railBefore) saveRailOrder();
+    });
+    btn.addEventListener('keydown', e => {
+      if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+      e.preventDefault();
+      const sibling = e.key === 'ArrowDown' ? btn.nextElementSibling : btn.previousElementSibling;
+      if (!sibling?.classList.contains('rail-btn')) return;
+      railEl().insertBefore(btn, e.key === 'ArrowDown' ? sibling.nextElementSibling : sibling);
+      btn.focus();
+      saveRailOrder();
+    });
+  }
+
+  function setupRail(saved) {
+    const rail = railEl();
+    savedRailOrder = saved || [];
+    applyRailOrder(savedRailOrder);
+    railButtons().forEach(makeRailDraggable);
+    rail.addEventListener('dragover', e => {
+      if (!railDragged) return;
+      e.preventDefault();
+      const target = e.target.closest('.rail-btn');
+      if (!target || target === railDragged) return;
+      const rect = target.getBoundingClientRect();
+      rail.insertBefore(railDragged, e.clientY > rect.top + rect.height / 2 ? target.nextElementSibling : target);
+    });
+    rail.addEventListener('drop', e => { if (railDragged) e.preventDefault(); });
+    rail.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      contextMenu(e.clientX, e.clientY, [
+        { label: t('core.rail.restore'), icon: 'rotate-ccw', disabled: !savedRailOrder.length, action: restoreRailOrder },
+      ]);
+    });
+    updateRail();
   }
 
   function createHeaderButton(meta) {
@@ -411,6 +513,15 @@ window.Shell = (() => {
         if (!badge) return;
         const empty = value === null || value === undefined || value === '';
         badge.style.display = empty ? 'none' : '';
+        // tab solo icona e barra a destra: un numero piccolo (99+) o un pallino
+        if (!empty && entry.tab.matches('.section-tab-compact, .rail-btn')) {
+          const text = String(typeof value === 'object' ? value.text ?? '' : value).trim();
+          const n = /^\d+$/.test(text) ? Number(text) : null;
+          badge.classList.toggle('badge-dot', n === null);
+          badge.textContent = n === null ? '' : n > 99 ? '99+' : String(n);
+          badge.title = typeof value === 'object' ? String(value.text ?? '') : String(value);
+          return;
+        }
         badge.innerHTML = empty ? '' : UI.badgeHtml(value); // testo o { icon, text }
       },
       // HTML delle pill nell'header per questa estensione ('' le rimuove)

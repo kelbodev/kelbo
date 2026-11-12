@@ -81,11 +81,15 @@ module.exports = function coreRoutes(extensions) {
   router.delete('/folders/:id', (req, res) => { projects.deleteFolder(req.params.id); res.json({ ok: true }); });
 
   // Ordine delle tab scelto dall'utente (codici sconosciuti scartati); DELETE = ordine dei manifest
-  const tabCodes = () => extensions.list().filter(e => e.state !== 'disabled' && e.position === 'tab' && e.frontend?.js).map(e => e.code);
+  const codesAt = (...positions) => extensions.list().filter(e => e.state !== 'disabled' && positions.includes(e.position) && e.frontend?.js).map(e => e.code);
+  const tabCodes = () => codesAt('tab', 'tab-icon');
   router.get('/layout', (req, res) => { res.json(layout.get()); });
   router.put('/layout/tabs', (req, res) => { res.json(layout.setTabs(req.body?.tabs, tabCodes())); });
   router.delete('/layout/tabs', (req, res) => { res.json(layout.resetTabs()); });
-  // Tab o pulsante dell'header, anche diversamente dal manifest ({ position: 'tab'|'header'|null })
+  // Ordine della barra a destra (estensioni in posizione "sidebar"), come quello delle tab
+  router.put('/layout/rail', (req, res) => { res.json(layout.setRail(req.body?.rail, codesAt('sidebar'))); });
+  router.delete('/layout/rail', (req, res) => { res.json(layout.resetRail()); });
+  // Posto dell'estensione, anche diverso dal manifest ({ position: 'tab'|'tab-icon'|'header'|'sidebar'|null })
   router.put('/layout/positions/:code', (req, res) => {
     const ext = extensions.list().find(e => e.code === req.params.code && !e.duplicate);
     res.json(layout.setPosition(req.params.code, req.body?.position ?? null, ext?.frontend?.js ? ext.manifestPosition : null));

@@ -376,6 +376,20 @@
   .ext-root [hidden],.ext-sidebar [hidden]{display:none !important}
   .app.no-sidebar{grid-template-columns:1fr}
   .app.no-sidebar .sidebar{display:none}
+  /* Tab solo icona e barra a destra (posizioni "tab-icon" e "sidebar") */
+  .section-tab.section-tab-compact{flex:0 0 auto;min-width:48px;padding:0 14px}
+  .section-tab-compact .section-tab-icon,.rail-icon{color:var(--tab-color);display:inline-flex}
+  .section-tab-compact .section-tab-badge,.rail-btn .section-tab-badge{position:absolute;top:3px;inset-inline-end:3px;font-size:9px;line-height:12px;padding:0 4px;min-width:14px;justify-content:center;color:var(--tab-color);border-color:color-mix(in srgb,var(--tab-color) 60%,transparent);background:var(--surface)}
+  .section-tab-compact .section-tab-badge.badge-dot,.rail-btn .section-tab-badge.badge-dot{min-width:0;width:8px;height:8px;padding:0;border:none;background:var(--tab-color)}
+  .section-tab-compact .ext-warning,.rail-btn .ext-warning{position:absolute;bottom:2px;inset-inline-end:3px;font-size:9px}
+  .app.has-rail{grid-template-columns:var(--sidebar-w,220px) 1fr 48px}
+  .app.no-sidebar.has-rail{grid-template-columns:1fr 48px}
+  .right-rail{background:var(--surface);border-inline-start:1px solid var(--border);display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 0;overflow-y:auto;min-height:0}
+  .right-rail[hidden]{display:none}
+  .rail-btn{position:relative;width:36px;height:36px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:none;border-radius:8px;background:none;cursor:pointer;font-size:18px;opacity:.7;transition:background .15s,opacity .15s}
+  .rail-btn:hover,.rail-btn:focus-visible{opacity:1;background:var(--surface2);outline:none}
+  .rail-btn.active-ext{opacity:1;background:color-mix(in srgb,var(--tab-color) 16%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--tab-color) 55%,transparent)}
+  .rail-btn.tab-dragging{opacity:.4}
   /* Tabella dati generica */
   .data-table{width:100%;border-collapse:collapse;font-size:12px}
   .data-table th{text-align:start;padding:6px 10px;border-bottom:1px solid var(--border);color:var(--muted);font-weight:500;font-family:var(--font);font-size:11px}

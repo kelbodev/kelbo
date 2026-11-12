@@ -2,7 +2,7 @@
 // ripristino dell'ordine dei manifest, import
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { startServer } = require('../lib/testkit');
+const { startServer, manifest, validateManifest } = require('../lib/testkit');
 const { sampleExtensions } = require('./fixtures');
 
 let srv;
@@ -12,7 +12,7 @@ after(() => srv?.stop());
 const call = (m, p, body) => srv.request(m, `/api/core${p}`, body !== undefined ? { body } : {});
 
 test('ordine predefinito: lista vuota', async () => {
-  assert.deepEqual((await call('GET', '/layout')).json, { tabs: [], positions: {}, theme: { id: '', system: false, light: '', dark: '' } });
+  assert.deepEqual((await call('GET', '/layout')).json, { tabs: [], rail: [], positions: {}, theme: { id: '', system: false, light: '', dark: '' } });
 });
 
 test('salvataggio: duplicati e codici sconosciuti o non di tab scartati', async () => {
@@ -63,8 +63,39 @@ test('posizione: tab o header diversa dal manifest, ripristinabile; le tab spost
   await call('PUT', '/layout/positions/second', { position: null });
   assert.equal(srv.readConfig().layout.positions, undefined);
   assert.equal((await ext('second')).position, 'tab');
-  assert.equal((await call('PUT', '/layout/positions/second', { position: 'sidebar' })).json.code, 'core.layout_positions');
+  assert.equal((await call('PUT', '/layout/positions/second', { position: 'altrove' })).json.code, 'core.layout_positions');
   assert.equal((await call('PUT', '/layout/positions/nope', { position: 'tab' })).json.code, 'core.layout_no_ui');
   r = await call('POST', '/config/import', { mode: 'replace', config: { layout: { positions: { second: 'altrove' } } } });
   assert.equal(r.json.code, 'core.layout_positions');
+});
+
+test('posizioni tab-icon e sidebar: la tab solo icona resta nell\'ordine delle tab, la barra a destra ha il suo', async () => {
+  const ext = async code => (await call('GET', '/extensions')).json.find(e => e.code === code);
+  let r = await call('PUT', '/layout/positions/sample', { position: 'tab-icon' });
+  assert.equal(r.status, 200, r.text);
+  assert.equal((await ext('sample')).position, 'tab-icon');
+  assert.deepEqual((await call('PUT', '/layout/tabs', { tabs: ['sample', 'second'] })).json.tabs, ['sample', 'second']);
+  await call('PUT', '/layout/positions/second', { position: 'sidebar' });
+  await call('PUT', '/layout/positions/third', { position: 'sidebar' });
+  assert.equal((await ext('second')).position, 'sidebar');
+  // nella barra solo le estensioni in posizione "sidebar"
+  r = await call('PUT', '/layout/rail', { rail: ['third', 'sample', 'second', 'nope', 'third'] });
+  assert.equal(r.status, 200, r.text);
+  assert.deepEqual(r.json.rail, ['third', 'second']);
+  assert.deepEqual(srv.readConfig().layout.rail, ['third', 'second']);
+  assert.equal((await call('PUT', '/layout/rail', { rail: 'third' })).json.code, 'core.layout_rail');
+  r = await call('POST', '/config/import', { mode: 'replace', config: { layout: { rail: ['x', 'x'] } } });
+  assert.equal(r.json.code, 'core.layout_rail');
+  r = await call('DELETE', '/layout/rail');
+  assert.deepEqual(r.json.rail, []);
+  assert.equal(srv.readConfig().layout.rail, undefined);
+  for (const code of ['sample', 'second', 'third']) await call('PUT', `/layout/positions/${code}`, { position: null });
+  assert.equal(srv.readConfig().layout.positions, undefined);
+});
+
+test('manifest: le quattro posizioni', () => {
+  for (const position of ['tab', 'tab-icon', 'header', 'sidebar']) {
+    assert.equal(validateManifest(manifest('x', { position, frontend: { js: 'view.js' } }), 'x').position, position);
+  }
+  assert.throws(() => validateManifest(manifest('x', { position: 'footer', frontend: { js: 'view.js' } }), 'x'), /tab-icon/);
 });

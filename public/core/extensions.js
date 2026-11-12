@@ -99,7 +99,7 @@ window.Extensions = (() => {
               ${esc(t('core.ext.enabledLabel'))}</label>
             ${e.frontend?.js && e.manifestPosition ? `<label class="ext-toggle">${esc(t('core.ext.positionLabel'))}
               <select class="form-input ext-position" title="${esc(t('core.ext.positionTitle'))}" ${busy ? 'disabled' : ''} onchange="Extensions.position(${js(e.code)}, this.value)">
-              ${['tab', 'header'].map(p => `<option value="${p}" ${p === e.position ? 'selected' : ''}>${esc(t(`core.ext.position.${p}`))}${p === e.manifestPosition ? ` ${esc(t('core.ext.position.default'))}` : ''}</option>`).join('')}
+              ${['tab', 'tab-icon', 'header', 'sidebar'].map(p => `<option value="${p}" ${p === e.position ? 'selected' : ''}>${esc(t(`core.ext.position.${p}`))}${p === e.manifestPosition ? ` ${esc(t('core.ext.position.default'))}` : ''}</option>`).join('')}
               </select></label>` : ''}
           </div>`}
         </div>
