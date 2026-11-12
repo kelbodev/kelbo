@@ -266,6 +266,7 @@ export default {
     let repos = [];
     let folders = [];
     let hidden = 0; // progetti fuori da un repository, solo nel pannello 📁
+    let angularIds = new Set(); // progetti con il tratto angular (pulsante Angular CLI)
     let activeRepo = null;
     let status = null;
     let selected = new Set();
@@ -279,7 +280,8 @@ export default {
     // ---- repository ----
     async function loadRepos() {
       try { repos = await ctx.api.get('/repos'); } catch { repos = []; }
-      try { ({ folders, hidden } = await ctx.projects.load()); } catch { folders = []; hidden = 0; }
+      try { let projects; ({ folders, hidden, projects } = await ctx.projects.load()); angularIds = new Set(projects.filter(p => (p.traitsActive || []).includes('angular')).map(p => p.id)); }
+      catch { folders = []; hidden = 0; }
       ctx.setBadge(repos.length);
       if (activeRepo && !repo()) activeRepo = null;
       renderRepos();
@@ -323,7 +325,8 @@ export default {
           ${status.ahead ? `<span class="git-sync-badge git-sync-ahead">${ctx.ui.icon('arrow-up')} ${esc(t('header.ahead', { count: status.ahead }))}</span>` : ''}
           ${status.behind ? `<span class="git-sync-badge git-sync-behind">${ctx.ui.icon('arrow-down')} ${esc(t('header.behind', { count: status.behind }))}</span>` : ''}
           ${status.stashCount ? `<span class="git-sync-badge git-sync-stash">${ctx.ui.icon('archive')} ${esc(t('header.stash', { count: status.stashCount }))}</span>` : ''}` : ''}
-        <span class="git-path">${esc(r.path)}</span>`);
+        <span class="git-path">${esc(r.path)}</span>
+        ${ctx.hasExtension('angular-cli') && angularIds.has(r.id) ? `<button class="btn btn-ghost btn-sm git-angular" onclick="Ext.git.angular()" title="${esc(t('angular.title'))}">${ctx.ui.icon('triangle')} Angular CLI</button>` : ''}`);
     }
 
     function renderMergeBanner() {
@@ -843,6 +846,7 @@ export default {
 
     // ---- collegamenti ----
     const actions = {
+      angular: () => ctx.open('angular-cli', { project: activeRepo }),
       diff: file => file && openDiff(file),
       // file precedente/successivo nella finestra del diff (modifiche attuali o file del commit)
       diffGo: file => file && openDiff(file, diffView?.commit || null),

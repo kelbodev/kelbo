@@ -80,6 +80,8 @@ export default {
       $(ctx.root, 'running').innerHTML = n ? `${ctx.ui.icon('play')} ${esc(t('running', { count: n }))}` : '';
       for (const b of ctx.root.querySelectorAll('.npm-tab')) b.classList.toggle('active', b.dataset.tab === tab);
       renderTunnelsButton(p);
+      // workspace Angular con l'estensione angular-cli: un clic apre i suoi generatori
+      $(ctx.root, 'angular').hidden = !(ctx.hasExtension('angular-cli') && (p.traitsActive || []).includes('angular'));
       return true;
     }
 
@@ -295,6 +297,7 @@ export default {
       },
       select(id) { activeProject = id; renderProjects(); renderTab(); },
       tunnels: tunnelsDialog,
+      angular: () => ctx.open('angular-cli', { project: activeProject }),
       saveTunnels,
       filterTunnels,
       countTunnels,

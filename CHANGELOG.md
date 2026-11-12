@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.32.0] - 2026-11-12
+
+### Added
+- **Angular CLI** (`angular-cli@1.0.0`, official catalog): the generators of the Angular workspaces with a form from their options and a preview of the files before they are written, `ng add`, `ng update`, a dashboard widget and MCP tools. **NPM** and **Git** show an *Angular CLI* button on Angular projects when the extension is installed.
+
 ## [2.31.0] - 2026-11-12
 
 ### Added
