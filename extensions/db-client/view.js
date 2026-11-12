@@ -792,7 +792,8 @@ export default {
 
     // Modifica possibile solo con chiave primaria e connessione scrivibile
     const gridEditable = () => grid?.data?.primaryKey.length > 0 && !connections.find(x => x.id === grid.connId)?.readOnly;
-    const isAuto = col => /auto_increment/i.test(col.extra || '');
+    // valore dato dal database: AUTO_INCREMENT, identity, sequenza (serial di PostgreSQL, identity di Oracle)
+    const isAuto = col => /auto_increment|identity/i.test(col.extra || '') || /\bnextval\b/i.test(col.default || '');
     // Valore cambiato? (i campi del form sono stringhe, i dati possono essere numeri o NULL)
     const changed = (next, prev) => next === null ? prev !== null : prev === null || next !== String(prev);
     // Colonne JSON: testo formattato per la modifica, confronto sul contenuto (non sugli spazi)
@@ -1651,7 +1652,7 @@ export default {
       if (!c) { $(ctx.root, 'conn-header').innerHTML = `<span class="db-muted">${esc(t('tabs.chooseConnection'))}</span>`; return; }
       $(ctx.root, 'conn-header').innerHTML = `
         <h3><i data-icon="database"></i> ${esc(c.label)}</h3>
-        <span class="db-conn-meta">${esc(c.user)}@${esc(target(c))}${c.database ? ` / ${esc(c.database)}` : ''}</span>
+        <span class="db-conn-meta">${c.file ? esc(c.file) : `${esc(c.user)}@${esc(target(c))}${c.database ? ` / ${esc(c.database)}` : ''}`}</span>
         ${c.readOnly ? `<span class="db-badge">${esc(t('conn.readOnly'))}</span>` : ''}
         ${c.hasPassword ? '' : `<span class="db-badge db-badge-warn">${esc(t('conn.noPassword'))}</span>`}
         ${c.tunnelMissing ? `<span class="db-badge db-badge-danger">${esc(t('conn.tunnelMissing', { tunnel: c.tunnel }))}</span>` : ''}
@@ -1833,7 +1834,8 @@ export default {
           <div class="form-row"><label>${esc(t('form.host'))}</label><input class="form-input" id="f_db_host" value="${esc(c.host || '127.0.0.1')}"></div>
           <div class="form-row"><label>${esc(t('form.port'))}</label><input class="form-input" id="f_db_port" type="number" min="1" max="65535" value="${esc(c.port || engine?.connection?.defaultPort || '')}"></div>
         </div>
-        <div class="form-grid">
+        ${fields.has('file') ? `<div class="form-row"><label>${esc(t('form.file'))}</label><input class="form-input" id="f_db_file" value="${esc(c.file || '')}" placeholder="${esc(t('form.filePlaceholder'))}"></div>` : ''}
+        <div class="form-grid" ${fields.has('user') || fields.has('password') ? '' : 'hidden'}>
           <div class="form-row" ${show('user')}><label>${esc(t('form.user'))}</label><input class="form-input" id="f_db_user" value="${esc(c.user || '')}" autocomplete="off"></div>
           <div class="form-row" ${show('password')}><label>${esc(t(c.id ? 'form.passwordKeep' : 'form.password'))}</label><input class="form-input" id="f_db_password" type="password" autocomplete="new-password" placeholder="${c.hasPassword ? '••••••••' : ''}"></div>
         </div>
@@ -1842,6 +1844,13 @@ export default {
           ${projectList.length ? `<div class="form-row"><label>${esc(t('form.project'))}</label><select class="form-input" id="f_db_project">
             ${opt('', t('form.noProject'), !c.projectId)}${projectList.map(p => opt(p.id, p.label, c.projectId === p.id)).join('')}</select></div>` : ''}
         </div>
+        ${(engine?.connection?.options || []).map(o => {
+          const v = c.options?.[o.key] ?? o.default;
+          const label = esc(ctx.i18n.pick(o.label));
+          if (o.type === 'boolean') return `<label class="db-check"><input type="checkbox" data-db-option="${esc(o.key)}" ${v ? 'checked' : ''}> ${label}</label>`;
+          if (o.type === 'select') return `<div class="form-row"><label>${label}</label><select class="form-input" data-db-option="${esc(o.key)}">${(o.choices || []).map(ch => opt(ch.value, ctx.i18n.pick(ch.label), ch.value === v)).join('')}</select></div>`;
+          return `<div class="form-row"><label>${label}</label><input class="form-input" data-db-option="${esc(o.key)}" value="${esc(v ?? '')}"></div>`;
+        }).join('')}
         <div class="form-row"><label>${esc(t('form.folder'))}</label><select class="form-input" id="f_db_folder">
           ${opt('', t('form.noFolder'), !c.folder)}${folders.map(f => opt(f.id, f.label, c.folder === f.id)).join('')}</select></div>
         <label class="db-check"><input type="checkbox" id="f_db_readonly" ${c.readOnly ? 'checked' : ''}> ${esc(t('form.readOnly'))}</label>
@@ -1854,10 +1863,12 @@ export default {
       const password = document.getElementById('f_db_password')?.value || '';
       return {
         type: v('f_db_type') || undefined,
+        file: v('f_db_file') || undefined,
         id: v('f_db_id'), label: v('f_db_label'), user: v('f_db_user'), database: v('f_db_database'),
         projectId: v('f_db_project'), folder: v('f_db_folder'), tunnel,
         ...(tunnel ? {} : { host: v('f_db_host'), port: v('f_db_port') }),
         readOnly: !!document.getElementById('f_db_readonly')?.checked,
+        options: Object.fromEntries([...document.querySelectorAll('[data-db-option]')].map(el => [el.dataset.dbOption, el.type === 'checkbox' ? el.checked : el.value])),
         password: document.getElementById('f_db_clear')?.checked ? null : password,
       };
     }
@@ -2566,7 +2577,7 @@ export default {
       async saveConnection(existingId) {
         const body = formValues();
         const fields = new Set(engines.get(body.type || connections.find(c => c.id === existingId)?.type || 'mysql')?.connection?.fields || ['user']);
-        if (!body.label || (fields.has('user') && !body.user) || (!existingId && !body.id)) { toast(t('connections.required'), 'error'); return; }
+        if (!body.label || (fields.has('user') && !body.user) || (fields.has('file') && !body.file) || (!existingId && !body.id)) { toast(t('connections.required'), 'error'); return; }
         try {
           const r = existingId
             ? await ctx.api.put(`/connections/${encodeURIComponent(existingId)}`, body)

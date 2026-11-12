@@ -583,5 +583,15 @@
   "conn.installEngine": "Estensioni",
   "menu.showCreate": "Istruzione CREATE della tabella",
   "menu.showCreateView": "Istruzione CREATE della vista",
-  "designer.noEngineDesigner": "Il motore {engine} non offre il designer delle tabelle"
+  "designer.noEngineDesigner": "Il motore {engine} non offre il designer delle tabelle",
+  "errors.connection_options": "connessione \"{id}\": opzioni non valide",
+  "errors.option_invalid": "Valore non valido per l'opzione {option}",
+  "errors.sql_go_unsupported": "GO separa i batch negli strumenti di SQL Server, non è un'istruzione: dividi con ;",
+  "errors.connection_file": "connessione \"{id}\": file non valido",
+  "errors.file_required": "Indica il file del database",
+  "errors.file_relative_project": "Il percorso {file} è relativo: collega la connessione a un progetto, o scrivi un percorso assoluto",
+  "errors.file_outside_project": "Il percorso {file} esce dalla cartella del progetto",
+  "form.file": "File del database",
+  "form.filePlaceholder": "es. data/app.sqlite (relativo al progetto) o /percorso/assoluto.db",
+  "errors.ddl_rebuild_required": "Questa modifica in SQLite richiede di ricostruire la tabella: falla dal designer"
 }
