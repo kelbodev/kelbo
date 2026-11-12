@@ -23,6 +23,7 @@
   "header.ahead": "{count} ahead",
   "header.behind": "{count} behind",
   "header.stash": "{count} stash",
+  "angular.title": "Generatori, ng add e ng update della Angular CLI per questo progetto",
   "merge.banner": "⑃ Merge in corso",
   "merge.conflicts": {
     "one": "{count} file in conflitto",

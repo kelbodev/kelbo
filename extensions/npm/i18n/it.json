@@ -64,6 +64,7 @@
   "widget.run": "Avvia {script}",
   "tunnels.button": "Tunnel",
   "tunnels.buttonTitle": "Tunnel SSH avviati insieme agli script di questo progetto",
+  "angular.title": "Generatori, ng add e ng update della Angular CLI per questo progetto",
   "tunnels.title": "Tunnel di {project}",
   "tunnels.intro": "I tunnel scelti partono (se non sono già attivi) prima di ogni script del progetto e restano aperti quando lo script si ferma.",
   "tunnels.none": "Nessun server tunnel configurato: aggiungili nella sezione Tunnel SSH.",
