@@ -320,7 +320,9 @@ window.Extensions = (() => {
     },
     async checkUpdates() {
       busy = true; render();
-      try { await api.post('/extensions-admin/updates'); } catch (e) { toast(e.message, 'error'); }
+      // estensioni e Kelbo stesso insieme (prima Kelbo si ricontrollava solo all'avvio e ogni giorno)
+      const results = await Promise.allSettled([api.post('/extensions-admin/updates'), api.post('/update/check')]);
+      for (const r of results) if (r.status === 'rejected') toast(r.reason.message, 'error');
       busy = false;
       await load(); render();
     },

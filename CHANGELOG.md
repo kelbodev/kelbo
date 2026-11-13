@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.34.1] - 2026-11-13
+
+### Fixed
+- **Check updates** in the Extensions panel checks Kelbo itself too, not only the extensions: a new Kelbo release was seen only at start-up, once a day or with the *Check* button of the Kelbo row.
+
 ## [2.34.0] - 2026-11-13
 
 ### Added
