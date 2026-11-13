@@ -270,7 +270,7 @@ export default {
       return `
         <div class="form-row">
           <label>${esc(t('form.key'))}</label>
-          <input class="form-input" id="f_key" value="${esc(s.key || '')}" placeholder="${esc(t('form.serverKeyPlaceholder'))}" ${s.key ? 'disabled' : ''}>
+          <input class="form-input" id="f_key" value="${esc(s.key || s.suggestKey || '')}" placeholder="${esc(t('form.serverKeyPlaceholder'))}" ${s.key ? 'disabled' : ''}>
         </div>
         <div class="form-grid">
           <div class="form-row"><label>${esc(t('form.name'))}</label><input class="form-input" id="f_label" value="${esc(s.label || '')}" placeholder="${esc(t('form.serverNamePlaceholder'))}"></div>
@@ -521,7 +521,7 @@ export default {
   },
 
   show() { this.render(); this.resumeLogs(); },
-  // aperta da altre estensioni: { newServer: { label, port, transport, params } } apre il form di
+  // aperta da altre estensioni: { newServer: { suggestKey, label, port, type, transport, params } } apre il form di
   // un server nuovo già compilato (es. "Port-forward…" dai pod di kubectl)
   async focus(params) {
     if (params?.newServer) { await this.load(); this.newServer(params.newServer); }

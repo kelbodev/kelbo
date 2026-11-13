@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.34.0] - 2026-11-13
+
+### Added
+- **Tunnel transports** (capability `tunnel-transport`, `docs/EXTENSIONS.md`): besides SSH, the **Tunnels** section opens tunnels of a transport provided by an extension — the first one is **Kubernetes port-forward** of the new `kubectl` extension (official catalog). The server form has a *Transport* choice and builds the transport's fields from the provider, with the lists that depend on the other fields (context → namespace → resource → port); local port, start/stop, pills, logs, reconnection, Ports in use and the use from the database connections are the same as for SSH. A tunnel whose transport is not installed stays saved, marked *not available* with the missing extension; one running when its extension is switched off stops and says why.
+- `ctx.open('tunnels', { newServer })` opens the form of a new tunnel already filled in (from the pods of `kubectl`).
+
+### Changed
+- The section is now called **Tunnels** (it was *SSH Tunnels*).
+
 ## [2.33.0] - 2026-11-13
 
 ### Added
