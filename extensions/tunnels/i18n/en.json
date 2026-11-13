@@ -118,5 +118,23 @@
   "running.tunnels": {
     "one": "{count} active SSH tunnel ({names})",
     "other": "{count} active SSH tunnels ({names})"
-  }
+  },
+  "card.transport": "Transport",
+  "card.target": "To",
+  "card.unavailable": "Not available: it needs the {extension} extension",
+  "card.unavailableShort": "transport not installed",
+  "form.transport": "Transport",
+  "form.transportSsh": "SSH (ssh -L)",
+  "form.transportMissing": "{transport} (not installed)",
+  "form.loading": "Loading…",
+  "form.choose": "— choose —",
+  "form.none": "No choice available",
+  "form.noFields": "This transport has no settings.",
+  "toast.fillTransport": "Fill in: {fields}",
+  "errors.server_transport": "server \"{key}\": invalid transport",
+  "errors.server_params": "server \"{key}\": invalid transport parameters",
+  "errors.transport_missing": "The {transport} transport is not available: install or switch on the {extension} extension",
+  "errors.params_invalid": "Invalid transport parameters",
+  "errors.log_starting": "Starting with {transport} on 127.0.0.1:{port} [pid {pid}]",
+  "errors.log_ready": "Ready on 127.0.0.1:{port}"
 }

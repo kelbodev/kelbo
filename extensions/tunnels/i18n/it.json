@@ -118,5 +118,23 @@
   "running.tunnels": {
     "one": "{count} tunnel SSH attivo ({names})",
     "other": "{count} tunnel SSH attivi ({names})"
-  }
+  },
+  "card.transport": "Trasporto",
+  "card.target": "Verso",
+  "card.unavailable": "Non disponibile: serve l'estensione {extension}",
+  "card.unavailableShort": "trasporto non installato",
+  "form.transport": "Trasporto",
+  "form.transportSsh": "SSH (ssh -L)",
+  "form.transportMissing": "{transport} (non installato)",
+  "form.loading": "Caricamento…",
+  "form.choose": "— scegli —",
+  "form.none": "Nessuna scelta disponibile",
+  "form.noFields": "Questo trasporto non ha impostazioni.",
+  "toast.fillTransport": "Compila: {fields}",
+  "errors.server_transport": "server \"{key}\": trasporto non valido",
+  "errors.server_params": "server \"{key}\": parametri del trasporto non validi",
+  "errors.transport_missing": "Il trasporto {transport} non è disponibile: installa o accendi l'estensione {extension}",
+  "errors.params_invalid": "Parametri del trasporto non validi",
+  "errors.log_starting": "Avvio con {transport} su 127.0.0.1:{port} [pid {pid}]",
+  "errors.log_ready": "Pronto su 127.0.0.1:{port}"
 }

@@ -22,7 +22,7 @@ The official installable extensions (`pm2`, `ports`, `mongo-client`, `swagger`) 
 
 The core owns `projects` and `projectFolders` (see *Projects and folders*) and their **Progetti e cartelle** export checkbox, `layout` (the tab order chosen by the user, not exported) and `vault` (the master password, see *Secrets*).
 
-Services offered by the built-in extensions to the others (`ctx.require(code)`): `npm` → `readPackage(project)`, `processes()` (with `projectId`), `stopProcess(id)`; `tunnels` → `getServer(key)`, `ensureTunnel(key)`, `activeTunnels()`, `stopTunnel(id)`; `git` → `repos()`; `db-client` → `decryptPassword(connection)`, `sqlText(options)`, `schemaDiff(options)` (tools for database engines). Providers (`ctx.providers(capability)`): `db-mysql` → `db-engine` `mysql`, and in the official catalog `db-postgres`, `db-mssql`, `db-sqlite`, `db-oracle`; the interface of a database engine is in [`extensions/db-client/engine.md`](../extensions/db-client/engine.md).
+Services offered by the built-in extensions to the others (`ctx.require(code)`): `npm` → `readPackage(project)`, `processes()` (with `projectId`), `stopProcess(id)`; `tunnels` → `getServer(key)`, `ensureTunnel(key)`, `activeTunnels()`, `stopTunnel(id)`; `git` → `repos()`; `db-client` → `decryptPassword(connection)`, `sqlText(options)`, `schemaDiff(options)` (tools for database engines). Providers (`ctx.providers(capability)`): `db-mysql` → `db-engine` `mysql`, and in the official catalog `db-postgres`, `db-mssql`, `db-sqlite`, `db-oracle`, and `kubectl` → `tunnel-transport` `kubernetes`; the interface of a database engine is in [`extensions/db-client/engine.md`](../extensions/db-client/engine.md).
 
 
 ## Folder layout
@@ -519,6 +519,19 @@ const engine = ctx.providers('db-engine').find(p => p.id === conn.type)?.impl;
 - `id`: unique for that capability; `title`: a string or a map by language tag, shown to the user.
 - `handler`: the key of the object in `instance.providers`. An extension that declares a provider missing from its backend is not loaded (with the reason).
 - `ctx.providers()` reads the list at every call: don't keep the implementations in a variable, so a provider switched off or reloaded is never used stale.
+
+### `tunnel-transport` (Tunnels)
+
+The **Tunnels** section opens a tunnel with `ssh -L` or with a *transport* provided by an extension (Kubernetes port-forward is the `kubectl` extension's). A tunnel of a transport is saved with `transport` (the provider `id`), `transportFrom` (its extension) and `params`; local port, start/stop, pills, logs, reconnection with back-off, **Ports in use** and `ensureTunnel(key)` (so a database connection can go through it) are the same as for SSH. The implementation (Kelbo ≥ 2.34):
+
+| Member | |
+|---|---|
+| `fields(values)` | The form of the transport for the values chosen so far → `[{ key, label, type: 'select' \| 'text' \| 'number', required, options: [{ value, label }], dependsOn: [keys], hint, placeholder, empty }]` (labels as strings or maps by language). Called again when a field changes: lists that depend on other fields (namespaces of a context, ports of a resource) are rebuilt, and the values of the fields that `dependsOn` the changed one are cleared |
+| `validate(params)` | Checks and normalizes the parameters before they are saved (throws `ctx.error`); may add values of its own (e.g. the deployment of a pod). Parameters are a flat object of strings, numbers and booleans |
+| `describe(params)` | Optional: a short text of the target for the cards (`service/api:80 · prod/shop`) |
+| `start(params, localPort, { onOutput, onReady, onExit })` | Starts the forward on `127.0.0.1:localPort` → `{ pid, stop(force) }`; `onOutput(text)` for the log, `onReady()` when it accepts connections, `onExit(code)` when it ends (Tunnels then retries with back-off, calling `start` again) |
+
+A tunnel whose transport is not installed or switched off stays saved and is shown as *not available* with the name of the missing extension; one running when its provider goes away stops with that reason. Another extension can open the Tunnels form already filled in with `ctx.open('tunnels', { newServer: { suggestKey, label, port, type, transport, params } })`.
 
 ### Kinds
 
