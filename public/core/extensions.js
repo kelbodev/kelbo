@@ -26,14 +26,15 @@ window.Extensions = (() => {
   function renderBadge() {
     const badge = document.getElementById('extAdminBadge');
     if (!badge || !data) return;
-    const n = data.extensions.filter(e => e.update?.available || e.update?.moved).length + data.pending.length;
+    // + Kelbo stesso, se c'è una versione nuova (public/core/self-update.js)
+    const n = data.extensions.filter(e => e.update?.available || e.update?.moved).length + data.pending.length + (window.SelfUpdate?.available() ? 1 : 0);
     badge.style.display = n ? '' : 'none';
     badge.textContent = n ? fmt.number(n) : '';
     document.getElementById('extAdminBtn').title = n ? t('core.ext.badgeTitle', { count: n }) : t('core.ext.buttonTitle');
   }
 
   async function load() {
-    try { data = await api.get('/extensions-admin'); } catch (e) { toast(e.message, 'error'); return false; }
+    try { [data] = await Promise.all([api.get('/extensions-admin'), window.SelfUpdate?.load()]); } catch (e) { toast(e.message, 'error'); return false; }
     renderBadge();
     return true;
   }
@@ -113,6 +114,7 @@ window.Extensions = (() => {
     const builtin = data.extensions.filter(e => e.source === 'builtin' && ofKind(e));
     const installed = data.extensions.filter(e => e.source !== 'builtin' && ofKind(e));
     return `
+      ${window.SelfUpdate?.sectionHtml() || ''}
       ${kindFilter()}
       ${data.pending.length ? `<div class="ext-section"><h4>${esc(t('core.ext.pendingTitle'))}</h4><p class="ext-muted">${esc(t('core.ext.pendingHint'))}</p>
         ${data.pending.map(p => `<div class="ext-row"><div class="ext-icon">${UI.icon('download')}</div><div class="ext-info"><div class="ext-name">${esc(p.code)}</div>
@@ -298,6 +300,8 @@ window.Extensions = (() => {
 
   return {
     init, open, load,
+    // dopo un'azione di SelfUpdate: dati e pannello di nuovo
+    async refresh() { await load(); render(); },
     tab(x) { tab = x; render(); },
     kind(k) { kind = KINDS.includes(k) ? k : ''; render(); },
     search(v) { search = v; const el = root(); const pos = el?.querySelector('input[type=search]')?.selectionStart; render(); const input = root()?.querySelector('input[type=search]'); input?.focus(); if (pos != null) input?.setSelectionRange(pos, pos); },

@@ -88,5 +88,9 @@
   "tunnels.selected": {
     "one": "{count} tunnel chosen",
     "other": "{count} tunnels chosen"
+  },
+  "running.processes": {
+    "one": "{count} npm script running ({names})",
+    "other": "{count} npm scripts running ({names})"
   }
 }

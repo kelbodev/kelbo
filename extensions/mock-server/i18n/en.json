@@ -100,5 +100,9 @@
   "errors.route_body": "Invalid or too large body (at most 1 MB)",
   "errors.route_headers": "Invalid headers (name without spaces, value on one line)",
   "errors.route_label": "Note too long",
-  "pill.title": "Mock {name} listening on {url}"
+  "pill.title": "Mock {name} listening on {url}",
+  "running.mocks": {
+    "one": "{count} mock server running",
+    "other": "{count} mock servers running"
+  }
 }

@@ -12,7 +12,7 @@ It runs on your own machine and only answers on `http://127.0.0.1:3500`. The use
 | `ssh` | for tunnels | `-L` port forwarding (uses the aliases in `~/.ssh/config`) |
 | `git` | for the Git section | |
 | `autossh` | no | used for tunnels when available; otherwise `ssh` with reconnection handled by Kelbo |
-| `pm2` | no | PM2 extension (installable) |
+| `pm2` | no | keeps Kelbo running and restarts it after an update from the interface (the installation script offers it); PM2 extension (installable) |
 | `lsof` (macOS/Linux) or `ss` (Linux) | no | shows the listening ports of npm processes (and the Ports extension) |
 | Firefox with the "Open external links in a container" add-on | no | OAuth logins of the HTTP client in a Firefox container (otherwise the default browser) |
 
@@ -20,12 +20,30 @@ The UI reports missing optional tools and shows how to install them.
 
 ## Getting started
 
+**Installation script** (macOS, Linux, WSL):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kelbodev/kelbo/main/install.sh | bash
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/kelbodev/kelbo/main/install.ps1 | iex
+```
+
+The script checks Node.js (18 or later) and git, clones Kelbo at the latest release (`v<x.y.z>` tag) into `~/kelbo`, installs its dependencies (`npm ci --ignore-scripts`, without the development ones) and starts it under **PM2** as the process `kelbo`, then `pm2 save`; when PM2 is missing it offers to install it (`npm install -g pm2`), or Kelbo is only installed and you start it yourself. Options: `--dir`, `--port`, `--version vX.Y.Z`, `--yes` (install PM2 without asking), `--no-pm2` (PowerShell: `-Dir`, `-Port`, `-Version`, `-Yes`, `-NoPm2`; also as `KELBO_DIR`, `KELBO_PORT`, `KELBO_VERSION` environment variables, for `irm | iex`). Run it again to update an existing installation: it refuses if the checkout has local changes or the new version doesn't follow the installed one, and it never touches `config.json`. To start Kelbo at login too: `pm2 startup`.
+
+**By hand**, from a clone of the repository:
+
 ```bash
 npm install
 npm start          # or: npm run dev  (restarts automatically on changes)
 ```
 
 Then open <http://127.0.0.1:3500>.
+
+**Updates**: Kelbo looks for a new release at start-up and once a day (the latest `v<x.y.z>` tag of its `origin`); a new one is counted in the badge of the 🧩 button and shown at the top of the Extensions panel, with *What's new* (the CHANGELOG of the versions in between). **Update Kelbo** works on a git checkout without local changes (a rewritten `package-lock.json` doesn't count): it lists what stops at the restart (SSH tunnels, npm scripts, mock servers started by Kelbo), downloads the tag, moves forward only (fast-forward of the branch, or checkout of the tag), runs `npm ci`, and keeps the previous version for **Previous version**. Under PM2 Kelbo then restarts by itself and the page reloads on the new version; otherwise restart it by hand.
 
 Optional environment variables: `KELBO_PORT` (port, default 3500), `KELBO_CONFIG` (configuration path, default `config.json` in the project folder) and `KELBO_HOME` (Kelbo's own folder outside the repository, default `~/.kelbo`: installed extensions, their lock file and backups). The `DEVDOCK_*` names used before 2.13 still work (`KELBO_*` wins when both are set).
 

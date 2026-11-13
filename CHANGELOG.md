@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.33.0] - 2026-11-13
+
+### Added
+- **Installation script**: `install.sh` (macOS, Linux, WSL; `curl … | bash`) and `install.ps1` (Windows; `irm … | iex`). It checks Node.js and git, clones Kelbo at the latest release tag, installs the dependencies (`npm ci`) and starts it under PM2 (offering to install PM2), then `pm2 save`; run again, it updates the installation. Options for folder, port, version, PM2; it never touches `config.json`.
+- **Kelbo updates from the interface**: the latest `v<x.y.z>` tag of the repository is checked at start-up, once a day and on demand; a new release is counted in the 🧩 badge and shown at the top of the Extensions panel with *What's new* (the CHANGELOG of the versions in between). **Update Kelbo** (git checkout without local changes) confirms first with what stops at the restart, then downloads the tag, moves forward only (fast-forward or checkout of the tag), runs `npm ci` with the progress live, and keeps the previous version for **Previous version**.
+- **Restart through PM2**: under PM2 Kelbo asks PM2 to restart it after the update; the page shows *restarting…*, waits for the new version and reloads itself (with the manual command if it doesn't come back). Without PM2 the page says to restart by hand.
+- Extension contract: `running()` of the backend instance lists what stops at a restart (`docs/EXTENSIONS.md`); tunnels, npm and mock server report theirs. `/api/core/system` reports the running `version`.
+
 ## [2.32.0] - 2026-11-12
 
 ### Added

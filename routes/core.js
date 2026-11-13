@@ -1,7 +1,8 @@
 // API del core: estensioni caricate e strumenti di sistema
 const express = require('express');
+const fs = require('fs');
 const path = require('path');
-const { ROOT } = require('../lib/env');
+const { ROOT, HOME, env } = require('../lib/env');
 const { SOURCE_LANG, languages } = require('../lib/i18n');
 const { getTools, refreshTools } = require('../lib/system');
 const { ConfigError, listSections, exportConfig, importConfig } = require('../lib/config');
@@ -14,6 +15,7 @@ const semver = require('../lib/semver');
 const { validateManifest, CORE_VERSION } = require('../lib/extensions');
 const { loadConfig, saveConfig } = require('../lib/config');
 const { openSse } = require('../lib/sse');
+const { createSelfUpdate } = require('../lib/self-update');
 const { coreError } = require('../lib/errors');
 
 const NAME_RE = /^[a-z0-9-]{1,40}$/;
@@ -270,10 +272,41 @@ module.exports = function coreRoutes(extensions) {
 
   router.post('/extensions-admin/updates', extCall(() => checkUpdates()));
 
-  // ?refresh=1 ricontrolla gli strumenti (es. dopo un'installazione)
+  // ---- aggiornamento di Kelbo stesso (tag v<x.y.z> del repository di origine) ----
+  // KELBO_UPDATE_ROOT: un'altra cartella da aggiornare (solo per i test)
+  const updateRoot = env('UPDATE_ROOT') || ROOT;
+  let rootVersion = CORE_VERSION;
+  try { rootVersion = JSON.parse(fs.readFileSync(path.join(updateRoot, 'package.json'), 'utf8')).version || CORE_VERSION; } catch { /* quella del core */ }
+  const self = createSelfUpdate({ root: updateRoot, version: rootVersion, stateFile: path.join(HOME, 'self-update.json') });
+  const checkSelf = () => self.check().catch(e => console.error('[aggiornamento] controllo:', e.message));
+  setTimeout(checkSelf, 20000).unref();
+  setInterval(checkSelf, 24 * 3600 * 1000).unref();
+
+  router.get('/update', extCall(() => self.info()));
+  router.post('/update/check', extCall(async () => { await self.check(); return self.info(); }));
+  router.get('/update/changelog', extCall(req => self.changelog(req.query.tag ? String(req.query.tag) : undefined)));
+  // cosa si ferma al riavvio (tunnel, processi, mock server…), per la conferma
+  router.get('/update/running', extCall(async () => ({ running: await extensions.running() })));
+  // aggiornamento (o ritorno alla versione di prima) con l'avanzamento in streaming
+  const selfStream = action => (req, res) => {
+    const send = openSse(res);
+    (async () => {
+      try {
+        const result = await action({ tag: req.body?.tag || null, step: (key, params) => send('step', { key, params }), out: text => send('log', text) });
+        send('done', result);
+      } catch (e) {
+        send('error', e.code ? { error: e.message, code: e.code, params: e.params, ...(e.extra || {}) } : { error: e.message });
+      } finally { send.end(); }
+    })();
+  };
+  router.post('/update', selfStream(o => self.update(o)));
+  router.post('/update/rollback', selfStream(o => self.rollback(o)));
+  router.post('/update/restart', extCall(() => self.restart()));
+
+  // ?refresh=1 ricontrolla gli strumenti (es. dopo un'installazione); version: per il riavvio
   router.get('/system', (req, res) => {
     if (req.query.refresh) refreshTools();
-    res.json({ platform: process.platform, tools: getTools() });
+    res.json({ platform: process.platform, version: CORE_VERSION, tools: getTools() });
   });
 
   // Sezioni di config.json con il loro proprietario (core o codice dell'estensione)
