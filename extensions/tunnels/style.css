@@ -75,3 +75,11 @@
 .tw-wait{background:var(--warning);animation:pulse 1.2s infinite}
 .tw-err{color:var(--danger);font-size:11px;margin-inline-start:auto}
 .tw-used{margin:2px 0 0 16px}
+
+/* trasporti delle estensioni (tunnel-transport) */
+.tn-card-warn{font-size:11px;color:var(--warning);display:flex;align-items:center;gap:5px;margin:4px 0}
+.server-card.tn-unavailable{opacity:.7}
+.tn-transport-fields{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.tn-transport-fields.tn-loading{opacity:.55;transition:opacity .2s}
+.tn-hint{font-size:11px;color:var(--muted);margin-top:3px}
+.tn-error{color:var(--danger);font-size:12px}

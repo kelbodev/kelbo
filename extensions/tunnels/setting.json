@@ -1,14 +1,14 @@
 {
   "name": {
-    "it": "Tunnel SSH",
-    "en": "SSH Tunnels"
+    "it": "Tunnel",
+    "en": "Tunnels"
   },
   "code": "tunnels",
   "version": "1.0.0",
   "kelbo": "^2.0",
   "description": {
-    "it": "Port forwarding SSH (ssh -L / autossh) per gruppi di server, con riconnessione automatica",
-    "en": "SSH port forwarding (ssh -L / autossh) for groups of servers, with automatic reconnection"
+    "it": "Port forwarding per gruppi di server: SSH (ssh -L / autossh) e i trasporti delle estensioni (es. kubectl port-forward), con riconnessione automatica",
+    "en": "Port forwarding for groups of servers: SSH (ssh -L / autossh) and the transports of the extensions (e.g. kubectl port-forward), with automatic reconnection"
   },
   "color": "#388bfd",
   "icon": "cable",
@@ -65,6 +65,11 @@
       },
       {
         "method": "POST",
+        "path": "/transports/:id/fields",
+        "handler": "transportFields"
+      },
+      {
+        "method": "POST",
         "path": "/groups",
         "handler": "createGroup"
       },
@@ -108,7 +113,7 @@
         "name": "list",
         "handler": "list",
         "readOnly": true,
-        "description": "List the configured SSH tunnel servers (local port, remote host:port, SSH alias), their groups and which tunnels are currently connected.",
+        "description": "List the configured tunnels (local port; for SSH the remote host:port and the SSH alias, for other transports such as Kubernetes port-forward the transport and its target), their groups and which tunnels are currently connected.",
         "inputSchema": {
           "type": "object",
           "properties": {}

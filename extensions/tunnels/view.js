@@ -1,4 +1,5 @@
-// Tunnel SSH: gruppi e card dei server, configurazione di gruppi e server,
+// Tunnel: gruppi e card dei server (SSH o un trasporto di un'altra estensione, es. kubectl
+// port-forward), configurazione di gruppi e server con il form del trasporto,
 // pill nell'header, notifiche desktop e log nel cassetto di output.
 // Montato all'avvio (preload) perché pill e notifiche servono anche a tab chiuso.
 
@@ -12,7 +13,14 @@ export default {
     const { t } = ctx;
     const $ = (root, role) => root.querySelector(`[data-role="${role}"]`);
 
-    let state = { groups: [], servers: [], tunnels: [] };
+    let state = { groups: [], servers: [], tunnels: [], transports: [], errors: {} };
+    let form = null;               // form del server aperto: { transport, values, fields, seq }
+    const pick = v => ctx.i18n.pick(v);
+    const transportTitle = id => { const p = state.transports.find(x => x.id === id); return p ? pick(p.title) : id; };
+    // riga di dettaglio di un server: SSH (alias, remoto) o trasporto (titolo, destinazione)
+    const serverMeta = s => (s.transport
+      ? `:${s.port} → ${s.description || transportTitle(s.transport)} · ${transportTitle(s.transport)}`
+      : `:${s.port} → ${s.remote} · ${t('card.alias')} ${s.alias}`);
     let system = { platform: null, tools: {} };
     let mode = 'tunnels';          // 'tunnels' | 'settings'
     let activeGroup = null;
@@ -117,15 +125,20 @@ export default {
 
     function serverCard(s) {
       const tn = state.tunnels.find(x => x.serverKey === s.key);
-      return `<div class="server-card ${tn ? 'connected' : ''}">
+      const err = state.errors?.[s.key];
+      return `<div class="server-card ${tn ? 'connected' : ''} ${s.unavailable ? 'tn-unavailable' : ''}">
         <div class="card-top">
           <span class="card-label">${esc(s.label)}</span>
           <span class="type-badge">${esc(s.type || 'TCP')}</span>
         </div>
         <div class="card-meta">
-          <div>${esc(t('card.alias'))} <span class="val">${esc(s.alias)}</span></div>
-          <div>${esc(t('card.remote'))} <span class="val">${esc(s.remote)}</span></div>
+          ${s.transport ? `<div>${esc(t('card.transport'))} <span class="val">${esc(transportTitle(s.transport))}</span></div>
+            <div>${esc(t('card.target'))} <span class="val">${esc(s.description || '—')}</span></div>`
+          : `<div>${esc(t('card.alias'))} <span class="val">${esc(s.alias)}</span></div>
+            <div>${esc(t('card.remote'))} <span class="val">${esc(s.remote)}</span></div>`}
         </div>
+        ${s.unavailable ? `<div class="tn-card-warn">${ctx.ui.icon('plug-zap')} ${esc(t('card.unavailable', { extension: s.transportFrom || s.transport }))}</div>` : ''}
+        ${!tn && err ? `<div class="tn-card-warn">${esc(ctx.ui.errorText(err))}</div>` : ''}
         ${tn ? `<div class="card-meta tn-card-runtime">
           <div>${esc(t('card.pid'))} <span class="val">${esc(tn.pid || '—')}</span></div>
           <div>${esc(t('card.uptime'))} <span class="val" data-uptime="${esc(tn.startedAt)}">${formatUptime(tn.startedAt)}</span></div>
@@ -137,7 +150,7 @@ export default {
                <button class="btn btn-ghost btn-sm" onclick="Ext.tunnels.logs(${js(tn.id)},${js(s.label)})">${esc(t('card.logs'))}</button>`
             : `<input class="port-input" type="number" min="1" max="65535" value="${esc(customPorts.get(s.key) ?? s.port)}"
                       oninput="Ext.tunnels.setPort(${js(s.key)}, this.value)">
-               <button class="btn btn-connect" onclick="Ext.tunnels.start(${js(s.key)})">${esc(t('card.connect'))}</button>`}
+               <button class="btn btn-connect" onclick="Ext.tunnels.start(${js(s.key)})" ${s.unavailable ? 'disabled' : ''}>${esc(t('card.connect'))}</button>`}
         </div>
       </div>`;
     }
@@ -180,7 +193,7 @@ export default {
               <div class="sli">
                 <div class="sli-info">
                   <div class="sli-label">${esc(s.label)}</div>
-                  <div class="sli-meta">:${esc(s.port)} → ${esc(s.remote)} · ${esc(t('card.alias'))} ${esc(s.alias)}</div>
+                  <div class="sli-meta">${esc(serverMeta(s))}${s.unavailable ? ` · ${esc(t('card.unavailableShort'))}` : ''}</div>
                 </div>
                 <span class="sli-type">${esc(s.type || 'TCP')}</span>
                 <div class="sli-actions">
@@ -211,7 +224,7 @@ export default {
               <div class="sli">
                 <div class="sli-info">
                   <div class="sli-label">${esc(s.label)}</div>
-                  <div class="sli-meta">:${esc(s.port)} → ${esc(s.remote)} · ${esc(t('card.alias'))} ${esc(s.alias)}</div>
+                  <div class="sli-meta">${esc(serverMeta(s))}${s.unavailable ? ` · ${esc(t('card.unavailableShort'))}` : ''}</div>
                 </div>
                 <span class="sli-type">${esc(s.type || 'TCP')}</span>
                 <div class="sli-actions">
@@ -250,6 +263,10 @@ export default {
     function serverForm(s = {}, preGroupKey = '') {
       const types = SERVICE_TYPES.map(type => `<option ${(s.type || 'MySQL') === type ? 'selected' : ''}>${esc(type)}</option>`).join('');
       const groupOptions = state.groups.map(g => `<option value="${esc(g.key)}" ${g.key === preGroupKey ? 'selected' : ''}>${esc(g.label)}</option>`).join('');
+      const transport = s.transport || 'ssh';
+      // un trasporto salvato ma non installato resta scelto (si può tornare a SSH)
+      const options = [{ id: 'ssh', title: t('form.transportSsh') }, ...state.transports.map(p => ({ id: p.id, title: pick(p.title) })),
+        ...(transport !== 'ssh' && !state.transports.some(p => p.id === transport) ? [{ id: transport, title: t('form.transportMissing', { transport }) }] : [])];
       return `
         <div class="form-row">
           <label>${esc(t('form.key'))}</label>
@@ -260,17 +277,69 @@ export default {
           <div class="form-row"><label>${esc(t('form.type'))}</label><select class="form-input" id="f_type">${types}</select></div>
         </div>
         <div class="form-grid">
+          <div class="form-row"><label>${esc(t('form.transport'))}</label>
+            <select class="form-input" id="f_transport" onchange="Ext.tunnels.transportChanged()">${options.map(o => `<option value="${esc(o.id)}" ${o.id === transport ? 'selected' : ''}>${esc(o.title)}</option>`).join('')}</select></div>
           <div class="form-row"><label>${esc(t('form.localPort'))}</label><input class="form-input" id="f_port" type="number" value="${esc(s.port || 3306)}" min="1" max="65535"></div>
+        </div>
+        <div data-role="ssh-fields" ${transport === 'ssh' ? '' : 'hidden'}>
           <div class="form-row"><label>${esc(t('form.remote'))}</label><input class="form-input" id="f_remote" value="${esc(s.remote || '')}" placeholder="127.0.0.1:3306"></div>
+          <div class="form-row"><label>${esc(t('form.alias'))}</label><input class="form-input" id="f_alias" value="${esc(s.alias || '')}" placeholder="${esc(t('form.aliasPlaceholder'))}"></div>
         </div>
-        <div class="form-row">
-          <label>${esc(t('form.alias'))}</label>
-          <input class="form-input" id="f_alias" value="${esc(s.alias || '')}" placeholder="${esc(t('form.aliasPlaceholder'))}">
-        </div>
+        <div class="tn-transport-fields" data-role="transport-fields" ${transport === 'ssh' ? 'hidden' : ''}></div>
         ${!s.key ? `<div class="form-row">
           <label>${esc(t('form.group'))}</label>
           <select class="form-input" id="f_group"><option value="">${esc(t('form.noGroup'))}</option>${groupOptions}</select>
         </div>` : ''}`;
+    }
+
+    // ---- campi di un trasporto (dal provider, con le liste che dipendono dagli altri campi) ----
+    function transportFieldHtml(f) {
+      const id = `f_tp_${f.key}`;
+      const v = form.values[f.key] ?? f.default ?? '';
+      const label = `${esc(pick(f.label) || f.key)}${f.required ? ' *' : ''}`;
+      const hint = f.hint ? `<div class="tn-hint">${esc(pick(f.hint))}</div>` : '';
+      let input;
+      if (f.type === 'select') {
+        const opts = Array.isArray(f.options) ? f.options : [];
+        input = `<select class="form-input" id="${id}" data-tp="${esc(f.key)}" ${f.disabled ? 'disabled' : ''}>
+          <option value="">${esc(f.loading ? t('form.loading') : opts.length ? t('form.choose') : pick(f.empty) || t('form.none'))}</option>
+          ${opts.map(o => `<option value="${esc(o.value)}" ${String(o.value) === String(v) ? 'selected' : ''}>${esc(pick(o.label) ?? o.value)}</option>`).join('')}</select>`;
+      } else {
+        input = `<input class="form-input" id="${id}" data-tp="${esc(f.key)}" type="${f.type === 'number' ? 'number' : 'text'}" value="${esc(v)}" placeholder="${esc(pick(f.placeholder) || '')}" spellcheck="false">`;
+      }
+      return `<div class="form-row"><label for="${id}">${label}</label>${input}${hint}</div>`;
+    }
+    async function loadTransportFields() {
+      const el = document.querySelector('#modalBody [data-role="transport-fields"]');
+      if (!el || !form || form.transport === 'ssh') return;
+      const seq = ++form.seq;
+      el.classList.add('tn-loading');
+      try {
+        const r = await ctx.api.post(`/transports/${encodeURIComponent(form.transport)}/fields`, { values: form.values });
+        if (!form || seq !== form.seq) return;
+        form.fields = r.fields;
+        // valori non più tra le scelte (es. namespace di un altro context): tolti
+        for (const f of form.fields) if (f.type === 'select' && form.values[f.key] != null && !(f.options || []).some(o => String(o.value) === String(form.values[f.key]))) delete form.values[f.key];
+        el.innerHTML = form.fields.map(transportFieldHtml).join('') || `<p class="tn-muted">${esc(t('form.noFields'))}</p>`;
+      } catch (e) {
+        if (form && seq === form.seq) el.innerHTML = `<p class="tn-error">${esc(e.message)}</p>`;
+      } finally { el.classList.remove('tn-loading'); }
+    }
+    function openServerForm(title, s, preGroupKey, saveCall) {
+      form = { transport: s.transport || 'ssh', values: { ...(s.params || {}) }, fields: [], seq: 0 };
+      openModal(title, serverForm(s, preGroupKey), modalButtons(t(s.key ? 'core.action.save' : 'form.create'), saveCall));
+      const body = document.getElementById('modalBody');
+      body.querySelector('[data-role="transport-fields"]')?.addEventListener('change', e => {
+        const key = e.target.dataset.tp;
+        if (!key || !form) return;
+        if (e.target.value === '') delete form.values[key];
+        else form.values[key] = e.target.type === 'number' ? Number(e.target.value) : e.target.value;
+        // i campi dopo questo dipendono da lui (namespace → risorsa → porta): si rileggono
+        const i = form.fields.findIndex(f => f.key === key);
+        for (const f of form.fields.slice(i + 1)) if ((f.dependsOn || []).includes(key)) delete form.values[f.key];
+        loadTransportFields();
+      });
+      loadTransportFields();
     }
 
     const modalButtons = (label, call) =>
@@ -364,18 +433,41 @@ export default {
         if (settingsGroup === key) settingsGroup = null;
         await mutate(() => ctx.api.del(`/groups/${encodeURIComponent(key)}`), t('toast.groupDeleted'));
       },
-      addServer: groupKey => openModal(t('modal.newServer'), serverForm({}, groupKey), modalButtons(t('form.create'), `Ext.tunnels.saveServer(null, ${JSON.stringify(groupKey || '')})`)),
+      addServer: (groupKey, prefill = {}) => openServerForm(t('modal.newServer'), prefill, groupKey, `Ext.tunnels.saveServer(null, ${JSON.stringify(groupKey || '')})`),
       editServer(key) {
         const s = state.servers.find(x => x.key === key);
-        if (s) openModal(t('modal.editServer'), serverForm(s), modalButtons(t('core.action.save'), `Ext.tunnels.saveServer(${JSON.stringify(key)})`));
+        if (s) openServerForm(t('modal.editServer'), s, '', `Ext.tunnels.saveServer(${JSON.stringify(key)})`);
+      },
+      transportChanged() {
+        if (!form) return;
+        form.transport = field('f_transport') || 'ssh';
+        form.values = {};
+        form.fields = [];
+        const body = document.getElementById('modalBody');
+        body.querySelector('[data-role="ssh-fields"]').hidden = form.transport !== 'ssh';
+        const tf = body.querySelector('[data-role="transport-fields"]');
+        tf.hidden = form.transport === 'ssh';
+        tf.innerHTML = '';
+        loadTransportFields();
       },
       async saveServer(existingKey, forceGroupKey) {
-        const body = { key: field('f_key'), label: field('f_label'), port: field('f_port'), remote: field('f_remote'), alias: field('f_alias'), type: field('f_type') || 'TCP' };
-        if (!body.key || !body.label || !body.port || !body.remote || !body.alias) { toast(t('toast.fillRequired'), 'error'); return; }
+        const transport = field('f_transport') || 'ssh';
+        const base = { key: field('f_key'), label: field('f_label'), port: field('f_port'), type: field('f_type') || 'TCP' };
+        let body;
+        if (transport === 'ssh') {
+          body = { ...base, transport: 'ssh', remote: field('f_remote'), alias: field('f_alias') };
+          if (!body.remote || !body.alias) { toast(t('toast.fillRequired'), 'error'); return; }
+        } else {
+          const missing = (form?.fields || []).filter(f => f.required && (form.values[f.key] === undefined || form.values[f.key] === ''));
+          if (missing.length) { toast(t('toast.fillTransport', { fields: missing.map(f => pick(f.label) || f.key).join(', ') }), 'error'); return; }
+          body = { ...base, transport, params: { ...(form?.values || {}) } };
+        }
+        if (!body.key || !body.label || !body.port) { toast(t('toast.fillRequired'), 'error'); return; }
+        const { key, ...update } = body;
         const ok = await mutate(() => existingKey
-          ? ctx.api.put(`/servers/${encodeURIComponent(existingKey)}`, { label: body.label, port: body.port, remote: body.remote, alias: body.alias, type: body.type })
+          ? ctx.api.put(`/servers/${encodeURIComponent(existingKey)}`, update)
           : ctx.api.post('/servers', { ...body, groupKey: forceGroupKey || field('f_group') }), t('toast.serverSaved'));
-        if (ok) closeModal();
+        if (ok) { form = null; closeModal(); }
       },
       async deleteServer(key) {
         if (!confirm(t('confirm.deleteServer', { name: key }))) return;
@@ -420,6 +512,7 @@ export default {
     setInterval(load, POLL_MS);
 
     this.render = render;
+    this.newServer = prefill => { mode = 'settings'; render(); actions.addServer(settingsGroup && settingsGroup !== ORPHANS ? settingsGroup : '', prefill); };
     this.renderPills = renderPills;
     this.load = load;
     this.stopLogs = stopLogs;
@@ -428,6 +521,11 @@ export default {
   },
 
   show() { this.render(); this.resumeLogs(); },
+  // aperta da altre estensioni: { newServer: { label, port, transport, params } } apre il form di
+  // un server nuovo già compilato (es. "Port-forward…" dai pod di kubectl)
+  async focus(params) {
+    if (params?.newServer) { await this.load(); this.newServer(params.newServer); }
+  },
   hide() { this.pauseLogs(); },
   refresh() { this.load(); },
   languageChanged() { this.renderPills(); this.render(); },
