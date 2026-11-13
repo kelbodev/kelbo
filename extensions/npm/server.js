@@ -138,6 +138,11 @@ module.exports = function createNpm(ctx) {
   return {
     config,
     // collegamenti mostrati nel pannello Progetti
+    // si fermano al riavvio di Kelbo (conferma dell'aggiornamento)
+    running: () => {
+      const list = [...processes.values()].filter(pd => pd.running);
+      return list.length ? [{ key: 'running.processes', params: { count: list.length, names: list.map(pd => `${pd.projectLabel} ${pd.script}`).slice(0, 5).join(', ') } }] : [];
+    },
     projectLinks: project => ((linkedTunnels()[project.id] || []).length
       ? [{ key: 'links.tunnels', params: { count: linkedTunnels()[project.id].length } }] : []),
     services: {

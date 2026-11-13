@@ -298,6 +298,19 @@ module.exports = ctx => ({
 });
 ```
 
+### What stops at a restart
+
+Before Kelbo updates itself the confirmation lists what will stop at the restart. An extension that starts long-running things (tunnels, processes, servers) returns them from `running()` → `[{ key, params? }]` of its backend instance (sync or async), `key` translated with its catalog (Kelbo ≥ 2.33):
+
+```js
+module.exports = ctx => ({
+  running: () => (servers.size ? [{ key: 'running.servers', params: { count: servers.size } }] : []),
+  handlers: { /* … */ },
+});
+```
+
+The built-in `tunnels`, `npm` and `mock-server` report their active tunnels, running scripts and started mock servers.
+
 ### Frontend
 
 In the backend extensions read projects with `ctx.projects`. In the frontend `ctx.projects` (`public/core/projects.js`) gives the shared pieces, so every sidebar looks and behaves the same:
@@ -604,6 +617,8 @@ Catalogs are flat JSON files with dotted keys. The core's are in `public/core/i1
 | `POST /api/core/extensions-admin/install` | `{ id }` of a preview; Server-Sent Events `step`, `log`, `done` (`{ code, version, previous, restartRequired, state }`) or `error` |
 | `POST /api/core/extensions-admin/:code/update` · `/:code/restore` · `DELETE /api/core/extensions-admin/:code` · `POST /api/core/extensions-admin/updates` | Preview of the newest (or `{ tag }`) version · back to the previous version · remove an installed extension · check the updates now |
 | `PUT /api/core/layout/positions/:code` | `{ position: "tab" \| "tab-icon" \| "header" \| "sidebar" \| null }`: where an extension with a UI opens; `null` or the manifest position remove the override |
+| `GET /api/core/update` · `POST /api/core/update/check` · `GET /api/core/update/changelog?tag=` · `GET /api/core/update/running` | Kelbo's own update: running and latest version, checkout state, previous version, PM2 · check now · release notes between the running version and a tag · what stops at the restart (`[{ code, key, params }]`) |
+| `POST /api/core/update` · `POST /api/core/update/rollback` · `POST /api/core/update/restart` | Update to the latest (or `{ tag }`) or back to the previous version, as SSE (`step`, `log`, `done`, `error`) · restart through PM2 |
 | `GET /api/core/layout` · `PUT /api/core/layout/tabs` · `DELETE /api/core/layout/tabs` | Tab order chosen by the user (`{ tabs: [codes] }`; unknown codes and codes of header extensions are dropped, duplicates removed) · save it · back to the manifest order |
 | `PUT /api/core/layout/rail` · `DELETE /api/core/layout/rail` | Order of the right bar (`{ rail: [codes] }`, only extensions in position `sidebar`), as for the tabs (Kelbo ≥ 2.31) |
 | `GET /api/core/system` | Platform and external tools (`?refresh=1` checks again) |

@@ -134,7 +134,9 @@
   .ext-deps{margin:0;padding-inline-start:18px;font-size:12px;display:flex;flex-direction:column;gap:4px}
   .ext-preview,.ext-progress{display:flex;flex-direction:column;gap:10px}
   .ext-preview-actions{display:flex;justify-content:flex-end;gap:8px}
-  .ext-steps{margin:0;padding-inline-start:18px;font-size:12px}
+  .ext-steps{margin:0;padding:0;list-style:none;font-size:12px;display:flex;flex-direction:column;gap:3px}
+  .ext-steps li{display:flex;align-items:center;gap:6px}
+  .ext-steps .i{color:var(--success)}
   .ext-version{max-width:280px}
   .ext-controls .ext-position{width:auto;padding:2px 6px;font-size:11px;height:auto;min-height:0}
   .vault-text{font-size:12px;color:var(--muted);line-height:1.5}
@@ -396,6 +398,12 @@
   .data-table td{padding:7px 10px;border-bottom:1px solid color-mix(in srgb,var(--border) 50%,transparent);font-family:var(--font)}
   .data-table tr:hover td{background:var(--surface2)}
   .ext-pills{display:contents}
+  /* Aggiornamento di Kelbo (public/core/self-update.js) */
+  .self-update .ext-row{border-color:color-mix(in srgb,var(--accent) 45%,var(--border))}
+  .self-update-icon{--c:var(--accent)}
+  .self-update-log{max-height:45vh}
+  .self-update-stops ul{margin:6px 0 10px;padding-inline-start:20px;font-size:13px}
+  .self-update-restarting{display:flex;align-items:center;gap:8px}
   .export-list{display:flex;flex-direction:column;gap:10px}
   .export-hint{font-size:13px;color:var(--muted)}
   .export-item{display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius)}

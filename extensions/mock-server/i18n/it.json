@@ -100,5 +100,9 @@
   "errors.route_body": "Body non valido o troppo grande (massimo 1 MB)",
   "errors.route_headers": "Header non validi (nome senza spazi, valore su una riga)",
   "errors.route_label": "Nota troppo lunga",
-  "pill.title": "Mock {name} in ascolto su {url}"
+  "pill.title": "Mock {name} in ascolto su {url}",
+  "running.mocks": {
+    "one": "{count} mock server avviato",
+    "other": "{count} mock server avviati"
+  }
 }

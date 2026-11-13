@@ -114,5 +114,9 @@
   "widget.disconnect": "Disconnetti",
   "widget.usedBy": "Usato da: {list}",
   "widget.missing": "tunnel non configurato",
-  "widget.reconnecting": "riconnessione…"
+  "widget.reconnecting": "riconnessione…",
+  "running.tunnels": {
+    "one": "{count} tunnel SSH attivo ({names})",
+    "other": "{count} tunnel SSH attivi ({names})"
+  }
 }

@@ -249,6 +249,8 @@ module.exports = function createMockServer(ctx) {
 
   return {
     config,
+    // si fermano al riavvio di Kelbo (conferma dell'aggiornamento)
+    running: () => (running.size ? [{ key: 'running.mocks', params: { count: running.size } }] : []),
 
     handlers: {
       list(req, res) { res.json(mocks().map(publicMock)); },

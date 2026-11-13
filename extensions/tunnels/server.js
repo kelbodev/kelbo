@@ -230,6 +230,8 @@ module.exports = function createTunnels(ctx) {
 
   return {
     config,
+    // si fermano al riavvio di Kelbo (conferma dell'aggiornamento)
+    running: () => (active.size ? [{ key: 'running.tunnels', params: { count: active.size, names: [...active.values()].map(t => t.label).slice(0, 5).join(', ') } }] : []),
 
     handlers: {
       // Stato completo per la UI: gruppi (con i server risolti), server e tunnel attivi
