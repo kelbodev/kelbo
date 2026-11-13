@@ -50,7 +50,7 @@ Goal: every extension can share a **mini view** (widget) of what it knows about 
 - [x] **M3.5** Widgets of the installed extensions in kelbo-extensions, each released with its own version: `mongo-client` (connections linked to a project — needs a `projectId` field like the DB client), `ports` (ports in use by the project's processes); `notes` gets its widget in M4.6
 - [x] **M3.6** Tests (contract and host with fixture extensions, a broken widget isolated, dashboard layout saved per project), README section "Dashboard", CHANGELOG
 
-## M4 — Notes and to-do lists — new external extension `notes` (kelbo-extensions) — `notes@1.0.0` ✅ except M4.5 and M4.7
+## M4 — Notes and to-do lists — new external extension `notes` (kelbo-extensions) — `notes@1.0.0` ✅
 
 Goal: to-do lists and notes kept next to the code, one board per project. Small and self-contained, so it is born as an installable extension in `kelbo-extensions`; the core does not change. *Changed from the first plan: the content is encrypted with the master password (it may hold anything), boards are the projects themselves instead of free sections, and notes are sticky notes instead of Markdown documents.*
 
@@ -58,9 +58,7 @@ Goal: to-do lists and notes kept next to the code, one board per project. Small 
 - [x] **M4.2** Sidebar: *General* and the projects (with their folders), the number of open items per board, boards of removed projects under *Removed projects*; the badge on the tab counts the open items
 - [x] **M4.3** Notes: sticky notes in a grid, six colours, saved automatically a moment after the last keystroke with a "saved" indicator; a note changed elsewhere in the meantime is not overwritten (`409`)
 - [x] **M4.4** To-do lists: several per board; add an item with Enter, edit in place, check/uncheck, reorder by dragging, delete; done items under the open ones with their date and *Clear done*; lists renamed in place, moved and deleted from their menu
-- [ ] **M4.5** From the NPM and Git sections, a link *Notes of this project* opens the extension on that project (`ctx.open` and the event bus, only when `notes` is installed)
 - [x] **M4.6** Widget for the project dashboard (M3): open items of the project's lists (check them from the widget, add one) and the last notes changed
-- [ ] **M4.7** Search across list names, items and notes of every board, with the matches highlighted
 
 ## M5 — Database engines as extensions: MySQL, PostgreSQL, SQL Server, SQLite, Oracle — core, `db-client`, `db-mysql`, kelbo-extensions ✅ (2.29.0 – 2.30.0, engines `@1.0.0`)
 
@@ -180,7 +178,7 @@ Not planned for now; to be taken back into the roadmap when needed (descriptions
 | M1 MCP stdio bridge | S | core | done in 2.2.0 |
 | M2 Secrets and lost clicks | S | core, `http-client`, `mongo-client` | done in 2.3.0 |
 | M3 Widgets and project dashboard | M | core contract and host, built-in `dashboard`, widgets in every extension | done in 2.17.0 (with the `notes` widget of M4.6) |
-| M4 Notes and to-do lists | S | `notes` (kelbo-extensions); link in NPM and Git | `notes@1.0.0` done (boards per project, encrypted); link, widget and search left |
+| M4 Notes and to-do lists | S | `notes` (kelbo-extensions) | `notes@1.0.0` done (boards per project, encrypted, widget); link from NPM/Git and search dropped |
 | M5 Database engines as extensions | L | core (`provides`, kinds), `db-client`, `db-mysql`, `db-postgres`, `db-mssql`, `db-sqlite`, `db-oracle` | `provides` first, then `db-client` as host with MySQL moved to `db-mysql` (no visible change), then one engine at a time: PostgreSQL, SQL Server, SQLite, Oracle |
 | M6 Install script and updates from the interface | M | core, `install.sh`/`install.ps1` | script first (PM2 is the base of the restart), then check, update and restart from the interface |
 | M7 New name: Kelbo | M | core, extensions, `kelbo-extensions`, website | done in 2.13.0; website kelbo.dev done |
