@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.37.0] - 2026-11-14
+
+### Added
+- **Kelbo as an app**: a web app manifest (name, standalone window, theme colour, icons: SVG, 192 and 512 px PNG, maskable, Apple touch icon) and a service worker, so browsers install Kelbo as an application with its own window and icon (Chrome and Edge, Firefox *Add to taskbar* on Windows, PWAsForFirefox, Safari *Add to Dock*). The service worker caches nothing of the interface: when the server is down, the window shows a *Kelbo is not answering* page (texts from the catalogs) instead of the browser's error.
+
+### Changed
+- The favicon is a file (`public/icons/kelbo.svg`) instead of an inline data URI.
+
 ## [2.36.0] - 2026-11-14
 
 ### Added

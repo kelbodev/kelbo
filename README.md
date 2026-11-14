@@ -43,6 +43,8 @@ npm start          # or: npm run dev  (restarts automatically on changes)
 
 Then open <http://127.0.0.1:3500>.
 
+**As an app**: Kelbo has a web app manifest and a service worker, so the browser can install it as an application with its own window and icon — Chrome and Edge (*Install app*), Firefox on Windows (*Add to taskbar*) or with the PWAsForFirefox extension, Safari on macOS (*File → Add to Dock*). The service worker caches nothing of the interface (Kelbo needs its server): when the server is not running, the window shows *Kelbo is not answering* instead of the browser's error page.
+
 **Updates**: Kelbo looks for a new release at start-up and once a day (the latest `v<x.y.z>` tag of its `origin`); a new one is counted in the badge of the 🧩 button and shown at the top of the Extensions panel, with *What's new* (the CHANGELOG of the versions in between). **Update Kelbo** works on a git checkout without local changes (a rewritten `package-lock.json` doesn't count): it lists what stops at the restart (SSH tunnels, npm scripts, mock servers started by Kelbo), downloads the tag, moves forward only (fast-forward of the branch, or checkout of the tag), runs `npm ci`, and keeps the previous version for **Previous version**. Under PM2 Kelbo then restarts by itself and the page reloads on the new version; otherwise restart it by hand.
 
 Optional environment variables: `KELBO_PORT` (port, default 3500), `KELBO_CONFIG` (configuration path, default `config.json` in the project folder) and `KELBO_HOME` (Kelbo's own folder outside the repository, default `~/.kelbo`: installed extensions, their lock file and backups). The `DEVDOCK_*` names used before 2.13 still work (`KELBO_*` wins when both are set).

@@ -400,5 +400,8 @@
   "core.errors.update_not_newer": "Kelbo {version} non è più recente della versione in uso ({current})",
   "core.errors.update_not_fast_forward": "{tag} non segue la versione in uso (storia diversa): aggiornamento rifiutato",
   "core.errors.update_no_previous": "Nessuna versione precedente da ripristinare",
-  "core.errors.restart_not_managed": "Kelbo non gira sotto PM2: va riavviato a mano"
+  "core.errors.restart_not_managed": "Kelbo non gira sotto PM2: va riavviato a mano",
+  "core.offline.title": "Kelbo non risponde",
+  "core.offline.text": "Il server di Kelbo non è in esecuzione a questo indirizzo. Avvialo dal terminale (o con PM2, se lo usi) e riprova.",
+  "core.offline.retry": "Riprova"
 }
