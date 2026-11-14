@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.37.1] - 2026-11-14
+
+### Changed
+- The Kelbo icon (the same as the installed app's) is shown before the name in the header.
+
 ## [2.37.0] - 2026-11-14
 
 ### Added
