@@ -15,6 +15,9 @@ window.Shell = (() => {
 
   // ---- avvio: crea tab/pulsanti per le estensioni con frontend ----
   async function init() {
+    // service worker: Kelbo installabile come applicazione (manifest.webmanifest) e pagina
+    // "Kelbo non risponde" quando il server è spento
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { /* non disponibile: resta una pagina web */ });
     window.Projects.setOnChange(() => bus.dispatchEvent(new CustomEvent('core:projects-changed')));
     let list = [];
     let failure = null;
