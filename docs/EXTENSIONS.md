@@ -531,7 +531,7 @@ The **Tunnels** section opens a tunnel with `ssh -L` or with a *transport* provi
 | `describe(params)` | Optional: a short text of the target for the cards (`service/api:80 · prod/shop`) |
 | `start(params, localPort, { onOutput, onReady, onExit })` | Starts the forward on `127.0.0.1:localPort` → `{ pid, stop(force) }`; `onOutput(text)` for the log, `onReady()` when it accepts connections, `onExit(code)` when it ends (Tunnels then retries with back-off, calling `start` again) |
 
-A tunnel whose transport is not installed or switched off stays saved and is shown as *not available* with the name of the missing extension; one running when its provider goes away stops with that reason. Another extension can open the Tunnels form already filled in with `ctx.open('tunnels', { newServer: { suggestKey, label, port, type, transport, params } })`.
+A tunnel whose transport is not installed or switched off stays saved and is shown as *not available* with the name of the missing extension; one running when its provider goes away stops with that reason. Another extension can open the Tunnels form already filled in with `ctx.open('tunnels', { newServer: { suggestKey, label, port, type, transport, params } })`. In the same way `ctx.open('db-client', { newConnection: { type, suggestId, label, host, port, user, password, database, tunnel, projectId } })` opens the form of a new database connection already filled in, after the vault is unlocked (Kelbo ≥ 2.36); nothing is saved until the user confirms.
 
 ### Kinds
 

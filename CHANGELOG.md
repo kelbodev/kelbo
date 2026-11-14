@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.36.0] - 2026-11-14
+
+### Added
+- `ctx.open('db-client', { newConnection })` opens the form of a new database connection already filled in (engine, suggested id, host, port, user, password, database, tunnel, project), asking for the master password first when the vault is locked; the `docker` extension of the official catalog uses it for the database containers.
+
 ## [2.35.0] - 2026-11-14
 
 ### Added

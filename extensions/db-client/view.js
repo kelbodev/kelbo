@@ -1803,7 +1803,9 @@ export default {
       },
     };
 
-    async function connectionForm(c = {}) {
+    // prefill: form di una connessione nuova compilato da un'altra estensione (id suggerito, password)
+    async function connectionForm(c = {}, prefill = null) {
+      if (prefill) c = { ...prefill, id: undefined };
       const tunnelServers = tunnelsAvailable
         ? (await ctx.apiFor('tunnels').get('/state').catch(() => ({ servers: [] }))).servers : [];
       const projectList = await projects();
@@ -1821,7 +1823,7 @@ export default {
             ${engines.has(type) ? '' : opt(type, t('form.engineMissing', { engine: type }), true)}
           </select></div>
         <div class="form-grid">
-          <div class="form-row"><label>${esc(t('form.id'))}</label><input class="form-input" id="f_db_id" value="${esc(c.id || '')}" placeholder="${esc(t('form.idPlaceholder'))}" ${c.id ? 'disabled' : ''}></div>
+          <div class="form-row"><label>${esc(t('form.id'))}</label><input class="form-input" id="f_db_id" value="${esc(c.id || prefill?.suggestId || '')}" placeholder="${esc(t('form.idPlaceholder'))}" ${c.id ? 'disabled' : ''}></div>
           <div class="form-row"><label>${esc(t('form.name'))}</label><input class="form-input" id="f_db_label" value="${esc(c.label || '')}" placeholder="${esc(t('form.namePlaceholder'))}"></div>
         </div>
         ${tunnelsAvailable && canTunnel && fields.has('host') ? `<div class="form-row"><label>${esc(t('form.link'))}</label>
@@ -1837,7 +1839,7 @@ export default {
         ${fields.has('file') ? `<div class="form-row"><label>${esc(t('form.file'))}</label><input class="form-input" id="f_db_file" value="${esc(c.file || '')}" placeholder="${esc(t('form.filePlaceholder'))}"></div>` : ''}
         <div class="form-grid" ${fields.has('user') || fields.has('password') ? '' : 'hidden'}>
           <div class="form-row" ${show('user')}><label>${esc(t('form.user'))}</label><input class="form-input" id="f_db_user" value="${esc(c.user || '')}" autocomplete="off"></div>
-          <div class="form-row" ${show('password')}><label>${esc(t(c.id ? 'form.passwordKeep' : 'form.password'))}</label><input class="form-input" id="f_db_password" type="password" autocomplete="new-password" placeholder="${c.hasPassword ? '••••••••' : ''}"></div>
+          <div class="form-row" ${show('password')}><label>${esc(t(c.id ? 'form.passwordKeep' : 'form.password'))}</label><input class="form-input" id="f_db_password" type="password" autocomplete="new-password" placeholder="${c.hasPassword ? '••••••••' : ''}" value="${esc(prefill?.password || '')}"></div>
         </div>
         <div class="form-grid">
           <div class="form-row" ${show('database')}><label>${esc(t('form.database'))}</label><input class="form-input" id="f_db_database" value="${esc(c.database || '')}"></div>
@@ -2559,7 +2561,7 @@ export default {
           await loadConnections();
         } catch (e) { toast(e.message, 'error'); }
       },
-      async addConnection() { openModal(t('connections.newTitle'), await connectionForm(), modalButtons(t('connections.create'), "Ext['db-client'].saveConnection()")); },
+      async addConnection(prefill = null) { openModal(t('connections.newTitle'), await connectionForm({}, prefill), modalButtons(t('connections.create'), "Ext['db-client'].saveConnection()")); },
       // cambio di motore nel form di una nuova connessione: campi del motore, valori scritti tenuti
       async formEngine(type) {
         const v = id => document.getElementById(id)?.value ?? '';
@@ -2737,7 +2739,14 @@ export default {
 
     this.show = loadVault;
     // aperta da un widget o dalla dashboard: { connection } la apre nella tab attiva
+    // { newConnection: { type, suggestId, label, host, port, user, password, database, tunnel, projectId } }:
+    // il form di una connessione nuova già compilato (da un'altra estensione), dopo lo sblocco del vault
     this.focus = async params => {
+      if (params?.newConnection) {
+        if (vault.state !== 'unlocked') { if (!(await ctx.vault.ensure())) return; await loadVault(); }
+        if (vault.state === 'unlocked') await actions.addConnection(params.newConnection);
+        return;
+      }
       if (!params?.connection) return;
       if (vault.state !== 'unlocked') await loadVault();
       if (connections.some(c => c.id === params.connection)) actions.select(params.connection);
