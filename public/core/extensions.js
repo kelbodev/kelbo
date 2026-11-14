@@ -12,8 +12,12 @@ window.Extensions = (() => {
   let catalog = null;     // /extensions-admin/catalog
   let tab = 'installed';
   let search = '';
-  let kind = ''; // filtro per tipo: '' tutti, component, provider, theme
-  const KINDS = ['component', 'provider', 'theme'];
+  let kind = ''; // filtro per tipo: '' tutti, component, provider, theme, addon
+  const KINDS = ['component', 'provider', 'theme', 'addon'];
+  // add-on: di quale estensione (con le versioni compatibili); host: quanti punti offre
+  const hostName = code => { const h = data?.extensions.find(x => x.code === code); return h ? pick(h.name) : code; };
+  const addonLine = e => (e.addon ? `<div class="ext-muted ext-addon">${UI.icon('puzzle')} ${esc(t('core.ext.addonOf', { host: hostName(e.addon.host), range: e.addon.version }))}</div>`
+    : e.addonPoints?.length ? `<div class="ext-muted ext-addon" title="${esc(e.addonPoints.map(p => `${p.id}${p.description ? ` — ${pick(p.description)}` : ''}`).join('\n'))}">${UI.icon('puzzle')} ${esc(t('core.ext.addonHost', { count: e.addonPoints.length, addons: data.extensions.filter(x => x.addon?.host === e.code).length }))}</div>` : '');
   const kindTags = list => (list || []).map(k => `<span class="ext-pill ext-kind ext-kind-${esc(k)}" title="${esc(t(`core.ext.kindHint.${k}`))}">${esc(t(`core.ext.kind.${k}`))}</span>`).join('');
   const ofKind = e => !kind || (e.kinds || []).includes(kind);
   const kindFilter = () => `<div class="ext-kinds">${['', ...KINDS].map(k => `<button class="ext-kind-btn ${k === kind ? 'active' : ''}" onclick="Extensions.kind(${js(k)})">${esc(t(k ? `core.ext.kindPlural.${k}` : 'core.ext.kindAll'))}</button>`).join('')}</div>`;
@@ -91,6 +95,7 @@ window.Extensions = (() => {
             ${upd?.available ? `<span class="ext-pill ext-pill-upd">${esc(t('core.ext.updateAvailable', { version: upd.latest || '' }))}</span>` : ''}
             ${upd?.moved ? `<span class="ext-pill ext-pill-warn" title="${esc(t('core.ext.movedTitle'))}">${esc(t('core.ext.moved'))}</span>` : ''}</div>
           <div class="ext-muted ext-desc">${esc(pick(e.description))}</div>
+          ${addonLine(e)}
           <div class="ext-muted ext-source" title="${esc(sourceLabel(e))}">${esc(sourceLabel(e))}</div>
           ${e.error ? `<div class="ext-error">${esc(window.I18n.errorText(e.errorInfo, e.error))}</div>` : ''}
           ${e.warnings?.length ? `<div class="ext-warn">${esc((e.warningInfo || e.warnings).map(w => window.I18n.errorText(w)).join(' · '))}</div>` : ''}
@@ -163,6 +168,7 @@ window.Extensions = (() => {
             ${e.installed ? `<span class="ext-pill ext-pill-ok">${esc(t('core.ext.alreadyInstalled', { version: e.installed.version || '' }))}</span>` : ''}
             ${e.update?.available ? `<span class="ext-pill ext-pill-upd">${esc(t('core.ext.updateAvailable', { version: e.update.latest || '' }))}</span>` : ''}</div>
             <div class="ext-muted ext-desc">${esc(pick(e.description))}</div>
+            ${addonLine(e)}
             <div class="ext-muted ext-source">${esc(e.repo)}${e.path ? ` · ${esc(e.path)}` : ''}</div></div>
           <div class="ext-actions">${!e.installed ? `<button class="btn btn-primary btn-sm" onclick="Extensions.previewCatalog(${js(e.code)})">${esc(t('core.ext.install'))}</button>`
             : e.update?.available ? `<button class="btn btn-primary btn-sm" onclick="Extensions.update(${js(e.code)})">${esc(t('core.ext.update'))}</button>` : ''}</div>

@@ -1,7 +1,7 @@
 {
   "name": "Database",
   "code": "db-client",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "kelbo": "^2.0",
   "description": {
     "it": "Client database: connessioni con password cifrate dalla master password, query, dati, designer e migration; i database sono motori offerti da estensioni (MySQL/MariaDB integrato)",
@@ -109,6 +109,11 @@
         "method": "GET",
         "path": "/connections/:id/databases/:db/tables",
         "handler": "tables"
+      },
+      {
+        "method": "GET",
+        "path": "/connections/:id/databases/:db/schema",
+        "handler": "schema"
       },
       {
         "method": "GET",
@@ -334,6 +339,29 @@
       },
       "size": "m",
       "js": "widget.js"
+    }
+  ],
+  "addonPoints": [
+    {
+      "id": "database-menu",
+      "description": {
+        "it": "Voci nel menu di un database dell'albero (tasto destro)",
+        "en": "Items in the menu of a database in the tree (right click)"
+      }
+    },
+    {
+      "id": "table-menu",
+      "description": {
+        "it": "Voci nel menu di una tabella o vista dell'albero",
+        "en": "Items in the menu of a table or view in the tree"
+      }
+    },
+    {
+      "id": "workspace-tab",
+      "description": {
+        "it": "Tab proprie accanto alle tab delle query",
+        "en": "Own tabs next to the query tabs"
+      }
     }
   ]
 }

@@ -100,6 +100,8 @@ Only `setting.json` is mandatory: an extension can be frontend-only (`swagger`, 
 | `projectTraits` | no | Traits the extension adds to the core's `git`, `node`, `env`: `[{ id, label, files?, dependencies?, detect? }]` — present when one of `files` (relative paths, folders too) exists in the project folder or one of the npm packages in `dependencies` is in its `package.json` (dependencies, devDependencies, peerDependencies); with `detect: true` the backend has the last word (see *Traits*, Kelbo ≥ 2.19). At least one of the three. A trait with the id of a core trait or of an extension loaded earlier is ignored (Kelbo ≥ 2.18) |
 | `themes` | no | Color themes the extension brings: `[{ id, name, scheme: "dark" \| "light", css }]`; `css` is a stylesheet in the extension folder, served like the `frontend` files (see *Themes*, Kelbo ≥ 2.26) |
 | `provides` | no | Implementations the extension offers to other extensions: `[{ capability, id, title, handler }]`; `handler` names an object in `instance.providers` of the backend (see *Providers*, Kelbo ≥ 2.29) |
+| `addonPoints` | no | The extension accepts **add-ons** at these points: `[{ id, description? }]` (see *Add-ons*, Kelbo ≥ 2.38) |
+| `addon` | no | The extension is an **add-on** of another one: `{ host, version, js?, css?, points? }` — the host's code, the host versions it works with (an npm range on the host's `version`), the module and stylesheet loaded inside the host, the host points it uses (see *Add-ons*, Kelbo ≥ 2.38) |
 | `frontend.preload` | no | `true`: the module is mounted at startup (hidden) instead of on first open — for extensions that keep header pills, badges or notifications up to date in the background |
 
 ### Loading and states
@@ -533,6 +535,44 @@ The **Tunnels** section opens a tunnel with `ssh -L` or with a *transport* provi
 
 A tunnel whose transport is not installed or switched off stays saved and is shown as *not available* with the name of the missing extension; one running when its provider goes away stops with that reason. Another extension can open the Tunnels form already filled in with `ctx.open('tunnels', { newServer: { suggestKey, label, port, type, transport, params } })`. In the same way `ctx.open('db-client', { newConnection: { type, suggestId, label, host, port, user, password, database, tunnel, projectId } })` opens the form of a new database connection already filled in, after the vault is unlocked (Kelbo ≥ 2.36); nothing is saved until the user confirms.
 
+## Add-ons
+
+An **add-on** adds features *inside another extension*, the **host**, at the points the host offers: items in its menus, its own tabs in its workspace, whatever the host decides to open up. The core only brokers: it finds the add-ons of a host, checks their version against the host's, loads their modules with their own context and keeps a failing one from taking the host down. The core knows nothing about what a host offers: the host documents its points and its API (for example [`extensions/db-client/ADDONS.md`](../extensions/db-client/ADDONS.md)). Kelbo ≥ 2.38.
+
+**Host** — declares its points in the manifest (an extension must be written to accept add-ons):
+
+```json
+"version": "1.1.0",
+"addonPoints": [
+  { "id": "database-menu", "description": { "it": "Voci nel menu di un database", "en": "Items in the menu of a database" } },
+  { "id": "workspace-tab", "description": "Own tabs next to the query tabs" }
+]
+```
+
+and in `mount` hands its API to the add-ons with `ctx.addons.activate(hostApi)`: the core imports the module of every compatible add-on and calls its `activate(addonCtx, hostApi)`. `hostApi` is any object of the host's choosing — functions to register menu items or tab types, data readers — and the host decides **where** contributions appear (at the end of a menu after a separator, as a tab next to its own…) and **when** (a `when(target)` of the item, a read-only connection…). `ctx.addons.list()` lists the active add-ons of the host (`{ code, name, version, points }`). When an add-on of a host is installed, updated, removed or switched off, the host's panel is mounted again (its add-ons with it), without reloading the page.
+
+**Add-on** — declares its host, the host versions it works with and the points it uses:
+
+```json
+"addon": { "host": "db-client", "version": ">=1.1", "js": "addon.js", "css": "addon.css", "points": ["database-menu", "workspace-tab"] }
+```
+
+```js
+// addon.js: activate(ctx, host) registers on the host; deactivate(ctx) when the host goes away
+export default {
+  activate(ctx, host) {
+    host.addMenuItem('database', { icon: 'network', label: ctx.t('menu.diagram'), run: target => host.openTab('diagram', target) });
+  },
+};
+```
+
+- The host becomes a **required dependency** (added to `dependencies` if missing): it starts first, its `services` are available to the add-on's backend with `ctx.require(host)`, and installing the add-on from a catalog offers the host when it is missing.
+- At start the core checks that the host accepts add-ons (`addonPoints`), that its `version` satisfies `addon.version` and that it offers every point in `addon.points`; otherwise the add-on is `disabled` with the reason (`requires "db-client" >=1.1, this is 1.0.0`). Updating the host re-checks its add-ons.
+- `addon.js` and `addon.css` are served like the `frontend` files; `addon.css` is added while the host is mounted. The add-on's context (`ctx` of `activate`) is the one of an extension without a panel: `api` (its own backend), `apiFor`, `core`, `t` (its own catalogs), `i18n`, `ui`, `bus`, `projects`, `vault`, `open`, `hasExtension`, plus `host` (the host's code).
+- An add-on can also have a backend (routes, MCP tools, services) and even a panel of its own (`frontend`): kinds `addon` and `component` together.
+- An add-on that throws in `activate` is reported with a toast and skipped; the host and the other add-ons go on. Hosts should wrap the calls into add-on code the same way (menu actions, tab rendering).
+- Versions: a host that changes or removes a point raises its `version` accordingly (a removed point is a breaking change), and add-ons state the range they were written for.
+
 ### Kinds
 
 The Extensions panel and the catalog tag every extension with its kinds, derived from the manifest — an extension can be more than one:
@@ -542,6 +582,7 @@ The Extensions panel and the catalog tag every extension with its kinds, derived
 | `component` | it has an interface (`frontend.js`) |
 | `provider` | it declares `provides` |
 | `theme` | it declares `themes` |
+| `addon` | it declares `addon` (it extends another extension) |
 
 `GET /api/core/extensions` reports them in `kinds`; catalogs list them for each entry (`kinds`, written by the catalog script of kelbo-extensions with `extensionKinds(manifest)` of the test kit).
 

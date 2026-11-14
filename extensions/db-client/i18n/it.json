@@ -593,5 +593,7 @@
   "errors.file_outside_project": "Il percorso {file} esce dalla cartella del progetto",
   "form.file": "File del database",
   "form.filePlaceholder": "es. data/app.sqlite (relativo al progetto) o /percorso/assoluto.db",
-  "errors.ddl_rebuild_required": "Questa modifica in SQLite richiede di ricostruire la tabella: falla dal designer"
+  "errors.ddl_rebuild_required": "Questa modifica in SQLite richiede di ricostruire la tabella: falla dal designer",
+  "addons.failed": "Errore di un add-on: {error}",
+  "addons.tabMissing": "L'add-on di questa tab non è più installato o è spento."
 }

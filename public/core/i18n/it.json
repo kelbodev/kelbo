@@ -403,5 +403,17 @@
   "core.errors.restart_not_managed": "Kelbo non gira sotto PM2: va riavviato a mano",
   "core.offline.title": "Kelbo non risponde",
   "core.offline.text": "Il server di Kelbo non è in esecuzione a questo indirizzo. Avvialo dal terminale (o con PM2, se lo usi) e riprova.",
-  "core.offline.retry": "Riprova"
+  "core.offline.retry": "Riprova",
+  "core.ext.kind.addon": "add-on",
+  "core.ext.kindHint.addon": "Aggiunge funzioni dentro un'altra estensione, nei punti che quella offre (es. voci di menu o tab del Database)",
+  "core.ext.kindPlural.addon": "Add-on",
+  "core.ext.addonOf": "Add-on di {host} ({range})",
+  "core.ext.addonHost": {
+    "one": "Accoglie add-on: {count} punto, add-on installati: {addons}",
+    "other": "Accoglie add-on: {count} punti, add-on installati: {addons}"
+  },
+  "core.addons.failed": "L'add-on {name} non si è avviato in {host}: {error}",
+  "core.errors.ext_addon_not_host": "\"{host}\" non accoglie add-on",
+  "core.errors.ext_addon_host_version": "richiede \"{host}\" {range}, questa è la {version}",
+  "core.errors.ext_addon_points": "\"{host}\" non offre i punti usati: {points}"
 }

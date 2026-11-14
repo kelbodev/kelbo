@@ -403,5 +403,17 @@
   "core.errors.restart_not_managed": "Kelbo doesn't run under PM2: it must be restarted by hand",
   "core.offline.title": "Kelbo is not answering",
   "core.offline.text": "The Kelbo server is not running at this address. Start it from the terminal (or with PM2, if you use it) and try again.",
-  "core.offline.retry": "Try again"
+  "core.offline.retry": "Try again",
+  "core.ext.kind.addon": "add-on",
+  "core.ext.kindHint.addon": "Adds features inside another extension, at the points that extension offers (e.g. menu items or tabs of the Database)",
+  "core.ext.kindPlural.addon": "Add-ons",
+  "core.ext.addonOf": "Add-on of {host} ({range})",
+  "core.ext.addonHost": {
+    "one": "Accepts add-ons: {count} point, add-ons installed: {addons}",
+    "other": "Accepts add-ons: {count} points, add-ons installed: {addons}"
+  },
+  "core.addons.failed": "Add-on {name} did not start in {host}: {error}",
+  "core.errors.ext_addon_not_host": "\"{host}\" does not accept add-ons",
+  "core.errors.ext_addon_host_version": "requires \"{host}\" {range}, this is {version}",
+  "core.errors.ext_addon_points": "\"{host}\" does not offer the points used: {points}"
 }
