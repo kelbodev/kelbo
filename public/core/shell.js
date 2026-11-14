@@ -59,6 +59,7 @@ window.Shell = (() => {
     const entry = exts.get(code);
     if (!entry) return;
     if (active === code) { try { entry.module?.hide?.(entry.ctx); } catch (e) { console.error(e); } active = null; }
+    deactivateAddons(entry);
     try { entry.module?.unmount?.(entry.ctx); } catch (e) { console.error(e); }
     entry.tab?.remove();
     entry.panel.remove();
@@ -80,12 +81,16 @@ window.Shell = (() => {
     const wasActive = active;
     for (const [code, entry] of [...exts]) {
       const meta = wanted.get(code);
-      if (!meta || meta.loadId !== entry.meta.loadId || meta.dir !== entry.meta.dir) { removeEntry(code); changed.push(code); }
+      // host i cui add-on sono cambiati (installati, aggiornati, tolti, spenti): si rimonta
+      const addonsChanged = entry.addonSig != null && entry.addonSig !== addonSignature(code, list);
+      if (!meta || meta.loadId !== entry.meta.loadId || meta.dir !== entry.meta.dir || addonsChanged) { removeEntry(code); changed.push(code); }
       else if (meta.position !== entry.meta.position) removeEntry(code); // spostata tra tab e header: stesso modulo, nuovo posto
     }
+    // cataloghi da rileggere anche per le estensioni senza pannello (add-on, provider) ricaricate
+    const reloaded = list.filter(m => { const old = extList.find(x => x.code === m.code); return old && old.loadId !== m.loadId; }).map(m => m.code);
     extList = list;
     window.Theme.setExtensions(list);
-    await window.I18n.setExtensions(list.filter(usable), [...changed, ...[...wanted.keys()].filter(c => !exts.has(c))]);
+    await window.I18n.setExtensions(list.filter(usable), [...new Set([...changed, ...reloaded, ...[...wanted.keys()].filter(c => !exts.has(c))])]);
     for (const meta of wanted.values()) {
       if (exts.has(meta.code)) continue;
       const entry = addEntry(meta);
@@ -537,6 +542,73 @@ window.Shell = (() => {
       apiFor: code => withStreams(apiClient(`/api/ext/${code}`)),
       // widget delle estensioni attive, per chi li vuole mostrare (es. la dashboard)
       widgets: { list: listWidgets, mount: mountWidget },
+      // add-on che estendono questa estensione (host): list() e activate(hostApi), che importa i
+      // loro moduli e chiama activate(addonCtx, hostApi) di ognuno (docs/EXTENSIONS.md → Add-ons)
+      addons: {
+        list: () => addonsOf(meta.code).map(a => ({ code: a.code, name: pick(a.name), version: a.version, points: a.addon.points })),
+        activate: hostApi => activateAddons(entry, hostApi),
+      },
+    };
+  }
+
+  // ---- add-on: moduli di altre estensioni caricati dentro un host ----
+  const addonsOf = (host, list = extList) => list.filter(m => usable(m) && m.addon?.host === host && m.addon.js);
+  const addonSignature = (host, list = extList) => addonsOf(host, list).map(m => `${m.code}@${m.loadId}`).sort().join(',');
+
+  // Ogni add-on con il suo contesto (API, traduzioni, ui); uno che fallisce non tocca l'host né gli
+  // altri. Restituisce gli add-on attivati: [{ code, name }]
+  async function activateAddons(entry, hostApi) {
+    deactivateAddons(entry);
+    entry.addonSig = addonSignature(entry.meta.code);
+    const done = [];
+    for (const meta of addonsOf(entry.meta.code)) {
+      const v = `?v=${encodeURIComponent(meta.loadId ?? 0)}`;
+      try {
+        if (meta.addon.css && !entry.addonCss?.has(meta.code)) {
+          const link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = `/ext/${meta.code}/${meta.addon.css}${v}`;
+          document.head.appendChild(link);
+          (entry.addonCss ||= new Map()).set(meta.code, link);
+        }
+        let mod = await import(`/ext/${meta.code}/${meta.addon.js}${v}`);
+        mod = mod.default || mod;
+        const ctx = addonContext(meta, entry.meta.code);
+        await mod.activate?.(ctx, hostApi);
+        (entry.addonsActive ||= []).push({ code: meta.code, module: mod, ctx });
+        done.push({ code: meta.code, name: pick(meta.name) });
+      } catch (e) {
+        console.error(`[addon ${meta.code}]`, e);
+        toast(t('core.addons.failed', { name: pick(meta.name), host: pick(entry.meta.name), error: e?.message || String(e) }), 'error');
+      }
+    }
+    return done;
+  }
+  function deactivateAddons(entry) {
+    for (const a of entry.addonsActive || []) { try { a.module.deactivate?.(a.ctx); } catch (e) { console.error(`[addon ${a.code}]`, e); } }
+    entry.addonsActive = [];
+    for (const link of entry.addonCss?.values() || []) link.remove();
+    entry.addonCss = null;
+  }
+  // Contesto di un add-on: quello di un'estensione (API, cataloghi, ui, vault, bus) senza pannello
+  // proprio; host è il codice dell'estensione che lo ospita
+  function addonContext(meta, host) {
+    return {
+      code: meta.code, meta, host,
+      api: withStreams(apiClient(`/api/ext/${meta.code}`)),
+      core: apiClient('/api/core'),
+      t: window.I18n.scoped(meta.code),
+      i18n: { get lang() { return window.I18n.lang; }, pick, apply: root => window.I18n.apply(root, meta.code) },
+      ui: { esc, js, cssColor, extColor: UI.extColor, ansiToHtml, ansiState, toast, openModal, closeModal, patch: UI.patch, formatUptime, toolNotice, notify, contextMenu, t, fmt, errorText: window.I18n.errorText, icon: UI.icon, iconOrText: UI.iconOrText, badgeHtml: UI.badgeHtml },
+      bus: {
+        on(name, fn) { const h = e => fn(e.detail); bus.addEventListener(name, h); return () => bus.removeEventListener(name, h); },
+        emit(name, detail) { bus.dispatchEvent(new CustomEvent(name, { detail })); },
+      },
+      projects: scopedProjects(meta),
+      vault: window.Vault,
+      open,
+      hasExtension: code => extList.some(e => e.code === code && usable(e)),
+      apiFor: code => withStreams(apiClient(`/api/ext/${code}`)),
     };
   }
 

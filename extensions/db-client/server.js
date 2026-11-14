@@ -699,6 +699,39 @@ module.exports = function createDbClient(ctx) {
         }
       },
 
+      // Schema di un database per gli add-on (diagrammi, documentazione): tabelle con colonne,
+      // chiave primaria, indici e chiavi esterne (introspect del motore), viste con le colonne
+      async schema(req, res) {
+        const conn = connectionOr404(req.params.id);
+        const engine = engineFor(conn);
+        const { db } = req.params;
+        if (!DB_NAME_RE.test(db)) throw ctx.error(400, 'database_invalid');
+        try {
+          const pool = await poolFor(conn);
+          const [list, model] = await Promise.all([engine.listTables(pool, db), engine.introspect(pool, db, null)]);
+          const typeText = c => `${c.type}${c.length != null ? `(${c.length}${c.scale != null ? `,${c.scale}` : ''})` : c.values ? `(${c.values.map(v => `'${v}'`).join(',')})` : ''}${c.unsigned ? ' UNSIGNED' : ''}`;
+          const tables = [];
+          for (const t of list) {
+            const def = model.tables?.[t.name];
+            if (def) {
+              tables.push({
+                name: t.name, view: false, comment: def.comment || t.comment || '', rowsEstimate: t.rowsEstimate ?? null,
+                columns: def.columns.map(c => ({ name: c.name, type: c.unsupported || typeText(c), nullable: !!c.nullable, autoIncrement: !!c.autoIncrement, comment: c.comment || '' })),
+                primaryKey: def.primaryKey || [], indexes: def.indexes || [],
+                foreignKeys: (def.foreignKeys || []).map(f => ({ name: f.name, columns: f.columns, refTable: f.refTable, refColumns: f.refColumns, refDatabase: f.refDatabase || null, onDelete: f.onDelete || null, onUpdate: f.onUpdate || null })),
+              });
+            } else if (t.view) {
+              let cols = [];
+              try { cols = await engine.columns(pool, db, t.name); } catch { /* vista non leggibile */ }
+              tables.push({ name: t.name, view: true, comment: t.comment || '', rowsEstimate: null, columns: cols.map(c => ({ name: c.name, type: c.type, nullable: !!c.nullable, autoIncrement: false, comment: '' })), primaryKey: [], indexes: [], foreignKeys: [] });
+            }
+          }
+          res.json({ connection: conn.id, database: db, engine: conn.type || 'mysql', tables });
+        } catch (e) {
+          sendFailure(res, e, 502, {}, engine);
+        }
+      },
+
       // Anteprima dei dati di una tabella: pagina, ricerca, filtri, ordinamento.
       // Colonne e operatori sono verificati, i valori passano come parametri.
       async rows(req, res) {

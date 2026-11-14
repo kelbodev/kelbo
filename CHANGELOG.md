@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.38.0] - 2026-11-14
+
+### Added
+- **Add-ons**, a new kind of extension that extends another extension (the host) instead of Kelbo (`docs/EXTENSIONS.md` → Add-ons). A host declares its points (`addonPoints`) and hands its API to its add-ons with `ctx.addons.activate(hostApi)`; an add-on declares `addon: { host, version, js, css, points }` — the host versions it works with and the points it uses. The core finds the add-ons of a host, makes the host a required dependency, switches an add-on off with the reason when the host doesn't accept add-ons, has a version outside the range or lacks a point, loads the add-on's module with its own context (API, catalogs, ui) and keeps a failing one from stopping the host; when add-ons are installed, updated, removed or switched off the host is mounted again without reloading the page. The Extensions panel and the catalogs show the **add-on** kind (with a filter) and *Add-on of …*.
+- **Database 1.1 as a host** (`extensions/db-client/ADDONS.md`): points `database-menu`, `table-menu` (items in the menus of the tree) and `workspace-tab` (tabs of the add-on next to the query tabs, kept with the tabs of the session), and `schema(connection, database)` — tables with columns, primary key, indexes and foreign keys, views with their columns, for every engine (`GET /api/ext/db-client/connections/:id/databases/:db/schema`). The first add-on is **ER diagram** (`db-diagram`) in the official catalog.
+
+### Fixed
+- The catalogs of an extension without a panel (an add-on, a provider) are read again after it is updated.
+
 ## [2.37.1] - 2026-11-14
 
 ### Changed

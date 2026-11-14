@@ -593,5 +593,7 @@
   "errors.file_outside_project": "The path {file} leaves the project folder",
   "form.file": "Database file",
   "form.filePlaceholder": "e.g. data/app.sqlite (relative to the project) or /absolute/path.db",
-  "errors.ddl_rebuild_required": "In SQLite this change needs the table to be rebuilt: make it from the designer"
+  "errors.ddl_rebuild_required": "In SQLite this change needs the table to be rebuilt: make it from the designer",
+  "addons.failed": "Add-on error: {error}",
+  "addons.tabMissing": "The add-on of this tab is no longer installed or is switched off."
 }

@@ -271,9 +271,10 @@ export default {
     let current = null;
     let tabSeq = 0;
     const tabDb = () => current?.db || null;
-    function makeTab({ connId = null, db = null, sql = '', title = null, key = null } = {}) {
+    // addon: { type, state } per le tab degli add-on (punto workspace-tab)
+    function makeTab({ connId = null, db = null, sql = '', title = null, key = null, addon = null } = {}) {
       const c = connections.find(x => x.id === connId);
-      return { id: ++tabSeq, connId, db: db || defaultDb(c), sql, title, key, running: false, frag: null,
+      return { id: ++tabSeq, connId, db: db || defaultDb(c), sql, title, key, addon, running: false, frag: null,
         st: { grid: null, designer: null, lastResult: null, resultSort: null, lastParamInfo: null, edits: null, batch: null } };
     }
     // Stato dei risultati della tab visibile → nella tab (nodi del pannello compresi)
@@ -303,7 +304,7 @@ export default {
     }
     function switchTab(tab) {
       if (!tab || tab === current) return;
-      if (current) { current.sql = sqlInput.value; stash(current); }
+      if (current) { if (!current.addon) current.sql = sqlInput.value; stash(current); }
       current = tab;
       restore(tab);
       activeId = tab.connId;
@@ -332,6 +333,7 @@ export default {
       const closingCurrent = list.includes(current);
       const last = list.at(-1);
       tabs = tabs.filter(tb => !list.includes(tb));
+      for (const tb of list) if (tb.addon) disposeAddonTab(tb);
       if (!closingCurrent) { renderTabs(); saveTabs(); return; }
       current = null;
       $(ctx.root, 'results').replaceChildren();
@@ -355,7 +357,8 @@ export default {
     const tabSql = tb => (tb === current ? sqlInput.value : tb.sql).trim();
     // Connessione e database della tab visibile (la sidebar e il selettore della barra)
     function setTarget(connId, db) {
-      if (!current) { addTab({ connId, db }); return; }
+      // tab di un add-on: connessione e database scelti nella sidebar aprono una tab di query
+      if (!current || current.addon) { addTab({ connId, db }); return; }
       const c = connections.find(x => x.id === connId);
       if (current.connId !== connId) current.db = db ?? defaultDb(c);
       else if (db !== undefined) current.db = db;
@@ -369,7 +372,8 @@ export default {
     function saveTabs() {
       try {
         sessionStorage.setItem(TABS_KEY, JSON.stringify({
-          tabs: tabs.map(tb => ({ connId: tb.connId, db: tb.db, sql: tb === current ? sqlInput.value : tb.sql, title: tb.title })),
+          tabs: tabs.map(tb => (tb.addon ? { connId: tb.connId, db: tb.db, addon: { type: tb.addon.type, state: tb.addon.state } }
+            : { connId: tb.connId, db: tb.db, sql: tb === current ? sqlInput.value : tb.sql, title: tb.title })),
           current: tabs.indexOf(current),
         }));
       } catch { /* solo in memoria */ }
@@ -380,6 +384,11 @@ export default {
       let saved = null;
       try { saved = JSON.parse(sessionStorage.getItem(TABS_KEY)); } catch { /* nessuna */ }
       for (const x of saved?.tabs || []) {
+        // tab di un add-on ancora installato (tipo registrato)
+        if (x?.addon && addonTabTypes.has(x.addon.type) && connections.some(c => c.id === x.connId)) {
+          tabs.push(makeTab({ connId: x.connId, db: typeof x.db === 'string' ? x.db : null, addon: { type: x.addon.type, state: x.addon.state || {} } }));
+          continue;
+        }
         if (typeof x?.sql !== 'string') continue;
         tabs.push(makeTab({ connId: connections.some(c => c.id === x.connId) ? x.connId : null, db: typeof x.db === 'string' ? x.db : null, sql: x.sql, title: typeof x.title === 'string' ? x.title : null }));
       }
@@ -389,13 +398,17 @@ export default {
     }
 
     const tabTitle = tb => {
+      if (tb.addon) { try { return String(addonTabTypes.get(tb.addon.type)?.title?.(tb.addon.state) || tb.addon.type); } catch { return tb.addon.type; } }
       if (tb.title) return tb.title;
       const line = tabSql(tb).split('\n').map(x => x.trim()).find(Boolean);
       return line ? (line.length > 28 ? line.slice(0, 28) + '…' : line) : t('tabs.untitled', { n: tabs.indexOf(tb) + 1 });
     };
     // icona della tab dal tipo (chiave "grid:", "structure:", "alter:")
     const TAB_ICONS = { grid: 'table-2', structure: 'list-tree', alter: 'pencil-ruler' };
-    const tabIcon = tb => { const kind = /^(\w+):/.exec(tb.key || '')?.[1]; return TAB_ICONS[kind] ? `${ctx.ui.icon(TAB_ICONS[kind])} ` : ''; };
+    const tabIcon = tb => {
+      if (tb.addon) { const icon = addonTabTypes.get(tb.addon.type)?.icon; return icon ? `${ctx.ui.icon(icon)} ` : ''; }
+      const kind = /^(\w+):/.exec(tb.key || '')?.[1]; return TAB_ICONS[kind] ? `${ctx.ui.icon(TAB_ICONS[kind])} ` : '';
+    };
     function renderTabs() {
       const el = $(ctx.root, 'tabs');
       el.innerHTML = tabs.map(tb => {
@@ -1594,6 +1607,7 @@ export default {
         'separator',
         ...(tb?.view ? [] : [{ icon: 'eraser', label: t('menu.truncate'), danger: true, disabled: ro, action: () => sqlTab(`TRUNCATE TABLE ${full};`) }]),
         { icon: 'x', label: t(tb?.view ? 'menu.dropView' : 'menu.dropTable'), danger: true, disabled: ro, action: () => sqlTab(`DROP ${tb?.view ? 'VIEW' : 'TABLE'} ${full};`) },
+        ...addonItems('table', { connection: c.id, database: db, table: name, view: !!tb?.view, engine: c.type || 'mysql', readOnly: !!ro }),
       ]);
     }
 
@@ -1648,6 +1662,11 @@ export default {
       $(ctx.root, 'no-connection').hidden = !!current;
       $(ctx.root, 'workspace').hidden = !current;
       if (!current) return;
+      // tab di un add-on: il suo riquadro al posto di intestazione, barra, editor e risultati
+      const addonTab = !!current.addon;
+      for (const el of [$(ctx.root, 'conn-header'), ctx.root.querySelector('.db-toolbar'), $(ctx.root, 'editor'), $(ctx.root, 'results')]) el.hidden = addonTab;
+      renderAddonView();
+      if (addonTab) return;
       renderTarget();
       if (!c) { $(ctx.root, 'conn-header').innerHTML = `<span class="db-muted">${esc(t('tabs.chooseConnection'))}</span>`; return; }
       $(ctx.root, 'conn-header').innerHTML = `
@@ -2712,6 +2731,7 @@ export default {
       ctx.ui.contextMenu(e.clientX, e.clientY, [
         { icon: 'plus', label: t('menu.newTable'), disabled: c.readOnly, action: () => { setActiveDb(c, db); openDesigner(c, db); } },
         { icon: 'refresh-cw', label: t('menu.refreshTables'), action: () => { open.add(nodeKey('d', c.id, db)); refreshDatabase(c, db); } },
+        ...addonItems('database', { connection: c.id, database: db, engine: c.type || 'mysql', readOnly: !!c.readOnly }),
       ]);
     });
     ctx.sidebar.addEventListener('click', e => {
@@ -2721,6 +2741,94 @@ export default {
       else if (e.target.closest('[data-action="import-connections"]')) actions.importConnections();
     });
     ctx.expose(actions);
+
+    // ---- add-on (docs: ADDONS.md): voci nei menu di database e tabelle, tab nel workspace ----
+    const addonMenus = { database: [], table: [] };
+    const addonTabTypes = new Map();
+    const safeAddon = (fn, fallback) => { try { return fn(); } catch (e) { console.error('[db-client add-on]', e); toast(t('addons.failed', { error: e.message }), 'error'); return fallback; } };
+    // voci registrate per un punto, dopo un separatore; when(target) decide se mostrarle
+    function addonItems(point, target) {
+      const items = addonMenus[point].filter(i => !i.when || safeAddon(() => i.when(target), false)).map(i => ({
+        icon: i.icon || 'puzzle', label: typeof i.label === 'function' ? safeAddon(() => i.label(target), '') : i.label,
+        disabled: typeof i.disabled === 'function' ? safeAddon(() => i.disabled(target), true) : !!i.disabled,
+        action: () => safeAddon(() => Promise.resolve(i.run(target)).catch(e => { console.error('[db-client add-on]', e); toast(t('addons.failed', { error: e.message }), 'error'); })),
+      }));
+      return items.length ? ['separator', ...items] : [];
+    }
+    // API della tab per il modulo dell'add-on
+    function tabApi(tab) {
+      return {
+        get state() { return tab.addon.state; },
+        setState(patch) { Object.assign(tab.addon.state, patch); saveTabs(); renderTabs(); },
+        get visible() { return current === tab; },
+        close: () => closeTab(tab),
+      };
+    }
+    function renderAddonView() {
+      const view = $(ctx.root, 'addon-view');
+      view.hidden = !current?.addon;
+      for (const tb of tabs) if (tb.addonEl) tb.addonEl.hidden = tb !== current;
+      if (!current?.addon || current.addonEl) return;
+      const type = addonTabTypes.get(current.addon.type);
+      const el = document.createElement('div');
+      el.className = 'db-addon-pane';
+      view.appendChild(el);
+      current.addonEl = el;
+      if (!type) { el.innerHTML = `<div class="empty-state"><p>${esc(t('addons.tabMissing'))}</p></div>`; return; }
+      const tab = current;
+      Promise.resolve().then(() => type.mount(el, tab.addon.state, tabApi(tab))).catch(e => {
+        console.error('[db-client add-on]', e);
+        el.innerHTML = `<div class="db-error db-pad">${esc(t('addons.failed', { error: e.message }))}</div>`;
+      });
+    }
+    function disposeAddonTab(tb) {
+      const type = addonTabTypes.get(tb.addon.type);
+      if (tb.addonEl) { safeAddon(() => type?.unmount?.(tb.addonEl, tb.addon.state)); tb.addonEl.remove(); tb.addonEl = null; }
+    }
+    const POINTS = { 'database-menu': 'database', 'table-menu': 'table' };
+    const hostApi = {
+      version: ctx.meta.version,
+      // point: 'database' | 'table'; item: { icon, label (testo o target → testo), run(target), when?(target), disabled? }
+      addMenuItem(point, item) {
+        const key = POINTS[point] || point;
+        if (!addonMenus[key]) throw new Error(`db-client: unknown menu point "${point}"`);
+        if (typeof item?.run !== 'function') throw new Error('db-client: addMenuItem needs run(target)');
+        addonMenus[key].push(item);
+      },
+      // type: { id, icon, title(state), mount(el, state, tab), unmount?(el, state), languageChanged?(el, state) }
+      addTabType(type) {
+        if (!type || !/^[a-z][a-z0-9-]{0,39}$/.test(type.id || '') || typeof type.mount !== 'function') throw new Error('db-client: addTabType needs id and mount(el, state, tab)');
+        addonTabTypes.set(type.id, type);
+      },
+      // Apre una tab del tipo (o porta in primo piano quella con lo stesso stato chiave)
+      openTab(typeId, state = {}) {
+        if (!addonTabTypes.has(typeId)) throw new Error(`db-client: unknown tab type "${typeId}"`);
+        const key = JSON.stringify([typeId, state.connection, state.database, state.key ?? null]);
+        const same = tabs.find(tb => tb.addon && JSON.stringify([tb.addon.type, tb.addon.state.connection, tb.addon.state.database, tb.addon.state.key ?? null]) === key);
+        if (same) {
+          Object.assign(same.addon.state, state);
+          switchTab(same);
+          safeAddon(() => addonTabTypes.get(typeId).update?.(same.addonEl, same.addon.state, tabApi(same)));
+          return;
+        }
+        addTab({ connId: state.connection || null, db: state.database || null, addon: { type: typeId, state: { ...state } } });
+      },
+      connections: () => connections.map(c => ({ id: c.id, label: c.label, engine: c.type || 'mysql', readOnly: !!c.readOnly, folder: c.folder || null, projectId: c.projectId || null })),
+      // Schema di un database: { tables: [{ name, view, comment, columns, primaryKey, indexes, foreignKeys }] }
+      schema: (connection, database) => ctx.api.get(`/connections/${encodeURIComponent(connection)}/databases/${encodeURIComponent(database)}/schema`),
+      openTable(connection, database, table) {
+        const c = connections.find(x => x.id === connection);
+        if (c) openTableData(c, database, table);
+      },
+      openQuery(connection, database, sql) {
+        const c = connections.find(x => x.id === connection);
+        if (!c) return;
+        addTab({ connId: c.id, db: database });
+        sqlInput.value = String(sql || '');
+        sqlInput.dispatchEvent(new Event('input'));
+      },
+    };
+    await ctx.addons?.activate(hostApi);
 
     // ↻: lo schema può essere cambiato (anche da questa sessione): ricarica i nodi aperti
     function reopen() {
@@ -2759,6 +2867,7 @@ export default {
       renderTabs();
       renderConnections();
       renderWorkspace();
+      for (const tb of tabs) if (tb.addon && tb.addonEl) safeAddon(() => addonTabTypes.get(tb.addon.type)?.languageChanged?.(tb.addonEl, tb.addon.state));
       renderMigDialog();
       if (designer) renderDesigner();
       else if (grid?.data) renderGrid();
