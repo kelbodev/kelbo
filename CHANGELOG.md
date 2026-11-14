@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.35.0] - 2026-11-14
+
+### Added
+- **HTTP client services** for the other extensions (`ctx.require('http-client')`): `tokens()` lists the user types with a token and the state of the token in memory (never the value); `token(section, user)` returns the value, only with the vault unlocked. The `toolbox` extension of the official catalog uses them to decode the JWT of the HTTP client.
+
 ## [2.34.1] - 2026-11-13
 
 ### Fixed

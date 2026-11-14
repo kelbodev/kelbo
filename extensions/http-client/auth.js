@@ -476,7 +476,10 @@ function createAuth({ ctx, vault, pageText, varsOf, browserPath = () => null }) 
 
   function shutdown() { for (const p of [...logins.values()]) p.cancel(); }
 
-  return { headersFor, state, store, forget, forgetSection, forgetAll, login, discover, shutdown };
+  // Token in memoria così com'è (senza rinnovarlo né chiedere un login), per le altre estensioni
+  const peek = (section, user) => tokens.get(keyOf(section, user)) || null;
+
+  return { headersFor, state, store, forget, forgetSection, forgetAll, login, discover, shutdown, peek };
 }
 
 module.exports = { createAuth, jwtExpiry, atPath, AUTH_TYPES, OAUTH_FLOWS, MAX_AFTER_STEPS, openBrowser, browserInfo };
