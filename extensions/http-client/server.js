@@ -397,6 +397,23 @@ module.exports = function createHttpClient(ctx) {
   return {
     config,
 
+    // Per le altre estensioni (es. toolbox): i token ottenuti dalle utenze, solo in memoria.
+    // tokens() li elenca senza il valore; token() dà il valore, solo con il vault sbloccato
+    services: {
+      tokens: () => sections().flatMap(s => (s.userTypes || []).filter(u => !['none', 'basic'].includes(u.auth?.type)).map(u => {
+        const st = auth.state(s, u);
+        return { section: s.id, sectionLabel: s.label, user: u.id, userLabel: u.label, authType: u.auth.type, hasToken: st.hasToken, expired: st.expired, expiresAt: st.expiresAt, obtainedAt: st.obtainedAt };
+      })),
+      token(sectionId, userId) {
+        requireVault();
+        const s = sections().find(x => x.id === sectionId);
+        const u = s?.userTypes?.find(x => x.id === userId);
+        const entry = s && u ? auth.peek(s, u) : null;
+        if (!entry) return null;
+        return { token: entry.token, expiresAt: entry.expiresAt ? new Date(entry.expiresAt).toISOString() : null, source: entry.source, section: s.label, user: u.label };
+      },
+    },
+
     // Dati collegati a un progetto (pannello 📁 del core, prima di rimuoverlo)
     projectLinks: project => sections().filter(s => s.projectId === project.id)
       .map(s => ({ key: 'links.section', params: { name: s.label } })),
