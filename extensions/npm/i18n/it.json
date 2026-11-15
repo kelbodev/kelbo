@@ -92,5 +92,6 @@
   "running.processes": {
     "one": "{count} script npm in esecuzione ({names})",
     "other": "{count} script npm in esecuzione ({names})"
-  }
+  },
+  "addons.failed": "L'add-on non ha funzionato: {error}"
 }

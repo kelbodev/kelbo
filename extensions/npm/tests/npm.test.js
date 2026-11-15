@@ -68,3 +68,9 @@ test('installed-versions ignora nomi non validi', async () => {
   const r = await srv.request('POST', '/api/ext/npm/projects/app/installed-versions', { body: { packages: ['../../../../etc', 'left-pad'] } });
   assert.deepEqual(r.json, { 'left-pad': null });
 });
+
+test('host di add-on: punto script-actions (pulsanti sulla riga di uno script)', async () => {
+  const npm = (await srv.request('GET', '/api/core/extensions')).json.find(e => e.code === 'npm');
+  assert.deepEqual(npm.addonPoints.map(p => p.id), ['script-actions']);
+  assert.match(String(npm.version), /^1\.1\./);
+});
