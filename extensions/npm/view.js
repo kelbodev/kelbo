@@ -18,6 +18,7 @@ export default {
     let tab = 'scripts';
     let closeStream = null;
     let projectTunnels = { id: null, tunnels: [] }; // tunnel collegati al progetto aperto
+    let shownScripts = { projectId: null, scripts: {} }; // script del progetto mostrato (per gli add-on)
 
     const project = () => projects.find(p => p.id === activeProject) || null;
     const running = id => processes.filter(pr => pr.projectId === id && pr.running).length;
@@ -204,11 +205,13 @@ export default {
               `}
             ` : `<button class="btn btn-npm btn-sm" onclick="Ext.npm.run(${js(p.id)},${js(name)})">${ctx.ui.icon('play')} ${esc(t('script.run'))}</button>`}
             ${pm2 && name !== 'install' ? `<button class="btn btn-ghost btn-sm" onclick="Ext.npm.pm2(${js(p.id)},${js(name)})" title="${esc(t('script.pm2'))}">PM2</button>` : ''}
+            ${addonButtons(p, name)}
           </div>
         </div>`;
       };
 
       const scripts = Object.entries(pkg.scripts || {});
+      shownScripts = { projectId: p.id, scripts: { install: 'npm install', ...pkg.scripts } };
       ctx.ui.patch(content, `<div class="scripts-grid">
         ${row('install', 'npm install')}
         ${scripts.map(([name, cmd]) => row(name, cmd)).join('')}
@@ -302,6 +305,14 @@ export default {
       filterTunnels,
       countTunnels,
 
+      // pulsante di un add-on sulla riga di uno script
+      addonAction(index, projectId, script) {
+        const a = scriptActions[index];
+        const p = projects.find(x => x.id === projectId);
+        if (!a || !p) return;
+        safeAddon(() => Promise.resolve(a.run(scriptTarget(p, script))).catch(e => { console.error('[npm add-on]', e); toast(t('addons.failed', { error: e.message }), 'error'); }));
+      },
+
       async run(projectId, script) {
         try {
           const r = await ctx.api.post(`/projects/${encodeURIComponent(projectId)}/run`, { script });
@@ -373,8 +384,40 @@ export default {
       if (next && next !== tab) { tab = next; renderTab(); }
     });
 
+    // ---- add-on (docs: ADDONS.md): pulsanti sulla riga di uno script (punto script-actions) ----
+    const scriptActions = [];
+    const safeAddon = (fn, fallback) => { try { return fn(); } catch (e) { console.error('[npm add-on]', e); toast(t('addons.failed', { error: e.message }), 'error'); return fallback; } };
+    // quello che un add-on sa di uno script: progetto, nome, comando da lanciare, definizione in package.json
+    function scriptTarget(p, script) {
+      return {
+        projectId: p.id, project: p.label, path: p.path, script,
+        command: scriptLabel(script),
+        definition: shownScripts.projectId === p.id ? shownScripts.scripts[script] ?? null : null,
+        running: processes.some(pr => pr.projectId === p.id && pr.script === script && pr.running),
+      };
+    }
+    function addonButtons(p, script) {
+      const target = scriptTarget(p, script);
+      return scriptActions.map((a, i) => {
+        if (a.when && !safeAddon(() => a.when(target), false)) return '';
+        const label = typeof a.label === 'function' ? safeAddon(() => a.label(target), '') : a.label;
+        const title = typeof a.title === 'function' ? safeAddon(() => a.title(target), '') : a.title;
+        return `<button class="btn btn-ghost btn-sm npm-addon-btn" onclick="Ext.npm.addonAction(${i},${js(p.id)},${js(script)})" title="${esc(title || label || '')}">${ctx.ui.icon(a.icon || 'puzzle')}${label ? ` ${esc(label)}` : ''}</button>`;
+      }).join('');
+    }
+    const hostApi = {
+      version: ctx.meta.version,
+      // action: { icon?, label (testo o target → testo), title?, run(target), when?(target) }
+      addScriptAction(action) {
+        if (typeof action?.run !== 'function') throw new Error('npm: addScriptAction needs run(target)');
+        scriptActions.push(action);
+        if (ctx.isActive?.()) renderTab();
+      },
+    };
+
     ctx.bus.on('core:projects-changed', async () => { await loadProjects(); renderProjects(); });
     ctx.expose(actions);
+    await ctx.addons?.activate(hostApi);
     await loadProjects();
     await loadProcesses();
     setInterval(refreshAll, POLL_MS);

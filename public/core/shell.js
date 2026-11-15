@@ -552,7 +552,7 @@ window.Shell = (() => {
   }
 
   // ---- add-on: moduli di altre estensioni caricati dentro un host ----
-  const addonsOf = (host, list = extList) => list.filter(m => usable(m) && m.addon?.host === host && m.addon.js);
+  const addonsOf = (host, list = extList) => list.filter(m => usable(m) && m.addon?.host === host && m.addon.js && m.addonActive !== false);
   const addonSignature = (host, list = extList) => addonsOf(host, list).map(m => `${m.code}@${m.loadId}`).sort().join(',');
 
   // Ogni add-on con il suo contesto (API, traduzioni, ui); uno che fallisce non tocca l'host né gli

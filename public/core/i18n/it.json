@@ -415,5 +415,9 @@
   "core.addons.failed": "L'add-on {name} non si è avviato in {host}: {error}",
   "core.errors.ext_addon_not_host": "\"{host}\" non accoglie add-on",
   "core.errors.ext_addon_host_version": "richiede \"{host}\" {range}, questa è la {version}",
-  "core.errors.ext_addon_points": "\"{host}\" non offre i punti usati: {points}"
+  "core.errors.ext_addon_points": "\"{host}\" non offre i punti usati: {points}",
+  "core.ext.addonOptionalOf": "Add-on facoltativo di {host} ({range})",
+  "core.ext.addonInactive": "non attivo: {reason}",
+  "core.errors.ext_addon_host_off": "\"{host}\" è spento o non disponibile",
+  "core.errors.ext_addon_host_missing": "\"{host}\" non è installata"
 }

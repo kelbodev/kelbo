@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.39.0] - 2026-11-15
+
+### Added
+- **Optional add-ons** (`"addon": { …, "optional": true }`, `docs/EXTENSIONS.md` → Add-ons): an extension that works on its own and adds something to another one when that one is there. The host is not a dependency: the extension is not switched off or restarted when the host is missing, off, updated or too old; only its add-on part is active or not. The extensions list reports `addonActive` and `addonProblem`, and the Extensions panel shows *Optional add-on of …* with the reason when it is not active.
+- **NPM 1.1 as a host** (`extensions/npm/ADDONS.md`): point `script-actions`, buttons of the add-ons on the row of every script (`npm install` included), with the project, the script and the command to run. The first add-on is the **Terminal** of the official catalog, with *Run in shell*.
+
 ## [2.38.0] - 2026-11-14
 
 ### Added

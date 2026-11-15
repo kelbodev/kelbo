@@ -16,7 +16,8 @@ window.Extensions = (() => {
   const KINDS = ['component', 'provider', 'theme', 'addon'];
   // add-on: di quale estensione (con le versioni compatibili); host: quanti punti offre
   const hostName = code => { const h = data?.extensions.find(x => x.code === code); return h ? pick(h.name) : code; };
-  const addonLine = e => (e.addon ? `<div class="ext-muted ext-addon">${UI.icon('puzzle')} ${esc(t('core.ext.addonOf', { host: hostName(e.addon.host), range: e.addon.version }))}</div>`
+  const addonLine = e => (e.addon ? `<div class="ext-muted ext-addon">${UI.icon('puzzle')} ${esc(t(e.addon.optional ? 'core.ext.addonOptionalOf' : 'core.ext.addonOf', { host: hostName(e.addon.host), range: e.addon.version }))}${e.addon.optional && e.addonActive === false && e.addonProblem
+      ? ` · <span title="${esc(window.I18n.errorText(e.addonProblem))}">${esc(t('core.ext.addonInactive', { reason: window.I18n.errorText(e.addonProblem) }))}</span>` : ''}</div>`
     : e.addonPoints?.length ? `<div class="ext-muted ext-addon" title="${esc(e.addonPoints.map(p => `${p.id}${p.description ? ` — ${pick(p.description)}` : ''}`).join('\n'))}">${UI.icon('puzzle')} ${esc(t('core.ext.addonHost', { count: e.addonPoints.length, addons: data.extensions.filter(x => x.addon?.host === e.code).length }))}</div>` : '');
   const kindTags = list => (list || []).map(k => `<span class="ext-pill ext-kind ext-kind-${esc(k)}" title="${esc(t(`core.ext.kindHint.${k}`))}">${esc(t(`core.ext.kind.${k}`))}</span>`).join('');
   const ofKind = e => !kind || (e.kinds || []).includes(kind);
