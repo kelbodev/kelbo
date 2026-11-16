@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Fixed
+- SSH tunnels: a tunnel whose local port is in the system's ephemeral range (32768–60999 on Linux) is no longer reported ready while ssh is still starting or has already failed, when the readiness check happens to connect to itself (TCP self-connect). The DB client and npm scripts now get the real "tunnel not ready" error instead of a connection to nothing.
+
 ## [2.43.1] - 2026-11-16
 
 ### Fixed

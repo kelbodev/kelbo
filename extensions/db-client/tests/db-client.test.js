@@ -57,7 +57,9 @@ const { tmpDir } = require('../../../lib/testkit');
 test('connessioni: CRUD, password mai esposte, prova di connessione', async t => {
   const mysqlDb = await startMysql();
   if (!mysqlDb) return t.skip('mysqld non installato');
-  const s = await startServer({ groups: [], servers: [{ key: 'bastion', label: 'Bastion', port: 46010, remote: 'db:3306', alias: 'devdock-test.invalid' }], projects: [] });
+  // porta del tunnel fuori dall'intervallo effimero (32768-60999 su Linux): le porte libere scelte
+  // dagli altri file di test (Kelbo, mysqld) non possono capitarci, né una connessione a sé stessa
+  const s = await startServer({ groups: [], servers: [{ key: 'bastion', label: 'Bastion', port: 29310, remote: 'db:3306', alias: 'devdock-test.invalid' }], projects: [] });
   try {
     const api = (m, p, body) => s.request(m, `${p.startsWith('/vault') ? '/api/core' : '/api/ext/db-client'}${p}`, { body: body ?? (m === 'POST' || m === 'PUT' ? {} : undefined) });
     const conn = { id: 'locale', label: 'MySQL locale', host: '127.0.0.1', port: mysqlDb.port, database: 'app', user: 'devdock', password: 'devdock-pass' };

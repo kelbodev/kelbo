@@ -22,13 +22,21 @@ const portOpen = port => new Promise(resolve => {
   sock.on('error', () => resolve(false));
 });
 
+function spawnMysqld(mysqld, mariadb, dir, data, port) {
+  return spawn(mysqld, [
+    '--no-defaults', `--datadir=${data}`, `--port=${port}`, '--bind-address=127.0.0.1',
+    `--socket=${path.join(dir, 'mysql.sock')}`, `--pid-file=${path.join(dir, 'mysql.pid')}`,
+    ...(mariadb ? (process.getuid?.() === 0 ? ['--user=root'] : []) : ['--mysqlx=OFF']),
+    '--skip-log-bin', '--innodb-buffer-pool-size=16M', `--log-error=${path.join(dir, 'error.log')}`,
+  ], { stdio: 'ignore' });
+}
+
 // Avvia mysqld e crea l'utente devdock/devdock-pass con il database "app"
 async function startMysql() {
   const mysqld = findMysqld();
   if (!mysqld) return null;
   const dir = tmpDir('devdock-mysql-');
   const data = path.join(dir, 'data');
-  const port = await freePort();
   // MariaDB (mysqld di molte distribuzioni Linux): datadir con mariadb-install-db, niente X protocol
   const mariadb = /mariadb/i.test(spawnSync(mysqld, ['--version'], { encoding: 'utf8' }).stdout || '');
   if (mariadb) {
@@ -36,16 +44,30 @@ async function startMysql() {
     if (!install) return null;
     execFileSync(install, ['--no-defaults', `--datadir=${data}`, '--auth-root-authentication-method=normal', '--skip-test-db', ...(process.getuid?.() === 0 ? ['--user=root'] : [])], { stdio: 'ignore' });
   } else execFileSync(mysqld, ['--no-defaults', '--initialize-insecure', `--datadir=${data}`], { stdio: 'ignore' });
-  const proc = spawn(mysqld, [
-    '--no-defaults', `--datadir=${data}`, `--port=${port}`, '--bind-address=127.0.0.1',
-    `--socket=${path.join(dir, 'mysql.sock')}`, `--pid-file=${path.join(dir, 'mysql.pid')}`,
-    ...(mariadb ? (process.getuid?.() === 0 ? ['--user=root'] : []) : ['--mysqlx=OFF']),
-    '--skip-log-bin', '--innodb-buffer-pool-size=16M', `--log-error=${path.join(dir, 'error.log')}`,
-  ], { stdio: 'ignore' });
-  for (let i = 0; i < 100 && !(await portOpen(port)); i++) await new Promise(r => setTimeout(r, 200));
-
+  // La porta libera può essere presa da un altro file di test prima che mysqld la apra:
+  // mysqld allora esce e si riprova con un'altra porta. Pronto = handshake MySQL riuscito con
+  // mysqld ancora vivo (la porta aperta non basta: potrebbe rispondere un altro processo).
   const mysql = require('mysql2/promise');
-  const root = await mysql.createConnection({ host: '127.0.0.1', port, user: 'root', multipleStatements: true });
+  let proc, port, root;
+  for (let attempt = 0; attempt < 5 && !proc; attempt++) {
+    port = await freePort();
+    const p = spawnMysqld(mysqld, mariadb, dir, data, port);
+    let exited = false;
+    p.on('exit', () => { exited = true; });
+    for (let i = 0; i < 150 && !exited; i++) {
+      if (await portOpen(port)) {
+        try {
+          root = await mysql.createConnection({ host: '127.0.0.1', port, user: 'root', multipleStatements: true, connectTimeout: 2000 });
+        } catch { root = null; }
+        if (root && !exited) { proc = p; break; }
+        if (root) { await root.end().catch(() => {}); root = null; }
+      }
+      await new Promise(r => setTimeout(r, 200));
+    }
+    if (!proc && !exited) { p.kill('SIGKILL'); throw new Error(`mysqld non pronto sulla porta ${port} dopo 30 s`); }
+  }
+  if (!proc) throw new Error('mysqld non avviato: porta occupata a ogni tentativo');
+
   await root.query(`
     CREATE DATABASE app;
     CREATE USER 'devdock'@'%' IDENTIFIED BY 'devdock-pass';

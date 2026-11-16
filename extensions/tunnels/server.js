@@ -270,9 +270,11 @@ module.exports = function createTunnels(ctx) {
   }
 
   // La porta locale accetta connessioni? (tunnel pronto)
+  // Una porta dell'intervallo effimero senza nessuno in ascolto può "connettersi a sé stessa"
+  // (porta sorgente scelta dal kernel = porta di destinazione): non è un tunnel pronto
   function portOpen(port) {
     return new Promise(resolve => {
-      const sock = net.connect({ host: '127.0.0.1', port }, () => { sock.destroy(); resolve(true); });
+      const sock = net.connect({ host: '127.0.0.1', port }, () => { const self = sock.localPort === sock.remotePort; sock.destroy(); resolve(!self); });
       sock.on('error', () => resolve(false));
       sock.setTimeout(1000, () => { sock.destroy(); resolve(false); });
     });
