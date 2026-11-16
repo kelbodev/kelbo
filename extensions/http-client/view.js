@@ -342,46 +342,174 @@ export default {
       ctx.setBadge(null);
     }
 
-    // Richieste di una sezione: raggruppate per tipologia di utenza (progetto ▸ utenza ▸ richieste),
-    // più "senza autorizzazione"; una sezione senza utenze resta un elenco semplice
+    // Richieste di una sezione: raggruppate per tipologia di utenza (utenza ▸ cartelle ▸ richieste),
+    // più "senza autorizzazione"; una sezione senza utenze ha cartelle e richieste direttamente.
+    // --lvl è il livello di rientro; data-drag / data-drop servono a trascinare richieste e cartelle
     function sectionTree(s, closed) {
-      const reqButton = (r, nested) => `<button class="sb-item hc-req ${nested ? 'hc-req-nested' : ''} ${active?.request === r.id && active?.section === s.id ? 'active' : ''}"
-          onclick="Ext['http-client'].open(${js(s.id)},${js(r.id)})" oncontextmenu="event.preventDefault();Ext['http-client'].requestMenu(event,${js(s.id)},${js(r.id)})">
-          ${methodBadge(r.method)}<span class="hc-req-label">${esc(r.label)}</span></button>`;
-      const addButton = (uid, nested) => `<button class="sb-item hc-add ${nested ? 'hc-req-nested' : ''}" onclick="Ext['http-client'].newRequest(${js(s.id)},${js(uid || '')})"><i data-icon="plus"></i> ${esc(t('sidebar.newRequest'))}</button>`;
-      if (!s.userTypes.length) return s.requests.map(r => reqButton(r, false)).join('') + addButton(null, false);
       const known = new Set(s.userTypes.map(u => u.id));
+      const userOf = x => (x.userType && known.has(x.userType) ? x.userType : '');
+      const folders = s.folders || [];
+      const kids = (uid, parent) => folders.filter(f => userOf(f) === uid && (f.parent || null) === parent);
+      const reqsIn = (uid, fid) => s.requests.filter(r => userOf(r) === uid && (r.folder || null) === fid);
+      const countIn = (uid, fid) => reqsIn(uid, fid).length + kids(uid, fid).reduce((n, f) => n + countIn(uid, f.id), 0);
+      const sid = js(s.id);
+      const reqButton = (r, lvl) => `<button class="sb-item hc-req ${active?.request === r.id && active?.section === s.id ? 'active' : ''}" style="--lvl:${lvl}"
+          draggable="true" data-section="${esc(s.id)}" data-drag="r:${esc(r.id)}"
+          onclick="Ext['http-client'].open(${sid},${js(r.id)})" oncontextmenu="event.preventDefault();Ext['http-client'].requestMenu(event,${sid},${js(r.id)})">
+          ${methodBadge(r.method)}<span class="hc-req-label">${esc(r.label)}</span></button>`;
+      const addButton = (uid, fid, lvl) => `<button class="sb-item hc-add" style="--lvl:${lvl}" onclick="Ext['http-client'].newRequest(${sid},${js(uid || '')},${js(fid || '')})"><i data-icon="plus"></i> ${esc(t('sidebar.newRequest'))}</button>`;
+      const folderHtml = (f, uid, lvl) => {
+        const key = `${s.id}|f|${f.id}`;
+        const open = !closed.has(key);
+        const inner = tree(uid, f.id, lvl + 1);
+        return `<div class="sb-item hc-folder-head" role="button" tabindex="0" aria-expanded="${open}" style="--lvl:${lvl}"
+            draggable="true" data-section="${esc(s.id)}" data-drag="f:${esc(f.id)}" data-drop="f:${esc(f.id)}"
+            onclick="Ext['http-client'].toggle(${js(key)})" oncontextmenu="event.preventDefault();Ext['http-client'].folderMenu(event,${sid},${js(f.id)})">
+            <svg class="pf-chevron ${open ? 'open' : ''}" viewBox="0 0 10 10" aria-hidden="true"><path d="M3.5 1.5 7 5 3.5 8.5" /></svg>
+            <span class="hc-folder-icon">${ctx.ui.icon(open ? 'folder-open' : 'folder')}</span><span class="hc-group-label">${esc(f.label)}</span>
+            <span class="sb-count">${esc(fmt.number(countIn(uid, f.id)))}</span>
+            <button class="sb-item-act" onclick="event.stopPropagation();Ext['http-client'].folderMenu(event,${sid},${js(f.id)})" title="${esc(t('folder.actions'))}"><i data-icon="ellipsis"></i></button>
+          </div>
+          ${open ? inner || addButton(uid, f.id, lvl + 1) : ''}`;
+      };
+      const tree = (uid, fid, lvl) => kids(uid, fid).map(f => folderHtml(f, uid, lvl)).join('') + reqsIn(uid, fid).map(r => reqButton(r, lvl)).join('');
+      if (!s.userTypes.length) return tree('', null, 1) + addButton(null, null, 1);
       const groups = [
-        ...s.userTypes.map(u => ({ id: u.id, label: u.label, icon: 'user', requests: s.requests.filter(r => r.userType === u.id) })),
-        { id: '', label: t('sidebar.noUser'), icon: 'user-x', requests: s.requests.filter(r => !r.userType || !known.has(r.userType)) },
-      ].filter(g => g.id || g.requests.length);
+        ...s.userTypes.map(u => ({ id: u.id, label: u.label, icon: 'user' })),
+        { id: '', label: t('sidebar.noUser'), icon: 'user-x' },
+      ].filter(g => g.id || countIn('', null) || kids('', null).length);
       return groups.map(g => {
         const key = `${s.id}|${g.id || '-'}`;
         const open = !closed.has(key);
-        return `<div class="sb-item hc-user-head" role="button" tabindex="0" aria-expanded="${open}" onclick="Ext['http-client'].toggle(${js(key)})">
+        const inner = tree(g.id, null, 2);
+        return `<div class="sb-item hc-user-head" role="button" tabindex="0" aria-expanded="${open}" data-section="${esc(s.id)}" data-drop="u:${esc(g.id)}"
+            onclick="Ext['http-client'].toggle(${js(key)})" oncontextmenu="event.preventDefault();Ext['http-client'].userMenu(event,${sid},${js(g.id)})">
             <svg class="pf-chevron ${open ? 'open' : ''}" viewBox="0 0 10 10" aria-hidden="true"><path d="M3.5 1.5 7 5 3.5 8.5" /></svg>
-            <span class="hc-user-icon">${g.icon}</span><span class="hc-group-label">${esc(g.label)}</span>
-            <span class="sb-count">${esc(fmt.number(g.requests.length))}</span>
-            <button class="sb-item-act" onclick="event.stopPropagation();Ext['http-client'].newRequest(${js(s.id)},${js(g.id)})" title="${esc(t('sidebar.newRequestFor', { user: g.label }))}"><i data-icon="plus"></i></button>
+            <span class="hc-user-icon">${ctx.ui.icon(g.icon)}</span><span class="hc-group-label">${esc(g.label)}</span>
+            <span class="sb-count">${esc(fmt.number(countIn(g.id, null)))}</span>
+            <button class="sb-item-act" onclick="event.stopPropagation();Ext['http-client'].newFolder(${sid},${js(g.id)},'')" title="${esc(t('folder.newIn', { name: g.label }))}"><i data-icon="folder-plus"></i></button>
+            <button class="sb-item-act" onclick="event.stopPropagation();Ext['http-client'].newRequest(${sid},${js(g.id)},'')" title="${esc(t('sidebar.newRequestFor', { user: g.label }))}"><i data-icon="plus"></i></button>
           </div>
-          ${open ? g.requests.map(r => reqButton(r, true)).join('') + (g.requests.length ? '' : addButton(g.id, true)) : ''}`;
+          ${open ? inner || addButton(g.id, null, 2) : ''}`;
       }).join('');
     }
 
-    // Richiesta spostata sotto un'altra utenza (menu contestuale)
-    async function moveToUser(sectionId, requestId, uid) {
+    // Richiesta spostata (sotto un'altra utenza, in una cartella): { userType, folder }
+    async function moveRequest(sectionId, requestId, { userType = null, folder = null }) {
       const s = section(sectionId);
       if (active?.section === sectionId && active?.request === requestId && draft) {
-        draft.userType = uid || null;
-        if (!uid) delete draft.userType;
+        if (userType) draft.userType = userType; else delete draft.userType;
+        if (folder) draft.folder = folder; else delete draft.folder;
         renderEditor();
         return saveRequest();
       }
       const r = s.requests.find(x => x.id === requestId);
       try {
-        const saved = await ctx.api.put(`/sections/${encodeURIComponent(sectionId)}/requests/${encodeURIComponent(requestId)}`, { ...r, userType: uid || null });
+        const saved = await ctx.api.put(`/sections/${encodeURIComponent(sectionId)}/requests/${encodeURIComponent(requestId)}`, { ...r, userType, folder });
         s.requests = s.requests.map(x => (x.id === saved.id ? saved : x));
         renderSidebar();
+      } catch (e) { toast(e.message, 'error'); }
+    }
+    const moveToUser = (sectionId, requestId, uid) => moveRequest(sectionId, requestId, { userType: uid || null });
+
+    // ---- cartelle ----
+
+    // Ricarica le sezioni dopo una modifica che tocca più richieste; la richiesta aperta prende
+    // utenza e cartella aggiornate e tiene le modifiche non salvate
+    async function reloadSections() {
+      try { sections = await ctx.api.get('/sections'); } catch (e) { toast(e.message, 'error'); return; }
+      const r = active && section(active.section)?.requests.find(x => x.id === active.request);
+      if (r && draft) {
+        for (const k of ['userType', 'folder']) { if (r[k]) draft[k] = r[k]; else delete draft[k]; }
+        renderEditor();
+      }
+      renderSidebar();
+    }
+
+    function folderDialog(sectionId, { folderId = null, userType = '', parent = '' } = {}) {
+      const f = folderId ? section(sectionId).folders.find(x => x.id === folderId) : null;
+      openModal(t(f ? 'folder.renameTitle' : 'folder.newTitle'), `
+        <div class="form-row"><label for="f_hc_folder">${esc(t('folder.name'))}</label>
+          <input class="form-input" id="f_hc_folder" value="${esc(f?.label || '')}" maxlength="100"
+            onkeydown="if(event.key==='Enter')Ext['http-client'].saveFolder(${js(sectionId)},${js(folderId || '')},${js(userType || '')},${js(parent || '')})"></div>`,
+        `<button class="btn btn-ghost" onclick="UI.closeModal()">${esc(t('core.action.cancel'))}</button>
+         <button class="btn btn-primary" onclick="Ext['http-client'].saveFolder(${js(sectionId)},${js(folderId || '')},${js(userType || '')},${js(parent || '')})">${esc(t(f ? 'core.action.save' : 'core.action.add'))}</button>`);
+      setTimeout(() => { byId('f_hc_folder')?.focus(); byId('f_hc_folder')?.select(); }, 0);
+    }
+
+    async function saveFolder(sectionId, folderId, userType, parent) {
+      const label = val('f_hc_folder').trim();
+      if (!label) { byId('f_hc_folder')?.focus(); return; }
+      const base = `/sections/${encodeURIComponent(sectionId)}/folders`;
+      try {
+        if (folderId) await ctx.api.put(`${base}/${encodeURIComponent(folderId)}`, { label });
+        else {
+          const fo = await ctx.api.post(base, { label, userType: userType || null, parent: parent || null });
+          // la cartella nuova si vede: aperti la sezione, l'utenza e le cartelle che la contengono
+          const closed = collapsed();
+          closed.delete(sectionId); closed.delete(`${sectionId}|${fo.userType || '-'}`);
+          for (let p = parent; p; p = section(sectionId).folders.find(x => x.id === p)?.parent) closed.delete(`${sectionId}|f|${p}`);
+          storeCollapsed(closed);
+        }
+        closeModal();
+        await reloadSections();
+      } catch (e) { toast(e.message, 'error'); }
+    }
+
+    async function deleteFolder(sectionId, folderId) {
+      const f = section(sectionId).folders.find(x => x.id === folderId);
+      if (!f || !confirm(t('folder.confirmDelete', { name: f.label }))) return;
+      try {
+        await ctx.api.del(`/sections/${encodeURIComponent(sectionId)}/folders/${encodeURIComponent(folderId)}`);
+        await reloadSections();
+      } catch (e) { toast(e.message, 'error'); }
+    }
+
+    // Dove si può spostare qualcosa: la radice di ogni utenza (o della sezione) e le sue cartelle,
+    // in ordine di albero; without = una cartella da escludere con tutto quello che contiene
+    function destinations(s, without = null) {
+      const known = new Set(s.userTypes.map(u => u.id));
+      const userOf = x => (x.userType && known.has(x.userType) ? x.userType : '');
+      const out = [];
+      const walk = (uid, parent, depth) => {
+        for (const f of (s.folders || []).filter(x => userOf(x) === uid && (x.parent || null) === parent)) {
+          if (f.id === without) continue;
+          out.push({ userType: uid, folder: f.id, label: `${'\u00a0'.repeat(depth * 4)}› ${f.label}` });
+          walk(uid, f.id, depth + 1);
+        }
+      };
+      const roots = s.userTypes.length ? [...s.userTypes.map(u => [u.id, u.label]), ['', t('sidebar.noUser')]] : [['', t('folder.root')]];
+      for (const [uid, label] of roots) {
+        out.push({ userType: uid, folder: '', label, root: true });
+        walk(uid, null, 1);
+      }
+      return out;
+    }
+
+    // what: { request } o { folder }
+    function moveDialog(sectionId, what) {
+      const s = section(sectionId);
+      const item = what.request ? s.requests.find(x => x.id === what.request) : s.folders.find(x => x.id === what.folder);
+      if (!item) return;
+      const here = `${item.userType || ''}|${(what.request ? item.folder : item.parent) || ''}`;
+      const options = destinations(s, what.folder).map(d => `<option class="${d.root ? 'hc-dest-root' : ''}" value="${esc(`${d.userType}|${d.folder}`)}" ${`${d.userType}|${d.folder}` === here ? 'selected' : ''}>${esc(d.label)}</option>`).join('');
+      openModal(t('folder.moveTitle', { name: item.label }), `
+        <div class="form-row"><label for="f_hc_dest">${esc(t('folder.destination'))}</label>
+          <select class="form-input hc-dest" id="f_hc_dest" size="${Math.min(12, Math.max(4, destinations(s, what.folder).length))}">${options}</select>
+          <p class="hc-muted">${esc(t(what.folder ? 'folder.moveFolderHint' : 'folder.moveRequestHint'))}</p></div>`,
+        `<button class="btn btn-ghost" onclick="UI.closeModal()">${esc(t('core.action.cancel'))}</button>
+         <button class="btn btn-primary" onclick="Ext['http-client'].confirmMove(${js(sectionId)},${js(what.request || '')},${js(what.folder || '')})">${esc(t('folder.move'))}</button>`);
+      setTimeout(() => byId('f_hc_dest')?.focus(), 0);
+    }
+
+    // Sposta una richiesta o una cartella in dest ("utenza|cartella")
+    async function moveTo(sectionId, what, dest) {
+      const [userType, folder] = dest.split('|');
+      if (what.request) return moveRequest(sectionId, what.request, { userType: userType || null, folder: folder || null });
+      if (folder === what.folder) return;
+      try {
+        await ctx.api.put(`/sections/${encodeURIComponent(sectionId)}/folders/${encodeURIComponent(what.folder)}`, { parent: folder || null, userType: userType || null });
+        await reloadSections();
       } catch (e) { toast(e.message, 'error'); }
     }
 
@@ -743,6 +871,7 @@ export default {
         const r = await ctx.api.put(`/sections/${encodeURIComponent(active.section)}/requests/${encodeURIComponent(active.request)}`, draft);
         const s = activeSection();
         s.requests = s.requests.map(x => (x.id === r.id ? r : x));
+        if (r.folder) draft.folder = r.folder; else delete draft.folder;
         dirty = false;
         $(ctx.root, 'dirty').hidden = true;
         renderSidebar();
@@ -1316,11 +1445,42 @@ export default {
         renderSidebar();
       },
       open(sectionId, requestId) { if (active?.request === requestId && active?.section === sectionId) return; if (canLeave()) openRequest(sectionId, requestId); },
-      newRequest(sectionId, uid) { if (canLeave()) createRequest(sectionId, uid ? { userType: uid } : {}); },
+      newRequest(sectionId, uid, folder) {
+        if (!canLeave()) return;
+        const data = { ...(uid ? { userType: uid } : {}), ...(folder ? { folder } : {}) };
+        if (folder) { const closed = collapsed(); closed.delete(`${sectionId}|f|${folder}`); storeCollapsed(closed); }
+        createRequest(sectionId, data);
+      },
+      newFolder(sectionId, uid, parent) { folderDialog(sectionId, { userType: uid, parent }); },
+      saveFolder,
+      confirmMove(sectionId, requestId, folderId) {
+        const dest = val('f_hc_dest');
+        closeModal();
+        moveTo(sectionId, requestId ? { request: requestId } : { folder: folderId }, dest);
+      },
+      userMenu(event, sectionId, uid) {
+        menuAt(event, [
+          { label: t('sidebar.newRequest'), icon: 'plus', action: () => { if (canLeave()) createRequest(sectionId, uid ? { userType: uid } : {}); } },
+          { label: t('folder.new'), icon: 'folder-plus', action: () => folderDialog(sectionId, { userType: uid }) },
+        ]);
+      },
+      folderMenu(event, sectionId, folderId) {
+        const f = section(sectionId).folders.find(x => x.id === folderId);
+        if (!f) return;
+        menuAt(event, [
+          { label: t('sidebar.newRequest'), icon: 'plus', action: () => Ext['http-client'].newRequest(sectionId, f.userType || '', f.id) },
+          { label: t('folder.newSub'), icon: 'folder-plus', action: () => folderDialog(sectionId, { userType: f.userType || '', parent: f.id }) },
+          { label: t('folder.rename'), icon: 'pencil', action: () => folderDialog(sectionId, { folderId: f.id }) },
+          { label: t('folder.moveTo'), icon: 'folder-input', action: () => moveDialog(sectionId, { folder: f.id }) },
+          'separator',
+          { label: t('folder.delete'), icon: 'trash-2', danger: true, action: () => deleteFolder(sectionId, f.id) },
+        ]);
+      },
       sectionMenu(event, id) {
         const s = section(id);
         menuAt(event, [
           { label: t('sidebar.newRequest'), icon: 'plus', action: () => { if (canLeave()) createRequest(id); } },
+          ...(s.userTypes.length ? [] : [{ label: t('folder.new'), icon: 'folder-plus', action: () => folderDialog(id) }]),
           { label: t('sidebar.discover'), icon: 'scan-search', disabled: !s.projectId, action: () => routesDialog(id) },
           { label: t('editor.users'), icon: 'user', action: () => usersDialog(id) },
           { label: t('sidebar.editSection'), icon: 'pencil', action: () => sectionDialog(id) },
@@ -1336,6 +1496,7 @@ export default {
           ...(section(sectionId).userTypes.length ? ['separator',
             ...section(sectionId).userTypes.filter(u => u.id !== r.userType).map(u => ({ label: t('sidebar.moveTo', { user: u.label }), icon: 'user', action: () => moveToUser(sectionId, requestId, u.id) })),
             ...(r.userType ? [{ label: t('sidebar.moveTo', { user: t('sidebar.noUser') }), icon: 'user-x', action: () => moveToUser(sectionId, requestId, null) }] : [])] : []),
+          { label: t('folder.moveTo'), icon: 'folder-input', action: () => moveDialog(sectionId, { request: requestId }) },
           'separator',
           { label: t('core.action.delete'), icon: 'trash-2', danger: true, action: async () => {
             if (!confirm(t('sidebar.confirmDeleteRequest', { name: r.label }))) return;
@@ -1385,6 +1546,48 @@ export default {
       filterRoutes,
       importRoute,
       confirmImport,
+    });
+
+    // ---- trascinare richieste e cartelle su una cartella o su un'utenza (stessa sezione) ----
+    let dragging = null; // { section, kind: 'r' | 'f', id }
+    const dropTarget = e => {
+      const el = e.target.closest?.('[data-drop]');
+      if (!el || !dragging || el.dataset.section !== dragging.section) return null;
+      if (dragging.kind === 'f' && el.dataset.drop.startsWith('f:')) {
+        // non dentro se stessa o una sua sottocartella
+        const s = section(dragging.section);
+        for (let p = el.dataset.drop.slice(2); p; p = s.folders.find(x => x.id === p)?.parent) if (p === dragging.id) return null;
+      }
+      return el;
+    };
+    ctx.sidebar.addEventListener('dragstart', e => {
+      const el = e.target.closest?.('[data-drag]');
+      if (!el) return;
+      const [kind, id] = el.dataset.drag.split(':');
+      dragging = { section: el.dataset.section, kind, id };
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', el.textContent.trim());
+    });
+    ctx.sidebar.addEventListener('dragend', () => { dragging = null; ctx.sidebar.querySelectorAll('.hc-drop').forEach(x => x.classList.remove('hc-drop')); });
+    ctx.sidebar.addEventListener('dragover', e => {
+      const el = dropTarget(e);
+      ctx.sidebar.querySelectorAll('.hc-drop').forEach(x => { if (x !== el) x.classList.remove('hc-drop'); });
+      if (!el) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      el.classList.add('hc-drop');
+    });
+    ctx.sidebar.addEventListener('drop', e => {
+      const el = dropTarget(e);
+      if (!el) return;
+      e.preventDefault();
+      const s = section(dragging.section);
+      const [kind, id] = el.dataset.drop.split(':');
+      const dest = kind === 'u' ? `${id}|` : `${s.folders.find(x => x.id === id)?.userType || ''}|${id}`;
+      const what = dragging.kind === 'r' ? { request: dragging.id } : { folder: dragging.id };
+      dragging = null;
+      el.classList.remove('hc-drop');
+      moveTo(s.id, what, dest);
     });
 
     ctx.bus.on('core:projects-changed', load);

@@ -21,7 +21,7 @@ const HTTP_URL_RE = /^https?:\/\/[^\s]{1,500}$/i;
 const REDIRECT_RE = /^http:\/\/(localhost|127\.0\.0\.1):(\d{1,5})(\/[^\s#?]*)$/;
 const EXTRACT_FROM_RE = /^(header:[A-Za-z0-9!#$%&'*+.^_`|~-]{1,64}|(json:)?[\w$-]+(\.[\w$-]+)*)$/;
 const CONTROL_RE = /[\x00-\x1f\x7f]/;
-const LIMITS = { sections: 200, requests: 500, users: 30, pairs: 100, value: 8000, body: 100000, url: 4000 };
+const LIMITS = { sections: 200, requests: 500, users: 30, pairs: 100, value: 8000, body: 100000, url: 4000, folders: 300, depth: 10 };
 
 const newId = () => crypto.randomBytes(4).toString('hex');
 const isStr = (v, max) => typeof v === 'string' && v.length <= max;
@@ -40,6 +40,20 @@ module.exports = function createHttpClient(ctx) {
     const u = (s.userTypes || []).find(x => x.id === uid);
     if (!u) throw ctx.error(404, 'user_not_found', { id: String(uid) });
     return u;
+  };
+  const folderOr404 = (s, fid) => {
+    const f = (s.folders || []).find(x => x.id === fid);
+    if (!f) throw ctx.error(404, 'folder_not_found', { id: String(fid) });
+    return f;
+  };
+  // cartella fid e tutte quelle dentro (a qualsiasi livello)
+  const subtree = (s, fid) => {
+    const out = new Set([fid]);
+    for (let grew = true; grew;) {
+      grew = false;
+      for (const f of s.folders || []) if (f.parent && out.has(f.parent) && !out.has(f.id)) { out.add(f.id); grew = true; }
+    }
+    return out;
   };
   const save = list => ctx.config.set('httpSections', list);
   const replaceSection = s => save(sections().map(x => (x.id === s.id ? s : x)));
@@ -166,11 +180,31 @@ module.exports = function createHttpClient(ctx) {
       userIds.add(u.id);
       if (hasSecret(u) && !cfg.vault) throw ctx.error.config('secret_without_vault', { id: u.id });
     }
+    // cartelle: sotto un'utenza (userType) o fuori da tutte, annidate (parent) con la stessa utenza
+    const folders = s.folders ?? [];
+    if (!Array.isArray(folders) || folders.length > LIMITS.folders) throw bad('folders');
+    const byFolder = new Map();
+    for (const fo of folders) {
+      if (!fo || !KEY_RE.test(fo.id || '') || byFolder.has(fo.id)) throw ctx.error.config('folder_invalid', { id: s.id, folder: String(fo?.id ?? '') });
+      if (!isText(fo.label, 100)) throw ctx.error.config('folder_invalid', { id: s.id, folder: fo.id });
+      if (fo.userType != null && !userIds.has(fo.userType)) throw ctx.error.config('folder_invalid', { id: s.id, folder: fo.id });
+      byFolder.set(fo.id, fo);
+    }
+    for (const fo of folders) {
+      let depth = 0;
+      for (let p = fo; p.parent != null; depth++) {
+        const parent = byFolder.get(p.parent);
+        if (!parent || depth >= LIMITS.depth || (parent.userType ?? null) !== (p.userType ?? null)) throw ctx.error.config('folder_invalid', { id: s.id, folder: fo.id });
+        p = parent;
+      }
+    }
     const requests = s.requests ?? [];
     if (!Array.isArray(requests) || requests.length > LIMITS.requests) throw bad('requests');
     const reqIds = new Set();
     for (const r of requests) {
       validateRequest(r, users);
+      if (r.folder != null && (byFolder.get(r.folder)?.userType ?? null) !== (r.userType ?? null)) throw ctx.error.config('request_folder', { id: r.id });
+      if (r.folder != null && !byFolder.has(r.folder)) throw ctx.error.config('request_folder', { id: r.id });
       if (reqIds.has(r.id)) throw ctx.error.config('request_duplicate', { id: r.id });
       reqIds.add(r.id);
     }
@@ -233,7 +267,7 @@ module.exports = function createHttpClient(ctx) {
     const { password, clientSecret, ...a } = u.auth || {};
     return { ...u, auth: { ...a, ...(password !== undefined ? { hasPassword: !!password } : {}), ...(clientSecret !== undefined ? { hasClientSecret: !!clientSecret } : {}) } };
   };
-  const publicSection = s => ({ ...s, variables: s.variables || [], requests: s.requests || [], userTypes: (s.userTypes || []).map(publicUser) });
+  const publicSection = s => ({ ...s, variables: s.variables || [], requests: s.requests || [], folders: s.folders || [], userTypes: (s.userTypes || []).map(publicUser) });
 
   // ---- dati dal form ----
 
@@ -263,6 +297,7 @@ module.exports = function createHttpClient(ctx) {
       bodyType: body.bodyType ?? existing.bodyType ?? 'none',
       body: String(body.body ?? existing.body ?? ''),
       userType: body.userType !== undefined ? body.userType || null : existing.userType ?? null,
+      folder: body.folder !== undefined ? body.folder || null : existing.folder ?? null,
       // corpo "file": percorso del file; "form": campi multipart di testo o file (percorsi)
       file: String(body.file ?? existing.file ?? '').trim(),
       form: (Array.isArray(body.form) ? body.form : existing.form || []).filter(f => f && (f.name || f.value)).map(f => ({
@@ -270,9 +305,27 @@ module.exports = function createHttpClient(ctx) {
       })),
     };
     if (!r.userType) delete r.userType;
+    if (!r.folder) delete r.folder;
     if (!r.file) delete r.file;
     if (!r.form.length) delete r.form;
     return r;
+  }
+
+  const folderLabel = v => {
+    const label = String(v ?? '').trim();
+    if (!label || !isText(label, 100)) throw ctx.error(400, 'folder_label');
+    return label;
+  };
+
+  // La cartella di una richiesta ha la sua stessa utenza: cambiando utenza la richiesta esce dalla
+  // cartella (una cartella nuova con un'altra utenza è un errore)
+  function placeRequest(s, r, body, cur = {}) {
+    if (!r.folder) return r;
+    const fo = folderOr404(s, r.folder);
+    if ((fo.userType ?? null) === (r.userType ?? null)) return r;
+    if (body.folder && body.folder !== cur.folder) throw ctx.error(400, 'folder_user');
+    const { folder, ...rest } = r;
+    return rest;
   }
 
   // password / clientSecret: stringa = nuovo valore (cifrato subito), null = rimosso, assente = invariato
@@ -477,7 +530,7 @@ module.exports = function createHttpClient(ctx) {
 
       createRequest(req, res) {
         const s = sectionOr404(req.params.id);
-        const r = buildRequest(req.body || {}, { id: newId() });
+        const r = placeRequest(s, buildRequest(req.body || {}, { id: newId() }), req.body || {});
         replaceSection({ ...s, requests: [...(s.requests || []), r] });
         res.json(r);
       },
@@ -486,7 +539,7 @@ module.exports = function createHttpClient(ctx) {
         const s = sectionOr404(req.params.id);
         const cur = (s.requests || []).find(x => x.id === req.params.rid);
         if (!cur) throw ctx.error(404, 'request_not_found', { id: String(req.params.rid) });
-        const r = buildRequest(req.body || {}, cur);
+        const r = placeRequest(s, buildRequest(req.body || {}, cur), req.body || {}, cur);
         replaceSection({ ...s, requests: s.requests.map(x => (x.id === r.id ? r : x)) });
         res.json(r);
       },
@@ -494,6 +547,63 @@ module.exports = function createHttpClient(ctx) {
       deleteRequest(req, res) {
         const s = sectionOr404(req.params.id);
         replaceSection({ ...s, requests: (s.requests || []).filter(x => x.id !== req.params.rid) });
+        res.json({ ok: true });
+      },
+
+      // ---- cartelle (sotto un'utenza, annidabili) ----
+
+      createFolder(req, res) {
+        const s = sectionOr404(req.params.id);
+        const body = req.body || {};
+        const parent = body.parent ? folderOr404(s, String(body.parent)) : null;
+        const userType = parent ? parent.userType ?? null : body.userType || null;
+        if (userType) userOr404(s, userType);
+        const fo = { id: newId(), label: folderLabel(body.label), ...(parent ? { parent: parent.id } : {}), ...(userType ? { userType } : {}) };
+        replaceSection({ ...s, folders: [...(s.folders || []), fo] });
+        res.json(fo);
+      },
+
+      // { label?, parent?, userType? }: rinomina o sposta (in un'altra cartella o sotto un'altra
+      // utenza, con le sottocartelle e le richieste che contiene)
+      updateFolder(req, res) {
+        const s = sectionOr404(req.params.id);
+        const cur = folderOr404(s, req.params.fid);
+        const body = req.body || {};
+        const fo = { ...cur };
+        if (body.label !== undefined) fo.label = folderLabel(body.label);
+        const inside = subtree(s, cur.id);
+        if (body.parent !== undefined) {
+          if (body.parent) {
+            const parent = folderOr404(s, String(body.parent));
+            if (inside.has(parent.id)) throw ctx.error(400, 'folder_parent');
+            fo.parent = parent.id;
+            fo.userType = parent.userType ?? null;
+          } else {
+            delete fo.parent;
+            if (body.userType !== undefined) fo.userType = body.userType || null;
+          }
+        } else if (body.userType !== undefined && !cur.parent) fo.userType = body.userType || null;
+        if (fo.userType) userOr404(s, fo.userType); else delete fo.userType;
+        const userType = fo.userType ?? null;
+        const withUser = x => { const y = { ...x }; if (userType) y.userType = userType; else delete y.userType; return y; };
+        replaceSection({
+          ...s,
+          folders: s.folders.map(x => (x.id === fo.id ? fo : inside.has(x.id) ? withUser(x) : x)),
+          requests: (s.requests || []).map(r => (r.folder && inside.has(r.folder) ? withUser(r) : r)),
+        });
+        res.json(fo);
+      },
+
+      // Sottocartelle e richieste salgono di un livello
+      deleteFolder(req, res) {
+        const s = sectionOr404(req.params.id);
+        const fo = folderOr404(s, req.params.fid);
+        const up = (x, key) => { const y = { ...x }; if (fo.parent) y[key] = fo.parent; else delete y[key]; return y; };
+        replaceSection({
+          ...s,
+          folders: s.folders.filter(x => x.id !== fo.id).map(x => (x.parent === fo.id ? up(x, 'parent') : x)),
+          requests: (s.requests || []).map(r => (r.folder === fo.id ? up(r, 'folder') : r)),
+        });
         res.json({ ok: true });
       },
 
@@ -523,6 +633,8 @@ module.exports = function createHttpClient(ctx) {
         replaceSection({
           ...s,
           userTypes: s.userTypes.filter(x => x.id !== u.id),
+          // le sue cartelle restano, con le loro richieste, fra quelle senza autorizzazione
+          folders: (s.folders || []).map(fo => (fo.userType === u.id ? (({ userType, ...rest }) => rest)(fo) : fo)),
           requests: (s.requests || []).map(r => (r.userType === u.id ? (({ userType, ...rest }) => rest)(r) : r)),
         });
         auth.forgetSection(s.id, u.id);

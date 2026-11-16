@@ -4,7 +4,7 @@
     "en": "HTTP"
   },
   "code": "http-client",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "kelbo": "^2.0",
   "description": {
     "it": "Client HTTP per le API locali dei progetti: sezioni di richieste con variabili, rotte Express trovate nel codice, token per tipologia di utenza (basic, login, OAuth/OpenID Connect)",
@@ -92,6 +92,21 @@
         "method": "DELETE",
         "path": "/sections/:id/requests/:rid",
         "handler": "deleteRequest"
+      },
+      {
+        "method": "POST",
+        "path": "/sections/:id/folders",
+        "handler": "createFolder"
+      },
+      {
+        "method": "PUT",
+        "path": "/sections/:id/folders/:fid",
+        "handler": "updateFolder"
+      },
+      {
+        "method": "DELETE",
+        "path": "/sections/:id/folders/:fid",
+        "handler": "deleteFolder"
       },
       {
         "method": "POST",

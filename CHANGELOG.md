@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.40.0] - 2026-11-16
+
+### Added
+- **HTTP 1.1: folders and subfolders** of requests, under each user type (section ▸ user ▸ folders ▸ requests; directly under the section when it has no user types). Create them from the user type (📁+) or from the context menus, rename, move and delete them (the content moves up one level); drag requests and folders onto a folder or a user type, or use *Move to…*. A folder moves with its subfolders and requests, which take the user type of the destination; changing the user type of a request in the editor takes it out of a folder of another user type; deleting a user type keeps its folders under *No authorization*. Folders are part of `httpSections` (export and import included) and are validated on import (no cycles, same user type as the parent, at most 10 levels).
+
+### Fixed
+- HTTP: the user type rows of the sidebar showed the icon name as text instead of the icon.
+
 ## [2.39.0] - 2026-11-15
 
 ### Added
