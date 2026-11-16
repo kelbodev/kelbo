@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.43.1] - 2026-11-16
+
+### Fixed
+- After an extension is installed, updated or restored, its updates are checked again before the panel is redrawn, so the update just made is no longer offered and the number on the 🧩 button goes down at once (the check used to run in the background and the badge caught up only an hour later). The panel also compares the last check with the version installed now.
+- After an update of Kelbo without PM2 the number goes down at once; after a restart the page reads the checks again as soon as the restarted server has made them.
+
 ## [2.43.0] - 2026-11-16
 
 ### Added

@@ -15,6 +15,7 @@ window.SelfUpdate = (() => {
     return info;
   }
   const available = () => !!info?.available;
+  const checked = () => !!info?.checkedAt;
 
   // Riga in cima alla scheda Installate
   function sectionHtml() {
@@ -136,6 +137,7 @@ window.SelfUpdate = (() => {
     const to = state.result.to;
     if (state.result.restart?.managed) { await restart(to); return; }
     document.getElementById('modalBody').insertAdjacentHTML('beforeend', `<p class="ext-ok">${esc(t('core.update.doneManual', { version: to }))}</p><pre class="ext-changelog">npm start</pre>`);
+    await window.Extensions.refresh?.(); // l'aggiornamento appena fatto non è più "disponibile": il numero scende
     document.getElementById('modalFooter').innerHTML = `<button class="btn btn-primary" onclick="UI.closeModal()">${esc(t('core.action.close'))}</button>`;
   }
 
@@ -159,5 +161,5 @@ window.SelfUpdate = (() => {
     document.getElementById('modalFooter').innerHTML = `<button class="btn btn-ghost" onclick="location.reload()">${esc(t('core.update.reload'))}</button>`;
   }
 
-  return { load, available, sectionHtml, check, whatsNew, start, rollback, close: closeModal };
+  return { load, available, checked, sectionHtml, check, whatsNew, start, rollback, close: closeModal };
 })();

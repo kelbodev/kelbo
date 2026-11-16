@@ -46,6 +46,9 @@ window.Extensions = (() => {
 
   async function init() {
     await load();
+    // server appena avviato (anche dopo un aggiornamento di Kelbo): i controlli partono dopo 15-20 s,
+    // il badge li riprende appena finiti
+    if (!data?.updatesCheckedAt || !window.SelfUpdate?.checked?.()) setTimeout(load, 25 * 1000);
     setInterval(load, 3600 * 1000); // il server controlla una volta al giorno: il badge segue
   }
 

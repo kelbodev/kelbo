@@ -147,6 +147,24 @@ module.exports = function coreRoutes(extensions) {
     try { updates = await installer.checkUpdates(); } catch (e) { console.error('[estensioni] controllo aggiornamenti:', e.message); }
     return updates;
   }
+  // Dopo un'installazione, un aggiornamento o un ripristino: di nuovo solo quella, così il pannello
+  // e il numero sul pulsante non propongono l'aggiornamento appena fatto
+  async function recheck(code) {
+    try {
+      const fresh = await installer.checkUpdates({ only: [code] });
+      const extensions = { ...updates.extensions };
+      if (fresh.extensions[code]) extensions[code] = fresh.extensions[code]; else delete extensions[code];
+      updates = { ...updates, extensions };
+    } catch (e) { console.error('[estensioni] controllo aggiornamenti:', e.message); }
+  }
+  // L'ultimo controllo confrontato con la versione installata adesso: se nel frattempo è cambiata
+  // (aggiornata a mano, ripristinata) "disponibile" vale rispetto a questa
+  function updateOf(code, lockEntry) {
+    const u = updates.extensions[code];
+    if (!u || !lockEntry || u.current === lockEntry.version || u.error) return u || null;
+    const newer = !!u.latest && semver.valid(u.latest) && semver.valid(lockEntry.version) && semver.compare(u.latest, lockEntry.version) > 0;
+    return { ...u, current: lockEntry.version, available: !u.untagged && newer, moved: false, missing: false };
+  }
   // all'avvio (poco dopo) e una volta al giorno
   setTimeout(checkUpdates, 15000).unref();
   setInterval(checkUpdates, 24 * 3600 * 1000).unref();
@@ -164,7 +182,7 @@ module.exports = function coreRoutes(extensions) {
         ...e, dir: undefined,
         ...(e.source === 'installed' && lock[e.code] ? { lock: { repo: lock[e.code].repo, path: lock[e.code].path || null, tag: lock[e.code].tag, commit: lock[e.code].commit, installedAt: lock[e.code].installedAt, previous: lock[e.code].previous?.version || null } } : {}),
         hasBackup: e.source === 'installed' && installer.hasBackup(e.code),
-        update: e.source === 'installed' ? updates.extensions[e.code] || null : null,
+        update: e.source === 'installed' ? updateOf(e.code, lock[e.code]) : null,
       })),
       // nell'elenco importato (export di un'altra macchina) ma non installate qui
       pending: (settings().installed || []).filter(x => !present.has(x.code)),
@@ -243,20 +261,20 @@ module.exports = function coreRoutes(extensions) {
         syncInstalledList();
         send('step', { key: 'load' });
         const loaded = extensions.reload(result.code);
+        await recheck(result.code);
         send('done', { ...result, ...loaded, state: extensions.get(result.code)?.state || null, error: extensions.get(result.code)?.error || null });
-        checkUpdates();
       } catch (e) {
         send('error', e.code ? { error: e.message, code: e.code, params: e.params } : { error: e.message });
       } finally { send.end(); }
     })();
   });
 
-  router.post('/extensions-admin/:code/restore', extCall(req => {
+  router.post('/extensions-admin/:code/restore', extCall(async req => {
     const code = codeOf(req);
     installer.restore(code);
     syncInstalledList();
     const r = extensions.reload(code);
-    checkUpdates();
+    await recheck(code);
     return r;
   }));
 

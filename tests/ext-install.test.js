@@ -159,11 +159,14 @@ test('aggiornamento: nuova versione trovata, dati di config conservati, ritorno 
   assert.deepEqual((await srv.request('GET', '/api/ext/hello/hi')).json, { code: 'hello', version: '1.2.0', data: { n: 42 } });
   let e = await ext('hello');
   assert.deepEqual([e.hasBackup, e.lock.previous], [true, '1.1.0']);
+  // ricontrollata subito dopo l'aggiornamento: rispetto alla 1.2.0 installata (non più alla 1.1.0)
+  assert.deepEqual([e.update.current, e.update.latest], ['1.2.0', '2.0.0']);
   // ritorno alla versione precedente con un clic
   await call('POST', '/extensions-admin/hello/restore');
   assert.equal((await srv.request('GET', '/api/ext/hello/hi')).json.version, '1.1.0');
   e = await ext('hello');
   assert.deepEqual([e.version, e.lock.tag, e.lock.previous], ['1.1.0', 'v1.1.0', '1.2.0']);
+  assert.equal(e.update.current, '1.1.0');
   // il tag installato ora punta a un altro commit: segnalato
   fs.writeFileSync(path.join(repoA, 'extra.txt'), 'x');
   git(repoA, 'add', '-A');
