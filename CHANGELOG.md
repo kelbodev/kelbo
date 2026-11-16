@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.44.0] - 2026-11-16
+
+### Added
+- **Git 1.1: push parameters per project** — profiles such as *Promote* with `-o promote`, saved for each project (`gitPushPresets`, with its own box in export/import) and picked from the new arrow next to **Push**. Before running, a push with a profile shows the exact command (`git push -o promote origin dev`) to confirm. Only known parameters are accepted: `-o` / `--push-option` with a value and a few flags (`--tags`, `--follow-tags`, `--no-follow-tags`, `--no-verify`, `--force-with-lease`, `--set-upstream` / `-u`, `--atomic`, `--dry-run` / `-n`, `--signed`, `--no-signed`, `--prune`, `--verbose`, `--quiet`); remotes, refspecs and options that run programs (`--receive-pack`, `--exec`) are refused, also in an imported configuration. The push runs the parameters saved on the server, never ones sent by the page.
+
 ## [2.43.1] - 2026-11-16
 
 ### Fixed

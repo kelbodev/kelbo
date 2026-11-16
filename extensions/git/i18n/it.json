@@ -222,5 +222,31 @@
   "diff.commitLegend": "A sinistra il commit precedente ({parent}), a destra il commit {hash}.",
   "diff.rootLegend": "Primo commit del repository ({hash}): tutto il contenuto è aggiunto.",
   "errors.commit_not_found": "Commit {hash} non trovato",
-  "errors.file_not_in_commit": "Il file {file} non è tra quelli cambiati dal commit"
+  "errors.file_not_in_commit": "Il file {file} non è tra quelli cambiati dal commit",
+  "push.menuTitle": "Push con parametri del progetto",
+  "push.manage": "Parametri di push…",
+  "push.manageTitle": "Parametri di push · {project}",
+  "push.manageHint": "Profili di push di questo progetto, ad esempio «Promote» con -o promote. Si scelgono dalla freccia accanto a Push e prima di partire mostrano il comando da confermare.",
+  "push.label": "Nome",
+  "push.args": "Parametri",
+  "push.labelPlaceholder": "Promote",
+  "push.add": "Aggiungi un profilo",
+  "push.remove": "Rimuovi",
+  "push.allowed": "Ammessi: -o / --push-option con un valore (anche -ovalore o --push-option=valore), --tags, --follow-tags, --no-follow-tags, --no-verify, --force-with-lease, --set-upstream / -u, --atomic, --dry-run / -n, --signed, --no-signed, --prune, --verbose / -v, --quiet / -q. Remote e branch sono quelli della barra.",
+  "push.saved": {
+    "one": "{count} profilo di push salvato",
+    "other": "{count} profili di push salvati"
+  },
+  "push.confirmTitle": "Push · {name}",
+  "push.confirmText": "Verrà eseguito:",
+  "push.confirmHint": "Remote e branch sono quelli correnti; i parametri sono quelli salvati nel profilo.",
+  "push.run": "Esegui il push",
+  "errors.push_option_value": "{option} richiede un valore (senza caratteri di controllo, massimo 200 caratteri)",
+  "errors.push_arg_invalid": "Parametro di push non ammesso: {arg}",
+  "errors.push_args_empty": "Indica almeno un parametro di push",
+  "errors.push_args_too_many": "Troppi parametri di push",
+  "errors.push_preset_label": "Il profilo di push ha bisogno di un nome (massimo 60 caratteri)",
+  "errors.push_preset_action": "I parametri di un profilo valgono solo per il push",
+  "errors.push_preset_not_found": "Profilo di push non trovato: {id}",
+  "errors.push_presets_invalid": "Parametri di push non validi per il progetto {id}"
 }

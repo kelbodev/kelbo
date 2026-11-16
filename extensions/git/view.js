@@ -495,6 +495,50 @@ export default {
       return exit ?? 1;
     }
 
+    // ---- push con i parametri di un profilo del progetto (es. -o promote), sempre confermato ----
+    let pushPresets = [];
+    const loadPushPresets = async () => { try { pushPresets = (await ctx.api.get(repoUrl('/push-presets'))).presets; } catch { pushPresets = []; } return pushPresets; };
+    const quoteArg = a => (/\s/.test(a) ? `"${a}"` : a);
+    const pushCommand = (p, branch) => `git push ${p.args.map(quoteArg).join(' ')} ${remote()} ${branch || ''}`.trim();
+
+    async function pushMenu(anchor) {
+      await loadPushPresets();
+      const r = anchor.getBoundingClientRect();
+      ctx.ui.contextMenu(r.left, r.bottom + 4, [
+        ...pushPresets.map(p => ({ icon: 'arrow-up', label: `${p.label} · ${p.args.map(quoteArg).join(' ')}`, action: () => confirmPush(p.id) })),
+        ...(pushPresets.length ? ['separator'] : []),
+        { icon: 'settings-2', label: t('push.manage'), action: () => presetsDialog() },
+      ]);
+    }
+
+    async function confirmPush(id) {
+      await loadStatus();
+      const p = pushPresets.find(x => x.id === id);
+      if (!p || !status?.branch) return;
+      openModal(t('push.confirmTitle', { name: p.label }), `
+        <p>${esc(t('push.confirmText'))}</p>
+        <pre class="git-push-cmd">${esc(pushCommand(p, status.branch))}</pre>
+        <p class="git-muted">${esc(t('push.confirmHint'))}</p>`,
+        `<button class="btn btn-ghost" onclick="UI.closeModal()">${esc(t('core.action.cancel'))}</button>
+         <button class="btn btn-git" onclick="Ext.git.pushWith(${js(p.id)})">${ctx.ui.icon('arrow-up')} ${esc(t('push.run'))}</button>`);
+    }
+
+    async function presetsDialog() {
+      await loadPushPresets();
+      const rows = list => list.map(p => `<tr><td><input class="form-input" data-pp="label" value="${esc(p.label)}" maxlength="60" placeholder="${esc(t('push.labelPlaceholder'))}"></td>
+          <td><input class="form-input git-mono" data-pp="args" value="${esc(Array.isArray(p.args) ? p.args.map(quoteArg).join(' ') : p.args)}" placeholder="-o promote" spellcheck="false"><input type="hidden" data-pp="id" value="${esc(p.id || '')}"></td>
+          <td><button class="btn btn-ghost btn-sm" onclick="this.closest('tr').remove()" title="${esc(t('push.remove'))}"><i data-icon="x"></i></button></td></tr>`).join('');
+      openModal(t('push.manageTitle', { project: repos.find(r => r.id === activeRepo)?.label || activeRepo }), `
+        <p class="git-muted">${esc(t('push.manageHint'))}</p>
+        <table class="git-pp"><thead><tr><th>${esc(t('push.label'))}</th><th>${esc(t('push.args'))}</th><th></th></tr></thead>
+          <tbody id="f_git_pp">${rows(pushPresets.length ? pushPresets : [{ label: '', args: '' }])}</tbody></table>
+        <button class="btn btn-ghost btn-sm" onclick="Ext.git.addPreset()"><i data-icon="plus"></i> ${esc(t('push.add'))}</button>
+        <p class="git-muted">${esc(t('push.allowed'))}</p>`,
+        `<button class="btn btn-ghost" onclick="UI.closeModal()">${esc(t('core.action.cancel'))}</button>
+         <button class="btn btn-git" onclick="Ext.git.savePresets()">${esc(t('core.action.save'))}</button>`);
+      presetsDialog.rows = rows;
+    }
+
     async function gitAction(action) {
       if (action === 'push' || action === 'pull_push') await loadStatus(); // branch aggiornato
       run({ action, remote: remote(), branch: status?.branch }, `git ${action} (${remote()})`);
@@ -926,6 +970,29 @@ export default {
         closeModal();
         createBranch(name, start);
       },
+      async pushWith(id) {
+        closeModal();
+        const p = pushPresets.find(x => x.id === id);
+        if (!p) return;
+        await loadStatus();
+        run({ action: 'push', remote: remote(), branch: status?.branch, preset: id }, pushCommand(p, status?.branch), err => toast(err.message, 'error'));
+      },
+      addPreset() {
+        document.getElementById('f_git_pp').insertAdjacentHTML('beforeend', presetsDialog.rows([{ label: '', args: '' }]));
+        document.querySelector('#f_git_pp tr:last-child input')?.focus();
+      },
+      async savePresets() {
+        const presets = [...document.querySelectorAll('#f_git_pp tr')].map(tr => ({
+          id: tr.querySelector('[data-pp="id"]').value || undefined,
+          label: tr.querySelector('[data-pp="label"]').value.trim(),
+          args: tr.querySelector('[data-pp="args"]').value.trim(),
+        })).filter(p => p.label || p.args);
+        try {
+          pushPresets = (await ctx.api.put(repoUrl('/push-presets'), { presets })).presets;
+          closeModal();
+          toast(t('push.saved', { count: pushPresets.length }), 'success');
+        } catch (e) { toast(e.message, 'error'); }
+      },
       confirmStash() {
         const go = pendingStash;
         pendingStash = null;
@@ -940,6 +1007,7 @@ export default {
       const a = e.target.closest('[data-action]')?.dataset.action;
       if (a === 'reload') reload();
       else if (a === 'merge') mergeDialog();
+      else if (a === 'push-menu') pushMenu(e.target.closest('[data-action]'));
       else if (a === 'branches') openBranchPop(e.target.closest('[data-action]'));
       else if (a === 'merge-abort') { if (confirm(t('merge.confirmAbort'))) run({ action: 'merge_abort' }, 'git merge --abort'); }
       else if (a === 'merge-continue') run({ action: 'merge_continue' }, 'git commit (merge)', err => {
