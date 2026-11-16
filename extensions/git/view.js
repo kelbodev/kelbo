@@ -326,7 +326,7 @@ export default {
           ${status.behind ? `<span class="git-sync-badge git-sync-behind">${ctx.ui.icon('arrow-down')} ${esc(t('header.behind', { count: status.behind }))}</span>` : ''}
           ${status.stashCount ? `<span class="git-sync-badge git-sync-stash">${ctx.ui.icon('archive')} ${esc(t('header.stash', { count: status.stashCount }))}</span>` : ''}` : ''}
         <span class="git-path">${esc(r.path)}</span>
-        ${ctx.hasExtension('angular-cli') && angularIds.has(r.id) ? `<button class="btn btn-ghost btn-sm git-angular" onclick="Ext.git.angular()" title="${esc(t('angular.title'))}">${ctx.ui.icon('triangle')} Angular CLI</button>` : ''}`);
+        ${ctx.hasExtension('angular-cli') && angularIds.has(r.id) ? `<button class="btn btn-ghost btn-sm git-angular" onclick="Ext.git.angular()" title="${esc(t('angular.title'))}">${ctx.ui.icon('shield-plus')} Angular CLI</button>` : ''}`);
     }
 
     function renderMergeBanner() {

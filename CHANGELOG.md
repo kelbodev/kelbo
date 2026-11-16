@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.41.2] - 2026-11-16
+
+### Changed
+- Git: the **Angular CLI** button of an Angular repository uses the new icon of the extension (`shield-plus`).
+
 ## [2.41.1] - 2026-11-16
 
 ### Changed
