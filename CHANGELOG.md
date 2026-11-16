@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.42.0] - 2026-11-16
+
+### Added
+- **HTTP 1.2 as a host** (`extensions/http-client/ADDONS.md`): point `response-actions`, buttons of the add-ons on the response of a request, next to **Copy**, with the body, whether it is JSON, status, headers and the request. The first add-on is the **Toolbox** of the official catalog, with *JSON* (the response in its JSON tab) and *Compare* (two responses side by side, by JSON path).
+
 ## [2.41.2] - 2026-11-16
 
 ### Changed

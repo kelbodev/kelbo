@@ -798,6 +798,7 @@ export default {
             ${r.body && jsonNode ? `<button class="btn btn-ghost btn-sm" data-action="copy-body" data-format="pretty" title="${esc(t('response.copyPrettyTitle'))}">${esc(t('response.copyPretty'))}</button>
               <button class="btn btn-ghost btn-sm" data-action="copy-body" data-format="min" title="${esc(t('response.copyMinTitle'))}">${esc(t('response.copyMin'))}</button>`
               : r.body ? `<button class="btn btn-ghost btn-sm" data-action="copy-body">${esc(t('response.copy'))}</button>` : ''}
+            ${responseButtons(r)}
           </div>
         </div>
         ${respTab === 'body' ? body : `<table class="data-table hc-resp-headers"><tbody>${r.headers.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join('')}</tbody></table>`}`;
@@ -1637,6 +1638,51 @@ export default {
 
     ctx.bus.on('core:projects-changed', load);
     window.addEventListener('beforeunload', e => { if (dirty) e.preventDefault(); });
+    // ---- add-on (docs: ADDONS.md): pulsanti sulla risposta (punto response-actions) ----
+    const responseActions = [];
+    const safeAddon = (fn, fallback) => { try { return fn(); } catch (e) { console.error('[http-client add-on]', e); toast(t('addons.failed', { error: e.message }), 'error'); return fallback; } };
+    // quello che un add-on sa della risposta mostrata e della richiesta che l'ha prodotta
+    function responseTarget(r) {
+      const s = activeSection();
+      return {
+        status: r.status, statusText: r.statusText, url: r.url, ms: r.ms, size: r.size,
+        headers: r.headers.map(([name, value]) => ({ name, value })),
+        contentType: r.headers.find(([k]) => k.toLowerCase() === 'content-type')?.[1] || '',
+        body: r.binary ? null : r.body || '',
+        isJson: !!r.jsonNode,
+        truncated: !!r.truncated,
+        request: draft ? { label: draft.label, method: draft.method, userType: draft.userType || null } : null,
+        section: s ? { id: s.id, label: s.label } : null,
+        user: r.user ? s?.userTypes.find(u => u.id === r.user)?.label || null : null,
+      };
+    }
+    function responseButtons(r) {
+      if (!responseActions.length || r.binary) return '';
+      const target = responseTarget(r);
+      return responseActions.map((a, i) => {
+        if (a.when && !safeAddon(() => a.when(target), false)) return '';
+        const label = typeof a.label === 'function' ? safeAddon(() => a.label(target), '') : a.label;
+        const title = typeof a.title === 'function' ? safeAddon(() => a.title(target), '') : a.title;
+        return `<button class="btn btn-ghost btn-sm hc-addon-btn" data-addon-action="${i}" title="${esc(title || label || '')}">${ctx.ui.icon(a.icon || 'puzzle')}${label ? ` ${esc(label)}` : ''}</button>`;
+      }).join('');
+    }
+    ctx.root.addEventListener('click', e => {
+      const i = e.target.closest('[data-addon-action]')?.dataset.addonAction;
+      if (i === undefined || !response || response.error) return;
+      const a = responseActions[Number(i)];
+      const target = responseTarget(response);
+      if (a) safeAddon(() => Promise.resolve(a.run(target)).catch(err => { console.error('[http-client add-on]', err); toast(t('addons.failed', { error: err.message }), 'error'); }));
+    });
+    await ctx.addons?.activate({
+      version: ctx.meta.version,
+      // action: { icon?, label (testo o target → testo), title?, run(target), when?(target) }
+      addResponseAction(action) {
+        if (typeof action?.run !== 'function') throw new Error('http-client: addResponseAction needs run(target)');
+        responseActions.push(action);
+        if (response) renderResponse();
+      },
+    });
+
     await load();
 
     this.refresh = load;
