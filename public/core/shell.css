@@ -481,3 +481,33 @@
 
 .section-tab-badge,.dash-w-badge{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
 .section-tab-badge .i,.dash-w-badge .i{width:1em;height:1em;vertical-align:0}
+
+/* JSON condiviso (ctx.ui.json, core/json-view.js): colori, albero richiudibile, editor colorato */
+.jv-key{color:var(--code-key)}
+.jv-str{color:var(--code-string)}
+.jv-num{color:var(--code-literal)}
+.jv-lit{color:var(--code-keyword)}
+.jv-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px}
+.jv-hint{color:var(--muted)}
+.jv-tree{font-family:var(--font);font-size:12px;line-height:1.5;white-space:normal}
+.jv-line{white-space:pre-wrap;overflow-wrap:anywhere;position:relative}
+.jv-body{padding-inline-start:2ch;margin-inline-start:.45ch;border-inline-start:1px dotted color-mix(in srgb,var(--muted) 35%,transparent)}
+.jv-node > .jv-line:first-child{margin-inline-start:-1.6ch}
+.jv-tree > .jv-node > .jv-line:first-child{margin-inline-start:0}
+.jv-toggle{display:inline-block;width:1.6ch;padding:0;margin:0;background:none;border:none;color:var(--muted);cursor:pointer;font:inherit;text-align:left}
+.jv-toggle::before{content:'▾'}
+.jv-node.collapsed > .jv-line > .jv-toggle::before{content:'▸'}
+.jv-toggle:hover{color:var(--text)}
+.jv-more{display:none}
+.jv-node.collapsed > .jv-line > .jv-more{display:inline}
+.jv-node.collapsed > .jv-body,.jv-node.collapsed > .jv-close{display:none}
+.jv-count{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--muted);font:inherit;font-size:10px;padding:0 6px;cursor:pointer}
+.jv-count:hover{color:var(--text)}
+.jv-editor{position:relative;min-height:90px;resize:vertical;overflow:hidden;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg)}
+.jv-editor:focus-within{border-color:var(--ext-color, var(--accent))}
+.jv-editor-hl,.jv-editor-input{position:absolute;inset:0;margin:0;padding:8px 10px;font-family:var(--font);font-size:12px;font-weight:400;line-height:1.5;letter-spacing:normal;white-space:pre-wrap;overflow-wrap:break-word;word-break:normal;tab-size:2;font-variant-ligatures:none;font-feature-settings:"liga" 0,"calt" 0;border:none;scrollbar-gutter:stable}
+.jv-editor-hl{overflow:hidden;pointer-events:none;color:var(--text)}
+.jv-editor-hl code{font:inherit;white-space:inherit}
+.jv-editor-input{resize:none;background:transparent;color:transparent;caret-color:var(--text);outline:none;overflow:auto;width:100%}
+.jv-editor-input::selection{background:color-mix(in srgb,var(--ext-color, var(--accent)) 30%,transparent);color:transparent}
+.jv-editor-input::placeholder{color:var(--muted)}

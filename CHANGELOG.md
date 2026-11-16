@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.43.0] - 2026-11-16
+
+### Added
+- **`ctx.ui.json`**: the JSON of the HTTP responses — read as written (big numbers intact), collapsible tree with *Expand* / *Collapse* and Alt+click, colours also on invalid or one-line text, an editor with the colours under the text — is now part of the core, so every extension shows JSON the same way (`docs/EXTENSIONS.md`). The HTTP section uses it; the Toolbox uses it in its JSON and Compare tabs.
+
 ## [2.42.0] - 2026-11-16
 
 ### Added

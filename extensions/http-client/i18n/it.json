@@ -327,19 +327,6 @@
   "widget.sending": "invio…",
   "widget.lastTitle": "Ultima risposta: {status} in {ms} ms ({when})",
   "links.section": "Sezione \"{name}\"",
-  "response.jsonKeys": {
-    "one": "{count} chiave",
-    "other": "{count} chiavi"
-  },
-  "response.jsonItems": {
-    "one": "{count} elemento",
-    "other": "{count} elementi"
-  },
-  "response.expandAll": "Espandi",
-  "response.collapseAll": "Comprimi",
-  "response.expandAllTitle": "Apri tutti i livelli",
-  "response.collapseAllTitle": "Chiudi tutto sotto il primo livello",
-  "response.jsonTreeHint": "▾ chiude un livello, Alt+clic anche quelli dentro",
   "response.copyPretty": "Copia formattato",
   "response.copyMin": "Copia minificato",
   "response.copyPrettyTitle": "Copia il JSON con i rientri",

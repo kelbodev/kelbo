@@ -419,5 +419,18 @@
   "core.ext.addonOptionalOf": "Add-on facoltativo di {host} ({range})",
   "core.ext.addonInactive": "non attivo: {reason}",
   "core.errors.ext_addon_host_off": "\"{host}\" è spento o non disponibile",
-  "core.errors.ext_addon_host_missing": "\"{host}\" non è installata"
+  "core.errors.ext_addon_host_missing": "\"{host}\" non è installata",
+  "core.json.keys": {
+    "one": "{count} chiave",
+    "other": "{count} chiavi"
+  },
+  "core.json.items": {
+    "one": "{count} elemento",
+    "other": "{count} elementi"
+  },
+  "core.json.expandAll": "Espandi",
+  "core.json.collapseAll": "Comprimi",
+  "core.json.expandAllTitle": "Apri tutti i livelli",
+  "core.json.collapseAllTitle": "Chiudi tutto sotto il primo livello",
+  "core.json.treeHint": "▾ chiude un livello, Alt+clic anche quelli dentro"
 }
