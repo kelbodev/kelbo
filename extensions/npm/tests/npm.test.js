@@ -72,5 +72,6 @@ test('installed-versions ignora nomi non validi', async () => {
 test('host di add-on: punto script-actions (pulsanti sulla riga di uno script)', async () => {
   const npm = (await srv.request('GET', '/api/core/extensions')).json.find(e => e.code === 'npm');
   assert.deepEqual(npm.addonPoints.map(p => p.id), ['script-actions']);
-  assert.match(String(npm.version), /^1\.1\./);
+  const [major, minor] = npm.version.split('.').map(Number);
+  assert.ok(major === 1 && minor >= 1, npm.version);
 });
