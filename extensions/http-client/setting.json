@@ -4,7 +4,7 @@
     "en": "HTTP"
   },
   "code": "http-client",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "kelbo": "^2.0",
   "description": {
     "it": "Client HTTP per le API locali dei progetti: sezioni di richieste con variabili, rotte Express trovate nel codice, token per tipologia di utenza (basic, login, OAuth/OpenID Connect)",
@@ -179,6 +179,15 @@
       },
       "size": "m",
       "js": "widget.js"
+    }
+  ],
+  "addonPoints": [
+    {
+      "id": "response-actions",
+      "description": {
+        "it": "Pulsanti sulla risposta di una richiesta (accanto a Copia)",
+        "en": "Buttons on the response of a request (next to Copy)"
+      }
     }
   ]
 }

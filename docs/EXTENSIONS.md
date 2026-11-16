@@ -537,7 +537,7 @@ A tunnel whose transport is not installed or switched off stays saved and is sho
 
 ## Add-ons
 
-An **add-on** adds features *inside another extension*, the **host**, at the points the host offers: items in its menus, its own tabs in its workspace, whatever the host decides to open up. The core only brokers: it finds the add-ons of a host, checks their version against the host's, loads their modules with their own context and keeps a failing one from taking the host down. The core knows nothing about what a host offers: the host documents its points and its API (for example [`extensions/db-client/ADDONS.md`](../extensions/db-client/ADDONS.md) and [`extensions/npm/ADDONS.md`](../extensions/npm/ADDONS.md)). Kelbo ≥ 2.38.
+An **add-on** adds features *inside another extension*, the **host**, at the points the host offers: items in its menus, its own tabs in its workspace, whatever the host decides to open up. The core only brokers: it finds the add-ons of a host, checks their version against the host's, loads their modules with their own context and keeps a failing one from taking the host down. The core knows nothing about what a host offers: the host documents its points and its API (for example [`extensions/db-client/ADDONS.md`](../extensions/db-client/ADDONS.md), [`extensions/npm/ADDONS.md`](../extensions/npm/ADDONS.md) and [`extensions/http-client/ADDONS.md`](../extensions/http-client/ADDONS.md)). Kelbo ≥ 2.38.
 
 **Host** — declares its points in the manifest (an extension must be written to accept add-ons):
 

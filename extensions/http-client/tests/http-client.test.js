@@ -455,3 +455,8 @@ test('eliminazione di una tipologia: le richieste restano senza autorizzazione',
   const after = (await call('GET', '/sections')).json.find(x => x.id === sectionId);
   assert.equal(after.requests.find(r => r.id === req.id).userType, undefined);
 });
+
+test('host di add-on: punto response-actions (pulsanti sulla risposta)', async () => {
+  const ext = (await srv.request('GET', '/api/core/extensions')).json.find(e => e.code === 'http-client');
+  assert.deepEqual(ext.addonPoints.map(p => p.id), ['response-actions']);
+});

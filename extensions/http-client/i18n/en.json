@@ -371,5 +371,6 @@
   "errors.folder_invalid": "Invalid folder in section {id}: {folder}",
   "errors.section_folders": "Invalid folders in section {id}",
   "errors.request_folder": "Invalid folder of request {id} (missing or of another user type)",
-  "routes.into": "Imported requests go to: {where}"
+  "routes.into": "Imported requests go to: {where}",
+  "addons.failed": "The add-on failed: {error}"
 }
