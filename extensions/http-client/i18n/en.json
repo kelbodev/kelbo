@@ -327,19 +327,6 @@
   "widget.sending": "sending…",
   "widget.lastTitle": "Last answer: {status} in {ms} ms ({when})",
   "links.section": "Section \"{name}\"",
-  "response.jsonKeys": {
-    "one": "{count} key",
-    "other": "{count} keys"
-  },
-  "response.jsonItems": {
-    "one": "{count} item",
-    "other": "{count} items"
-  },
-  "response.expandAll": "Expand",
-  "response.collapseAll": "Collapse",
-  "response.expandAllTitle": "Open every level",
-  "response.collapseAllTitle": "Close everything below the first level",
-  "response.jsonTreeHint": "▾ closes a level, Alt+click the ones inside too",
   "response.copyPretty": "Copy formatted",
   "response.copyMin": "Copy minified",
   "response.copyPrettyTitle": "Copy the JSON with indentation",

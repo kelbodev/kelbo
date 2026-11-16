@@ -419,5 +419,18 @@
   "core.ext.addonOptionalOf": "Optional add-on of {host} ({range})",
   "core.ext.addonInactive": "not active: {reason}",
   "core.errors.ext_addon_host_off": "\"{host}\" is off or unavailable",
-  "core.errors.ext_addon_host_missing": "\"{host}\" is not installed"
+  "core.errors.ext_addon_host_missing": "\"{host}\" is not installed",
+  "core.json.keys": {
+    "one": "{count} key",
+    "other": "{count} keys"
+  },
+  "core.json.items": {
+    "one": "{count} item",
+    "other": "{count} items"
+  },
+  "core.json.expandAll": "Expand",
+  "core.json.collapseAll": "Collapse",
+  "core.json.expandAllTitle": "Open every level",
+  "core.json.collapseAllTitle": "Close everything below the first level",
+  "core.json.treeHint": "▾ closes a level, Alt+click the ones inside too"
 }

@@ -507,7 +507,7 @@ window.Shell = (() => {
         pick,
         apply: (root) => window.I18n.apply(root, meta.code),
       },
-      ui: { esc, js, cssColor, extColor: UI.extColor, ansiToHtml, ansiState, toast, openModal, closeModal, patch: UI.patch, output, formatUptime, toolNotice, notify, contextMenu, t, fmt, errorText: window.I18n.errorText, icon: UI.icon, iconOrText: UI.iconOrText, badgeHtml: UI.badgeHtml },
+      ui: { esc, js, cssColor, extColor: UI.extColor, ansiToHtml, ansiState, toast, openModal, closeModal, patch: UI.patch, output, formatUptime, toolNotice, notify, contextMenu, t, fmt, errorText: window.I18n.errorText, icon: UI.icon, iconOrText: UI.iconOrText, badgeHtml: UI.badgeHtml, json: window.JsonView },
       bus: {
         on(name, fn) { const h = e => fn(e.detail); bus.addEventListener(name, h); return () => bus.removeEventListener(name, h); },
         emit(name, detail) { bus.dispatchEvent(new CustomEvent(name, { detail })); },
@@ -599,7 +599,7 @@ window.Shell = (() => {
       core: apiClient('/api/core'),
       t: window.I18n.scoped(meta.code),
       i18n: { get lang() { return window.I18n.lang; }, pick, apply: root => window.I18n.apply(root, meta.code) },
-      ui: { esc, js, cssColor, extColor: UI.extColor, ansiToHtml, ansiState, toast, openModal, closeModal, patch: UI.patch, formatUptime, toolNotice, notify, contextMenu, t, fmt, errorText: window.I18n.errorText, icon: UI.icon, iconOrText: UI.iconOrText, badgeHtml: UI.badgeHtml },
+      ui: { esc, js, cssColor, extColor: UI.extColor, ansiToHtml, ansiState, toast, openModal, closeModal, patch: UI.patch, formatUptime, toolNotice, notify, contextMenu, t, fmt, errorText: window.I18n.errorText, icon: UI.icon, iconOrText: UI.iconOrText, badgeHtml: UI.badgeHtml, json: window.JsonView },
       bus: {
         on(name, fn) { const h = e => fn(e.detail); bus.addEventListener(name, h); return () => bus.removeEventListener(name, h); },
         emit(name, detail) { bus.dispatchEvent(new CustomEvent(name, { detail })); },
@@ -1037,7 +1037,7 @@ window.Shell = (() => {
       core: apiClient('/api/core'),
       t: window.I18n.scoped(meta.code),
       i18n: { get lang() { return window.I18n.lang; }, pick, apply: root => window.I18n.apply(root, meta.code) },
-      ui: { esc, js, cssColor, extColor: UI.extColor, ansiToHtml, ansiState, toast, openModal, closeModal, patch: UI.patch, formatUptime, toolNotice, notify, contextMenu, t, fmt, errorText: window.I18n.errorText, icon: UI.icon, iconOrText: UI.iconOrText, badgeHtml: UI.badgeHtml },
+      ui: { esc, js, cssColor, extColor: UI.extColor, ansiToHtml, ansiState, toast, openModal, closeModal, patch: UI.patch, formatUptime, toolNotice, notify, contextMenu, t, fmt, errorText: window.I18n.errorText, icon: UI.icon, iconOrText: UI.iconOrText, badgeHtml: UI.badgeHtml, json: window.JsonView },
       bus: {
         on(name, fn) { const h = e => fn(e.detail); bus.addEventListener(name, h); return () => bus.removeEventListener(name, h); },
         emit(name, detail) { bus.dispatchEvent(new CustomEvent(name, { detail })); },
