@@ -12,9 +12,9 @@
 .hc-group.collapsed .hc-children{display:none}
 .hc-group .pf-chevron{width:10px;height:10px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.5;transition:transform .15s}
 .hc-group .pf-chevron.open{transform:rotate(90deg)}
-.hc-req{padding-inline-start:28px}
+.hc-req{padding-inline-start:calc(12px + var(--lvl, 1) * 16px)}
 .hc-req-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hc-add{padding-inline-start:28px;font-size:12px;opacity:.75}
+.hc-add{padding-inline-start:calc(12px + var(--lvl, 1) * 16px);font-size:12px;opacity:.75}
 .hc-badge{display:inline-block;min-width:44px;font-family:var(--font);font-size:10px;font-weight:600;color:var(--m);flex-shrink:0}
 .hc-visible{opacity:1}
 
@@ -93,9 +93,21 @@
 .hc-user-head .pf-chevron{width:9px;height:9px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.5;transition:transform .15s}
 .hc-user-head .pf-chevron.open{transform:rotate(90deg)}
 .hc-user-icon{font-size:11px}
-.hc-user-head .sb-item-act{opacity:0}
-.hc-user-head:hover .sb-item-act{opacity:1}
-.hc-req-nested{padding-inline-start:44px}
+.hc-user-head .sb-item-act{display:none}
+.hc-user-head:hover .sb-item-act,.hc-user-head:focus-within .sb-item-act{display:inline-flex}
+/* cartelle: rientro per livello (--lvl), trascinabili; .hc-drop = destinazione mentre si trascina */
+.hc-folder-head{padding-inline-start:calc(6px + var(--lvl, 1) * 16px);font-size:12.5px;color:var(--text)}
+.hc-folder-head .pf-chevron{width:9px;height:9px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.5;transition:transform .15s}
+.hc-folder-head .pf-chevron.open{transform:rotate(90deg)}
+.hc-folder-icon{display:inline-flex;color:var(--yellow, #e3b341);font-size:13px}
+.hc-folder-head .sb-item-act{display:none}
+.hc-folder-head:hover .sb-item-act,.hc-folder-head:focus-within .sb-item-act{display:inline-flex}
+.form-row select.form-input.hc-dest{background-image:none;padding:4px 0}
+select.hc-dest option{padding:3px 10px}
+select.hc-dest option.hc-dest-root{font-weight:600}
+.hc-user-icon{display:inline-flex}
+.hc-drop{outline:1px dashed var(--accent);outline-offset:-2px;background:color-mix(in srgb, var(--accent) 12%, transparent)}
+.hc-req[draggable="true"],.hc-folder-head[draggable="true"]{cursor:pointer}
 .hc-form-type{width:110px}
 /* editor del corpo: testo colorato sotto la textarea trasparente (come l'editor SQL del DB client) */
 .hc-editor{position:relative;height:240px;min-height:90px;resize:vertical;overflow:hidden;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg)}
