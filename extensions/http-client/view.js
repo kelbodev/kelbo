@@ -538,13 +538,33 @@ export default {
       $(ctx.root, 'dirty').hidden = false;
     }
 
+    // Percorso della richiesta aperta: sezione › utenza (se la sezione ne ha) › cartelle
+    function renderCrumbs() {
+      const s = activeSection();
+      if (!s || !draft) return;
+      const project = s.projectId ? projects.find(p => p.id === s.projectId) : null;
+      const sep = '<span class="hc-sep">›</span>';
+      const crumb = (icon, label) => `<span class="hc-crumb" title="${esc(label)}">${ctx.ui.icon(icon)}<span>${esc(label)}</span></span>`;
+      const parts = [`<span class="hc-section-name" title="${esc(project ? t('sidebar.linked', { project: project.label }) : s.label)}">${esc(s.label)}</span>`];
+      if (s.userTypes.length) {
+        const u = s.userTypes.find(x => x.id === draft.userType);
+        parts.push(crumb(u ? 'user' : 'user-x', u ? u.label : t('sidebar.noUser')));
+      }
+      const chain = [];
+      // la cartella vale solo con la sua utenza (cambiata nell'editor e non ancora salvata: ne esce)
+      const folder = (s.folders || []).find(x => x.id === draft.folder && (x.userType || null) === (draft.userType || null));
+      for (let f = folder; f && chain.length <= 10; f = s.folders.find(x => x.id === f.parent)) chain.unshift(f);
+      for (const f of chain) parts.push(crumb('folder', f.label));
+      $(ctx.root, 'crumbs').innerHTML = parts.join(sep);
+    }
+
     function renderEditor() {
       const has = !!(active && draft);
       $(ctx.root, 'empty').hidden = has;
       $(ctx.root, 'workspace').hidden = !has;
       if (!has) return;
       const s = activeSection();
-      $(ctx.root, 'section-name').textContent = s.label;
+      renderCrumbs();
       $(ctx.root, 'label').value = draft.label;
       $(ctx.root, 'dirty').hidden = !dirty;
       $(ctx.root, 'method').innerHTML = info.methods.map(m => `<option ${m === draft.method ? 'selected' : ''}>${esc(m)}</option>`).join('');
@@ -872,6 +892,7 @@ export default {
         const s = activeSection();
         s.requests = s.requests.map(x => (x.id === r.id ? r : x));
         if (r.folder) draft.folder = r.folder; else delete draft.folder;
+        renderCrumbs();
         dirty = false;
         $(ctx.root, 'dirty').hidden = true;
         renderSidebar();
@@ -1414,7 +1435,7 @@ export default {
         if (proc) followNpm(proc); else unfollowNpm();
         return;
       }
-      if (role === 'user') { draft.userType = e.target.value || null; if (!draft.userType) delete draft.userType; markDirty(); refreshTokenButton(); }
+      if (role === 'user') { draft.userType = e.target.value || null; if (!draft.userType) delete draft.userType; markDirty(); refreshTokenButton(); renderCrumbs(); }
     });
 
     // la lista dei processi si aggiorna quando si apre il menu (uno script avviato dopo)

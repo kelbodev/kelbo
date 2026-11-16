@@ -4,7 +4,7 @@
     "en": "HTTP"
   },
   "code": "http-client",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "kelbo": "^2.0",
   "description": {
     "it": "Client HTTP per le API locali dei progetti: sezioni di richieste con variabili, rotte Express trovate nel codice, token per tipologia di utenza (basic, login, OAuth/OpenID Connect)",

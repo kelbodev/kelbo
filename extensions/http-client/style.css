@@ -21,7 +21,12 @@
 /* editor */
 .hc-workspace{flex:1;display:flex;flex-direction:column;min-height:0}
 .hc-title-bar{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border)}
-.hc-section-name{font-size:13px;color:var(--ext-color);font-weight:600;white-space:nowrap}
+/* percorso della richiesta: sezione › utenza › cartelle › (nome della richiesta) */
+.hc-crumbs{display:flex;align-items:center;gap:8px;min-width:0;font-size:13px;color:var(--muted);white-space:nowrap}
+.hc-crumbs .hc-section-name{color:var(--ext-color);font-weight:600}
+.hc-crumb{display:inline-flex;align-items:center;gap:4px;min-width:0;max-width:180px}
+.hc-crumb span{overflow:hidden;text-overflow:ellipsis}
+.hc-crumb svg{flex-shrink:0;width:13px;height:13px}
 .hc-sep{color:var(--muted)}
 .hc-label{flex:1;min-width:120px;background:transparent;border-color:transparent;font-size:13px;font-weight:600}
 .hc-label:hover,.hc-label:focus{border-color:var(--border)}

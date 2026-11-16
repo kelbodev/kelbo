@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.40.1] - 2026-11-16
+
+### Changed
+- HTTP: the path above the request editor shows where the request is: section › user type › folders › request (the user type only in sections that have them). It follows the user type chosen in the editor before saving.
+
 ## [2.40.0] - 2026-11-16
 
 ### Added
