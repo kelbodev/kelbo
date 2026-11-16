@@ -197,3 +197,13 @@
 .git-file-act{flex-shrink:0}
 .git-file-name{max-width:72%}
 .git-file-act{opacity:.45}
+.git-split{display:inline-flex}
+.git-split > .btn:first-child{border-start-end-radius:0;border-end-end-radius:0}
+.git-split-more{border-start-start-radius:0;border-end-start-radius:0;border-inline-start:none;padding-inline:5px}
+.git-push-cmd{font-family:var(--font);font-size:12.5px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;white-space:pre-wrap;word-break:break-all}
+.git-pp{width:100%;border-collapse:collapse;margin-bottom:6px}
+.git-pp th{text-align:start;font-size:11px;color:var(--muted);font-weight:500;padding:2px 4px}
+.git-pp td{padding:3px 4px}
+.git-pp td:first-child{width:34%}
+.git-pp td:last-child{width:1%}
+.git-mono{font-family:var(--font)}

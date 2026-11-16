@@ -222,5 +222,31 @@
   "diff.commitLegend": "Left: the previous commit ({parent}); right: commit {hash}.",
   "diff.rootLegend": "First commit of the repository ({hash}): all the content is added.",
   "errors.commit_not_found": "Commit {hash} not found",
-  "errors.file_not_in_commit": "The file {file} is not among those changed by the commit"
+  "errors.file_not_in_commit": "The file {file} is not among those changed by the commit",
+  "push.menuTitle": "Push with the project's parameters",
+  "push.manage": "Push parameters…",
+  "push.manageTitle": "Push parameters · {project}",
+  "push.manageHint": "Push profiles of this project, e.g. “Promote” with -o promote. Pick them from the arrow next to Push; before running they show the command to confirm.",
+  "push.label": "Name",
+  "push.args": "Parameters",
+  "push.labelPlaceholder": "Promote",
+  "push.add": "Add a profile",
+  "push.remove": "Remove",
+  "push.allowed": "Allowed: -o / --push-option with a value (also -ovalue or --push-option=value), --tags, --follow-tags, --no-follow-tags, --no-verify, --force-with-lease, --set-upstream / -u, --atomic, --dry-run / -n, --signed, --no-signed, --prune, --verbose / -v, --quiet / -q. Remote and branch are the ones of the bar.",
+  "push.saved": {
+    "one": "{count} push profile saved",
+    "other": "{count} push profiles saved"
+  },
+  "push.confirmTitle": "Push · {name}",
+  "push.confirmText": "This will run:",
+  "push.confirmHint": "Remote and branch are the current ones; the parameters are the ones saved in the profile.",
+  "push.run": "Push",
+  "errors.push_option_value": "{option} needs a value (no control characters, 200 characters at most)",
+  "errors.push_arg_invalid": "Push parameter not allowed: {arg}",
+  "errors.push_args_empty": "Enter at least one push parameter",
+  "errors.push_args_too_many": "Too many push parameters",
+  "errors.push_preset_label": "The push profile needs a name (60 characters at most)",
+  "errors.push_preset_action": "The parameters of a profile only apply to push",
+  "errors.push_preset_not_found": "Push profile not found: {id}",
+  "errors.push_presets_invalid": "Invalid push parameters for project {id}"
 }

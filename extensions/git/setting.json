@@ -1,7 +1,7 @@
 {
   "name": "Git",
   "code": "git",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "kelbo": "^2.0",
   "description": {
     "it": "Status, commit, grafo dei commit e operazioni remote per i repository dei progetti",
@@ -78,6 +78,16 @@
         "method": "POST",
         "path": "/repos/:id/conflict",
         "handler": "resolve"
+      },
+      {
+        "method": "GET",
+        "path": "/repos/:id/push-presets",
+        "handler": "pushPresets"
+      },
+      {
+        "method": "PUT",
+        "path": "/repos/:id/push-presets",
+        "handler": "savePushPresets"
       },
       {
         "method": "POST",
@@ -168,5 +178,24 @@
     "traits": [
       "git"
     ]
-  }
+  },
+  "config": [
+    "gitPushPresets"
+  ],
+  "export": [
+    {
+      "id": "push-presets",
+      "label": {
+        "it": "Parametri di push dei progetti",
+        "en": "Push parameters of the projects"
+      },
+      "description": {
+        "it": "Profili di push di ogni progetto (es. -o promote)",
+        "en": "Push profiles of each project (e.g. -o promote)"
+      },
+      "sections": [
+        "gitPushPresets"
+      ]
+    }
+  ]
 }

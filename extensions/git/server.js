@@ -1,11 +1,12 @@
 // Git: status, commit, grafo dei commit e operazioni remote per i repository
 // dei progetti (risalendo dalla cartella del progetto fino a .git)
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 
 module.exports = function createGit(ctx) {
-  const { isValidBranchName, isValidCommitHash } = ctx.lib.validate;
+  const { isValidBranchName, isValidCommitHash, KEY_RE, isText } = ctx.lib.validate;
 
   function gitExec(cwd, args, opts = {}) {
     return new Promise((resolve, reject) => {
@@ -80,12 +81,69 @@ module.exports = function createGit(ctx) {
     return repos;
   }
 
+  // ---- parametri di push per progetto: { <progetto>: [{ id, label, args: ['-o', 'promote'] }] } ----
+  // Solo parametri noti: -o/--push-option con un valore e alcune opzioni senza valore. Niente
+  // remote, refspec o opzioni che fanno eseguire programmi (--receive-pack, --exec…): con un
+  // remote locale verrebbero eseguiti su questa macchina
+  const PUSH_FLAGS = new Set(['--tags', '--follow-tags', '--no-verify', '--force-with-lease', '--set-upstream', '-u', '--atomic', '--dry-run', '-n', '--signed', '--no-signed', '--verbose', '-v', '--quiet', '-q', '--no-follow-tags', '--prune']);
+  const PUSH_OPTION_RE = /^[^\u0000-\u001f\u007f]{1,200}$/;
+  const MAX_PRESETS = 20, MAX_ARGS = 20;
+  // "-o promote --push-option=ci.skip --tags" → ['-o', 'promote', '--push-option=ci.skip', '--tags']
+  // (virgolette per i valori con spazi); errore sul primo parametro non ammesso
+  function parsePushArgs(input) {
+    if (Array.isArray(input)) return checkPushArgs(input.map(String));
+    const tokens = [];
+    const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+    let m;
+    while ((m = re.exec(String(input ?? '')))) tokens.push(m[1] ?? m[2] ?? m[3]);
+    return checkPushArgs(tokens);
+  }
+  function checkPushArgs(tokens) {
+    const args = [];
+    for (let i = 0; i < tokens.length; i++) {
+      const tok = tokens[i];
+      if (tok === '-o' || tok === '--push-option') {
+        const value = tokens[++i];
+        if (value == null || !PUSH_OPTION_RE.test(value) || value.startsWith('-')) throw ctx.error(400, 'push_option_value', { option: tok });
+        args.push('-o', value);
+      } else if (/^--push-option=/.test(tok)) {
+        const value = tok.slice('--push-option='.length);
+        if (!PUSH_OPTION_RE.test(value)) throw ctx.error(400, 'push_option_value', { option: '--push-option' });
+        args.push('-o', value);
+      } else if (/^-o./.test(tok) && !tok.startsWith('-o-')) {
+        const value = tok.slice(2);
+        if (!PUSH_OPTION_RE.test(value)) throw ctx.error(400, 'push_option_value', { option: '-o' });
+        args.push('-o', value);
+      } else if (PUSH_FLAGS.has(tok)) args.push(tok);
+      else throw ctx.error(400, 'push_arg_invalid', { arg: tok.slice(0, 80) });
+    }
+    if (!args.length) throw ctx.error(400, 'push_args_empty');
+    if (args.length > MAX_ARGS * 2) throw ctx.error(400, 'push_args_too_many');
+    return args;
+  }
+  // salvato: già nella forma normalizzata (-o valore, opzioni ammesse)
+  const validPreset = p => p && KEY_RE.test(p.id || '') && isText(p.label, 60) && Array.isArray(p.args) && p.args.length
+    && (() => { try { return JSON.stringify(checkPushArgs(p.args.map(String))) === JSON.stringify(p.args); } catch { return false; } })();
+  const config = {
+    gitPushPresets: {
+      empty: {},
+      validate(value) {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) throw ctx.error.config('push_presets_invalid', { id: '' });
+        for (const [project, list] of Object.entries(value)) {
+          if (!KEY_RE.test(project) || !Array.isArray(list) || list.length > MAX_PRESETS || !list.every(validPreset)
+            || new Set(list.map(p => p.id)).size !== list.length) throw ctx.error.config('push_presets_invalid', { id: project });
+        }
+      },
+    },
+  };
+  const presetsOf = id => ctx.config.get('gitPushPresets')?.[id] || [];
+
   // Comandi di ogni azione (commit a parte: dipende dai file selezionati).
   // optional: un errore non interrompe la sequenza (es. il fetch prima del push,
   // che aggiorna solo i remote-tracking ref).
   const ACTION_STEPS = {
     pull:       ({ remote, branch }) => [{ args: ['pull', remote, ...(branch ? [branch] : ['--rebase=false'])] }],
-    push:       ({ remote, branch }) => [{ args: ['fetch', remote], optional: true }, { args: ['push', remote, branch] }],
+    push:       ({ remote, branch, pushArgs = [] }) => [{ args: ['fetch', remote], optional: true }, { args: ['push', ...pushArgs, remote, branch] }],
     push_force: ({ remote, branch }) => [{ args: ['push', '--force-with-lease', remote, branch] }],
     pull_push:  ({ remote, branch }) => [{ args: ['pull', remote, branch] }, { args: ['push', remote, branch] }],
     merge:      ({ branch, mode }) => [{ args: ['merge', ...(mode === 'no-ff' ? ['--no-ff'] : mode === 'squash' ? ['--squash'] : []), branch] }],
@@ -341,6 +399,7 @@ module.exports = function createGit(ctx) {
   }
 
   return {
+    config,
     // Per le altre estensioni (es. db-client per le migration)
     services: { repos: getGitRepos },
 
@@ -661,12 +720,40 @@ module.exports = function createGit(ctx) {
         res.json({ ok: true, ...(await statusOf(repo)) });
       },
 
+      // Profili di push del progetto: [{ id, label, args }]
+      pushPresets(req, res) { res.json({ presets: presetsOf(repoOr404(req).id) }); },
+
+      // [{ id?, label, args: "-o promote --tags" }]: parametri controllati (parsePushArgs)
+      savePushPresets(req, res) {
+        const repo = repoOr404(req);
+        const list = req.body?.presets;
+        if (!Array.isArray(list) || list.length > MAX_PRESETS) throw ctx.error(400, 'push_presets_invalid', { id: repo.id });
+        const presets = list.map(p => {
+          const label = String(p?.label ?? '').trim();
+          if (!label || !isText(label, 60)) throw ctx.error(400, 'push_preset_label');
+          const args = parsePushArgs(p?.args);
+          return { id: KEY_RE.test(p?.id || '') ? p.id : crypto.randomBytes(4).toString('hex'), label, args };
+        });
+        const all = { ...(ctx.config.get('gitPushPresets') || {}) };
+        if (presets.length) all[repo.id] = presets; else delete all[repo.id];
+        ctx.config.set('gitPushPresets', all);
+        res.json({ presets });
+      },
+
       // Azione git (commit, pull, push, merge, fetch, checkout, stash) — output in streaming SSE.
       // Ogni azione è una sequenza di comandi git eseguiti uno dopo l'altro (runSteps).
       async action(req, res) {
         const repo = repoOr404(req);
 
-        const { action, message, branch, remote = 'origin', files = [], startPoint, stash, mode } = req.body;
+        const { action, message, branch, remote = 'origin', files = [], startPoint, stash, mode, preset } = req.body;
+        // push con i parametri di un profilo salvato del progetto (mai parametri arbitrari dal client)
+        let pushArgs = [];
+        if (preset != null) {
+          if (action !== 'push') throw ctx.error(400, 'push_preset_action');
+          const p = presetsOf(repo.id).find(x => x.id === preset);
+          if (!p) throw ctx.error(404, 'push_preset_not_found', { id: String(preset) });
+          pushArgs = p.args;
+        }
         if (action === 'merge' && mode != null && !['ff', 'no-ff', 'squash'].includes(mode)) throw ctx.error(400, 'merge_mode_invalid');
 
         // Validazione prima di aprire lo stream SSE, così l'errore arriva come JSON 400
@@ -727,7 +814,7 @@ module.exports = function createGit(ctx) {
               { args: ['commit', '-m', message || 'Update'] },
             ];
           } else {
-            steps = switchSteps || ACTION_STEPS[action]({ remote, branch, mode });
+            steps = switchSteps || ACTION_STEPS[action]({ remote, branch, mode, pushArgs });
           }
           send('exit', await runSteps(repo.path, steps, send));
         } finally {
