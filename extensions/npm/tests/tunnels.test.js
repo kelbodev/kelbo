@@ -73,3 +73,22 @@ test('i tunnel partono prima dello script; uno che non parte non lo blocca', asy
   const r2 = await api('POST', '/projects/app/run', { script: 'hello' });
   assert.doesNotMatch(await outputOf(r2.json.id), /tunnel/);
 });
+
+test('prepare (per gli add-on, es. "Esegui nella shell"): tunnel del progetto avviati come prima di "Esegui"', async () => {
+  await api('PUT', '/projects/app/tunnels', { tunnels: ['db'] });
+  let r = await api('POST', '/projects/app/prepare', {});
+  assert.equal(r.status, 200, r.text);
+  assert.match(r.json.log, new RegExp(`\\$ tunnel Database → 127\\.0\\.0\\.1:${busyPort}`));
+  assert.deepEqual(r.json.failed, []);
+  const tunnelsNow = (await srv.request('GET', '/api/ext/tunnels/state')).json;
+  assert.ok(JSON.stringify(tunnelsNow).includes('db'), JSON.stringify(tunnelsNow));
+  // un tunnel che non parte è riportato, senza errore
+  await api('PUT', '/projects/app/tunnels', { tunnels: ['cache'] });
+  r = await api('POST', '/projects/app/prepare', {});
+  assert.equal(r.status, 200, r.text);
+  assert.equal(r.json.failed.length, 1);
+  assert.match(r.json.failed[0], /^tunnel Cache: /);
+  assert.equal((await api('POST', '/projects/nope/prepare', {})).status, 404);
+  await api('PUT', '/projects/app/tunnels', { tunnels: [] });
+  assert.deepEqual((await api('POST', '/projects/app/prepare', {})).json, { log: '', failed: [] });
+});

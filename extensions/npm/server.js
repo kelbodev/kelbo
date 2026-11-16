@@ -285,6 +285,14 @@ module.exports = function createNpm(ctx) {
         res.json({ id: pd.id, pid: pd.pid });
       },
 
+      // Quello che "Esegui" fa prima di uno script, per chi lo esegue altrove (l'add-on del
+      // terminale): i tunnel collegati al progetto avviati. { log, failed }: righe come nell'output
+      async prepare(req, res) {
+        const p = projectOr404(req);
+        const log = await tunnelsPrelude(p);
+        res.json({ log, failed: log.split('\n').filter(l => l.startsWith('! ')).map(l => l.slice(2)) });
+      },
+
       // Avvii degli script del progetto: { <script>: { count, last } }
       usage(req, res) {
         const p = projectOr404(req);

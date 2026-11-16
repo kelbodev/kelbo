@@ -30,6 +30,7 @@ The NPM section (`npm`) is a host for **add-ons** (Kelbo ≥ 2.39, `npm` ≥ 1.1
 | `command` | The command that runs it: `npm run <script>`, `npm install` |
 | `definition` | Its definition in `package.json` (`null` when unknown) |
 | `running` | Whether the section is running it now |
+| `prepare()` | Does what **Run** does before a script, for an add-on that runs it elsewhere: starts the tunnels linked to the project (Tunnels button of the section). Resolves to `{ log, failed }`: the lines **Run** would print before the command and the tunnels that did not start, with the reason (`npm` ≥ 1.2) |
 
 ## Example
 
@@ -41,7 +42,10 @@ export default {
       icon: 'square-terminal',
       label: ctx.t('addon.runInShell'),
       title: target => ctx.t('addon.runInShellTitle', { command: target.command }),
-      run: target => ctx.open('terminal', { project: target.projectId, command: target.command }),
+      run: async target => {
+        await target.prepare?.(); // the project's tunnels first, as Run does
+        ctx.open('terminal', { project: target.projectId, command: target.command });
+      },
     });
   },
 };

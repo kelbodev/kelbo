@@ -394,6 +394,8 @@ export default {
         command: scriptLabel(script),
         definition: shownScripts.projectId === p.id ? shownScripts.scripts[script] ?? null : null,
         running: processes.some(pr => pr.projectId === p.id && pr.script === script && pr.running),
+        // come "Esegui" prima dello script: avvia i tunnel collegati al progetto → { log, failed }
+        prepare: () => ctx.api.post(`/projects/${encodeURIComponent(p.id)}/prepare`, {}),
       };
     }
     function addonButtons(p, script) {

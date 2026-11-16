@@ -1,7 +1,7 @@
 {
   "name": "NPM",
   "code": "npm",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "kelbo": "^2.0",
   "description": {
     "it": "Script di package.json dei progetti come processi tracciati, porte in ascolto, dipendenze e aggiornamenti",
@@ -68,6 +68,11 @@
         "method": "POST",
         "path": "/projects/:id/run",
         "handler": "runScript"
+      },
+      {
+        "method": "POST",
+        "path": "/projects/:id/prepare",
+        "handler": "prepare"
       },
       {
         "method": "GET",

@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.41.0] - 2026-11-16
+
+### Added
+- **NPM 1.2**: `prepare()` in the target of the `script-actions` add-ons (and `POST /api/ext/npm/projects/:id/prepare`) does what **Run** does before a script — starts the tunnels linked to the project — for add-ons that run the script elsewhere, like *Run in shell* of the Terminal. It returns the lines **Run** prints before the command and the tunnels that did not start.
+
 ## [2.40.1] - 2026-11-16
 
 ### Changed
