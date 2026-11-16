@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.41.1] - 2026-11-16
+
+### Changed
+- HTTP: **Express routes of the project…** also in the menus of a user type and of a folder: the imported requests go there (the dialog says where), and a route already imported for another user type can be imported again for this one. The new request is shown with its user type and folders opened.
+
 ## [2.41.0] - 2026-11-16
 
 ### Added

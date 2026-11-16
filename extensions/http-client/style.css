@@ -154,3 +154,4 @@ select.hc-dest option.hc-dest-root{font-weight:600}
 .hc-jt-node.collapsed > .hc-jt-body,.hc-jt-node.collapsed > .hc-jt-close{display:none}
 .hc-jt-count{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--muted);font:inherit;font-size:10px;padding:0 6px;cursor:pointer}
 .hc-jt-count:hover{color:var(--text)}
+.hc-routes-dest{display:flex;align-items:center;gap:6px;margin:0 0 8px;font-size:12.5px;color:var(--text)}

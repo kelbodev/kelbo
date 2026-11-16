@@ -370,5 +370,6 @@
   "errors.folder_user": "La cartella è di un'altra utenza: sposta la richiesta sotto quell'utenza",
   "errors.folder_invalid": "Cartella non valida nella sezione {id}: {folder}",
   "errors.section_folders": "Cartelle della sezione {id} non valide",
-  "errors.request_folder": "Cartella della richiesta {id} non valida (inesistente o di un'altra utenza)"
+  "errors.request_folder": "Cartella della richiesta {id} non valida (inesistente o di un'altra utenza)",
+  "routes.into": "Le richieste importate vanno in: {where}"
 }

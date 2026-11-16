@@ -909,7 +909,10 @@ export default {
           label: t('editor.newLabel'), method: 'GET', url: '{{baseUrl}}/', ...data,
         });
         section(sectionId).requests.push(r);
-        const closed = collapsed(); closed.delete(sectionId); storeCollapsed(closed);
+        // visibile nella sidebar: aperti la sezione, l'utenza e le cartelle che la contengono
+        const closed = collapsed(); closed.delete(sectionId); closed.delete(`${sectionId}|${r.userType || '-'}`);
+        for (let f = r.folder; f; f = section(sectionId).folders?.find(x => x.id === f)?.parent) closed.delete(`${sectionId}|f|${f}`);
+        storeCollapsed(closed);
         openRequest(sectionId, r.id);
         setTimeout(() => $(ctx.root, data.url ? 'url' : 'label')?.focus(), 0);
       } catch (e) { toast(e.message, 'error'); }
@@ -1261,19 +1264,27 @@ export default {
     // filtro delle rotte: testo (percorso, file, metodo), metodo e "solo da importare";
     // resta impostato tornando dall'import di una rotta
     let routesFilter = { text: '', method: '', pending: false };
-    async function routesDialog(sectionId) {
+    // target: dove finiscono le richieste importate, { userType, folder } (dal menu di un'utenza
+    // o di una cartella); senza, alla radice della sezione
+    async function routesDialog(sectionId, target = {}) {
       const s = section(sectionId);
       try { routesData = await ctx.api.get(`/sections/${encodeURIComponent(sectionId)}/routes`); } catch (e) { toast(e.message, 'error'); return; }
       routesData.section = sectionId;
+      routesData.target = { userType: target.userType || null, folder: target.folder || null };
       routesFilter = { text: '', method: '', pending: false };
       renderRoutes();
     }
 
     function renderRoutes() {
       const s = section(routesData.section);
-      const existing = new Set(s.requests.map(r => `${r.method} ${r.url.replace(/^\{\{\s*baseUrl\s*\}\}/, '')}`));
       const d = routesData;
+      // già importata: una richiesta con lo stesso metodo e percorso per la stessa utenza (la
+      // stessa rotta può servire con utenze diverse)
+      const sameUser = r => !d.target.userType || (r.userType || null) === d.target.userType;
+      const existing = new Set(s.requests.filter(sameUser).map(r => `${r.method} ${r.url.replace(/^\{\{\s*baseUrl\s*\}\}/, '')}`));
+      const where = routesWhere(s, d.target);
       openModal(t('routes.title', { section: s.label }), `<div class="hc-scroll">
+        ${where ? `<p class="hc-routes-dest">${ctx.ui.icon('folder-input')} ${esc(t('routes.into', { where }))}</p>` : ''}
         <p class="hc-muted">${esc(d.entry ? t('routes.entry', { file: d.entry.file, from: d.entry.from, count: d.files }) : t('routes.noEntry', { count: d.files }))}</p>
         ${d.autoloaders.length ? `<p class="hc-warn">${esc(t('routes.autoloaders', { list: fmt.list(d.autoloaders) }))}</p>` : ''}
         ${d.routes.length ? `<div class="hc-routes-filter">
@@ -1298,6 +1309,15 @@ export default {
         `<button class="btn btn-ghost" onclick="UI.closeModal()">${esc(t('core.action.close'))}</button>`);
       byId('modal').classList.add('modal-wide');
       if (d.routes.length) { filterRoutes(); setTimeout(() => byId('f_hc_rfilter')?.focus(), 0); }
+    }
+
+    // "Admin › Ordini › Rimborsi": dove finiscono le richieste importate
+    function routesWhere(s, target) {
+      const parts = [];
+      if (target.userType) parts.push(s.userTypes.find(u => u.id === target.userType)?.label || '');
+      const chain = [];
+      for (let f = (s.folders || []).find(x => x.id === target.folder); f && chain.length <= 10; f = s.folders.find(x => x.id === f.parent)) chain.unshift(f.label);
+      return [...parts, ...chain].filter(Boolean).join(' › ');
     }
 
     function filterRoutes() {
@@ -1343,6 +1363,8 @@ export default {
         label: !label || label === `${r.method} ${r.path}` ? `${val('f_hc_rmethod')} ${path}` : label, method: val('f_hc_rmethod'),
         url: `{{baseUrl}}${path.startsWith('/') ? '' : '/'}${path}`,
         ...(['POST', 'PUT', 'PATCH'].includes(val('f_hc_rmethod')) ? { bodyType: 'json', body: '{\n  \n}' } : {}),
+        ...(routesData.target?.userType ? { userType: routesData.target.userType } : {}),
+        ...(routesData.target?.folder ? { folder: routesData.target.folder } : {}),
       });
     }
 
@@ -1483,6 +1505,7 @@ export default {
         menuAt(event, [
           { label: t('sidebar.newRequest'), icon: 'plus', action: () => { if (canLeave()) createRequest(sectionId, uid ? { userType: uid } : {}); } },
           { label: t('folder.new'), icon: 'folder-plus', action: () => folderDialog(sectionId, { userType: uid }) },
+          { label: t('sidebar.discover'), icon: 'scan-search', disabled: !section(sectionId).projectId, action: () => routesDialog(sectionId, { userType: uid }) },
         ]);
       },
       folderMenu(event, sectionId, folderId) {
@@ -1491,6 +1514,7 @@ export default {
         menuAt(event, [
           { label: t('sidebar.newRequest'), icon: 'plus', action: () => Ext['http-client'].newRequest(sectionId, f.userType || '', f.id) },
           { label: t('folder.newSub'), icon: 'folder-plus', action: () => folderDialog(sectionId, { userType: f.userType || '', parent: f.id }) },
+          { label: t('sidebar.discover'), icon: 'scan-search', disabled: !section(sectionId).projectId, action: () => routesDialog(sectionId, { userType: f.userType || '', folder: f.id }) },
           { label: t('folder.rename'), icon: 'pencil', action: () => folderDialog(sectionId, { folderId: f.id }) },
           { label: t('folder.moveTo'), icon: 'folder-input', action: () => moveDialog(sectionId, { folder: f.id }) },
           'separator',
