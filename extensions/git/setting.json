@@ -1,7 +1,7 @@
 {
   "name": "Git",
   "code": "git",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "kelbo": "^2.0",
   "description": {
     "it": "Status, commit, grafo dei commit e operazioni remote per i repository dei progetti",

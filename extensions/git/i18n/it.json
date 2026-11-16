@@ -232,14 +232,14 @@
   "push.labelPlaceholder": "Promote",
   "push.add": "Aggiungi un profilo",
   "push.remove": "Rimuovi",
-  "push.allowed": "Ammessi: -o / --push-option con un valore (anche -ovalore o --push-option=valore), --tags, --follow-tags, --no-follow-tags, --no-verify, --force-with-lease, --set-upstream / -u, --atomic, --dry-run / -n, --signed, --no-signed, --prune, --verbose / -v, --quiet / -q. Remote e branch sono quelli della barra.",
+  "push.allowed": "Ammessi: -o / --push-option con un valore (anche -ovalore o --push-option=valore), --tags, --follow-tags, --no-follow-tags, --no-verify, --force-with-lease, --set-upstream / -u, --atomic, --dry-run / -n, --signed, --no-signed, --prune, --verbose / -v, --quiet / -q; poi, facoltativi, remote e branch (es. -o promote origin dev), altrimenti si usano quelli della barra. Si può incollare anche la riga intera con git push.",
   "push.saved": {
     "one": "{count} profilo di push salvato",
     "other": "{count} profili di push salvati"
   },
   "push.confirmTitle": "Push · {name}",
   "push.confirmText": "Verrà eseguito:",
-  "push.confirmHint": "Remote e branch sono quelli correnti; i parametri sono quelli salvati nel profilo.",
+  "push.confirmHint": "Remote e branch sono quelli del profilo o, se non li indica, quelli correnti.",
   "push.run": "Esegui il push",
   "errors.push_option_value": "{option} richiede un valore (senza caratteri di controllo, massimo 200 caratteri)",
   "errors.push_arg_invalid": "Parametro di push non ammesso: {arg}",
@@ -248,5 +248,7 @@
   "errors.push_preset_label": "Il profilo di push ha bisogno di un nome (massimo 60 caratteri)",
   "errors.push_preset_action": "I parametri di un profilo valgono solo per il push",
   "errors.push_preset_not_found": "Profilo di push non trovato: {id}",
-  "errors.push_presets_invalid": "Parametri di push non validi per il progetto {id}"
+  "errors.push_presets_invalid": "Parametri di push non validi per il progetto {id}",
+  "errors.push_remote_invalid": "Nome del remote non valido: {value}",
+  "errors.push_branch_invalid": "Nome del branch non valido: {value}"
 }

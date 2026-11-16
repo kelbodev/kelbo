@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.44.1] - 2026-11-16
+
+### Fixed
+- Git: a push profile can include remote and branch, as in `-o promote origin dev` (or the whole line with `git push`); they replace the ones of the bar for that profile. The remote must exist in the repository when the push runs, the branch must be a valid name; before, the profile was refused.
+
 ## [2.44.0] - 2026-11-16
 
 ### Added

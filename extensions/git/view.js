@@ -499,13 +499,15 @@ export default {
     let pushPresets = [];
     const loadPushPresets = async () => { try { pushPresets = (await ctx.api.get(repoUrl('/push-presets'))).presets; } catch { pushPresets = []; } return pushPresets; };
     const quoteArg = a => (/\s/.test(a) ? `"${a}"` : a);
-    const pushCommand = (p, branch) => `git push ${p.args.map(quoteArg).join(' ')} ${remote()} ${branch || ''}`.trim();
+    // parametri del profilo come si scrivono (remote e branch in fondo, se il profilo li ha)
+    const presetText = p => [...p.args, ...(p.remote ? [p.remote] : []), ...(p.branch ? [p.branch] : [])].map(quoteArg).join(' ');
+    const pushCommand = (p, branch) => ['git push', ...p.args.map(quoteArg), p.remote || remote(), p.branch || branch || ''].filter(Boolean).join(' ');
 
     async function pushMenu(anchor) {
       await loadPushPresets();
       const r = anchor.getBoundingClientRect();
       ctx.ui.contextMenu(r.left, r.bottom + 4, [
-        ...pushPresets.map(p => ({ icon: 'arrow-up', label: `${p.label} · ${p.args.map(quoteArg).join(' ')}`, action: () => confirmPush(p.id) })),
+        ...pushPresets.map(p => ({ icon: 'arrow-up', label: `${p.label} · ${presetText(p)}`, action: () => confirmPush(p.id) })),
         ...(pushPresets.length ? ['separator'] : []),
         { icon: 'settings-2', label: t('push.manage'), action: () => presetsDialog() },
       ]);
@@ -526,7 +528,7 @@ export default {
     async function presetsDialog() {
       await loadPushPresets();
       const rows = list => list.map(p => `<tr><td><input class="form-input" data-pp="label" value="${esc(p.label)}" maxlength="60" placeholder="${esc(t('push.labelPlaceholder'))}"></td>
-          <td><input class="form-input git-mono" data-pp="args" value="${esc(Array.isArray(p.args) ? p.args.map(quoteArg).join(' ') : p.args)}" placeholder="-o promote" spellcheck="false"><input type="hidden" data-pp="id" value="${esc(p.id || '')}"></td>
+          <td><input class="form-input git-mono" data-pp="args" value="${esc(Array.isArray(p.args) ? presetText(p) : p.args)}" placeholder="-o promote origin dev" spellcheck="false"><input type="hidden" data-pp="id" value="${esc(p.id || '')}"></td>
           <td><button class="btn btn-ghost btn-sm" onclick="this.closest('tr').remove()" title="${esc(t('push.remove'))}"><i data-icon="x"></i></button></td></tr>`).join('');
       openModal(t('push.manageTitle', { project: repos.find(r => r.id === activeRepo)?.label || activeRepo }), `
         <p class="git-muted">${esc(t('push.manageHint'))}</p>
@@ -975,7 +977,7 @@ export default {
         const p = pushPresets.find(x => x.id === id);
         if (!p) return;
         await loadStatus();
-        run({ action: 'push', remote: remote(), branch: status?.branch, preset: id }, pushCommand(p, status?.branch), err => toast(err.message, 'error'));
+        run({ action: 'push', remote: p.remote || remote(), branch: p.branch || status?.branch, preset: id }, pushCommand(p, status?.branch), err => toast(err.message, 'error'));
       },
       addPreset() {
         document.getElementById('f_git_pp').insertAdjacentHTML('beforeend', presetsDialog.rows([{ label: '', args: '' }]));

@@ -37,12 +37,19 @@ test('profili: salvati per progetto, parametri ammessi e normalizzati, gli altri
   assert.deepEqual(presets.map(p => p.args), [['-o', 'promote'], ['-o', 'ci.skip', '-o', 'merge_request.create', '--tags', '-u'], ['-o', 'note=con spazi']]);
   assert.deepEqual(srv.readConfig().gitPushPresets.app.map(p => p.label), ['Promote', 'CI', 'Messaggio']);
   // rifiutati: opzioni che eseguono programmi, remote/refspec, valori mancanti, nomi vuoti
-  for (const [args, code] of [['--receive-pack=/tmp/x', 'git.push_arg_invalid'], ['--exec=sh', 'git.push_arg_invalid'], ['origin', 'git.push_arg_invalid'],
+  for (const [args, code] of [['--receive-pack=/tmp/x', 'git.push_arg_invalid'], ['--exec=sh', 'git.push_arg_invalid'], ['origin main extra', 'git.push_arg_invalid'],
     ['-o', 'git.push_option_value'], ['-o --tags', 'git.push_option_value'], ['', 'git.push_args_empty'], ['--force', 'git.push_arg_invalid']]) {
     r = await api('PUT', '/repos/app/push-presets', { presets: [{ label: 'X', args }] });
     assert.equal(r.json.code, code, `${args}: ${r.text}`);
   }
   assert.equal((await api('PUT', '/repos/app/push-presets', { presets: [{ label: '', args: '-o a' }] })).json.code, 'git.push_preset_label');
+  // remote e branch nel profilo, anche incollando la riga intera
+  r = await api('PUT', '/repos/app/push-presets', { presets: [{ label: 'Dev', args: 'git push -o promote origin dev' }, { label: 'Solo remote', args: '--tags origin' }] });
+  assert.equal(r.status, 200, r.text);
+  assert.deepEqual(r.json.presets.map(p => [p.args, p.remote, p.branch]), [[['-o', 'promote'], 'origin', 'dev'], [['--tags'], 'origin', undefined]]);
+  for (const [args, code] of [['-o a origin dev extra', 'git.push_arg_invalid'], ['-o a origin "bad name"', 'git.push_branch_invalid'], ['-o a or:igin', 'git.push_remote_invalid']]) {
+    assert.equal((await api('PUT', '/repos/app/push-presets', { presets: [{ label: 'X', args }] })).json.code, code, args);
+  }
   // l'id resta quello di prima quando si modifica un profilo
   r = await api('PUT', '/repos/app/push-presets', { presets: [{ ...presets[0], label: 'Promote!' }, presets[1], presets[2]] });
   assert.equal(r.json.presets[0].id, presets[0].id);
@@ -54,13 +61,23 @@ test('profili: salvati per progetto, parametri ammessi e normalizzati, gli altri
 });
 
 test('push con un profilo: le opzioni arrivano al remote; profilo solo per il push', { skip: process.platform === 'win32' && 'hook sh' }, async () => {
-  const presets = (await api('GET', '/repos/app/push-presets')).json.presets;
+  const presets = (await api('PUT', '/repos/app/push-presets', { presets: [{ label: 'Promote', args: '-o promote' }] })).json.presets;
   commitFile(repo, 'a.txt');
   const r = await api('POST', '/repos/app/action', { action: 'push', remote: 'origin', branch: 'main', preset: presets[0].id });
   assert.equal(r.status, 200, r.text);
   const events = parseSse(r.text);
   assert.equal(events.find(e => e.type === 'exit')?.data, 0, r.text);
   assert.deepEqual(fs.readFileSync(path.join(base, 'options.txt'), 'utf8').trim().split('\n'), ['promote']);
+  // profilo con remote e branch: quelli del profilo, non quelli della richiesta
+  git(repo, 'checkout', '-q', '-b', 'dev');
+  commitFile(repo, 'b.txt');
+  const dev = (await api('PUT', '/repos/app/push-presets', { presets: [...presets, { label: 'Dev', args: '-o promote origin dev' }] })).json.presets.at(-1);
+  const r2 = await api('POST', '/repos/app/action', { action: 'push', remote: 'origin', branch: 'main', preset: dev.id });
+  assert.equal(parseSse(r2.text).find(e => e.type === 'exit')?.data, 0, r2.text);
+  assert.equal(git(path.join(base, 'remote.git'), 'rev-parse', 'dev').trim(), git(repo, 'rev-parse', 'dev').trim());
+  // un remote salvato che nel repository non c'è: rifiutato al push
+  const ghost = (await api('PUT', '/repos/app/push-presets', { presets: [{ label: 'Ghost', args: '-o x upstream dev' }] })).json.presets[0];
+  assert.equal((await api('POST', '/repos/app/action', { action: 'push', remote: 'origin', branch: 'dev', preset: ghost.id })).json.code, 'git.remote_unknown');
   assert.equal((await api('POST', '/repos/app/action', { action: 'pull', remote: 'origin', branch: 'main', preset: presets[0].id })).json.code, 'git.push_preset_action');
   assert.equal((await api('POST', '/repos/app/action', { action: 'push', remote: 'origin', branch: 'main', preset: 'nope' })).json.code, 'git.push_preset_not_found');
 });

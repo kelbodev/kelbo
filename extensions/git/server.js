@@ -98,10 +98,23 @@ module.exports = function createGit(ctx) {
     while ((m = re.exec(String(input ?? '')))) tokens.push(m[1] ?? m[2] ?? m[3]);
     return checkPushArgs(tokens);
   }
+  // Anche la riga intera: "git push -o promote origin dev" → { args: ['-o', 'promote'], remote: 'origin',
+  // branch: 'dev' }. Le parole che non sono opzioni sono remote e poi branch (al massimo due): il
+  // remote deve esistere nel repository al momento del push, il branch è un nome valido
+  const REMOTE_NAME_RE = /^[A-Za-z0-9][\w.-]{0,99}$/;
   function checkPushArgs(tokens) {
-    const args = [];
+    const args = [], positional = [];
+    if (tokens[0] === 'git' && tokens[1] === 'push') tokens = tokens.slice(2);
+    else if (tokens[0] === 'push') tokens = tokens.slice(1);
     for (let i = 0; i < tokens.length; i++) {
       const tok = tokens[i];
+      if (!tok.startsWith('-')) {
+        if (positional.length >= 2) throw ctx.error(400, 'push_arg_invalid', { arg: tok.slice(0, 80) });
+        const ok = positional.length === 0 ? REMOTE_NAME_RE.test(tok) : isValidBranchName(tok);
+        if (!ok) throw ctx.error(400, positional.length === 0 ? 'push_remote_invalid' : 'push_branch_invalid', { value: tok.slice(0, 80) });
+        positional.push(tok);
+        continue;
+      }
       if (tok === '-o' || tok === '--push-option') {
         const value = tokens[++i];
         if (value == null || !PUSH_OPTION_RE.test(value) || value.startsWith('-')) throw ctx.error(400, 'push_option_value', { option: tok });
@@ -117,13 +130,15 @@ module.exports = function createGit(ctx) {
       } else if (PUSH_FLAGS.has(tok)) args.push(tok);
       else throw ctx.error(400, 'push_arg_invalid', { arg: tok.slice(0, 80) });
     }
-    if (!args.length) throw ctx.error(400, 'push_args_empty');
+    if (!args.length && !positional.length) throw ctx.error(400, 'push_args_empty');
     if (args.length > MAX_ARGS * 2) throw ctx.error(400, 'push_args_too_many');
-    return args;
+    return { args, ...(positional[0] ? { remote: positional[0] } : {}), ...(positional[1] ? { branch: positional[1] } : {}) };
   }
-  // salvato: già nella forma normalizzata (-o valore, opzioni ammesse)
-  const validPreset = p => p && KEY_RE.test(p.id || '') && isText(p.label, 60) && Array.isArray(p.args) && p.args.length
-    && (() => { try { return JSON.stringify(checkPushArgs(p.args.map(String))) === JSON.stringify(p.args); } catch { return false; } })();
+  // salvato: già nella forma normalizzata (-o valore, opzioni ammesse, remote e branch a parte)
+  const presetTokens = p => [...(p.args || []).map(String), ...(p.remote ? [p.remote] : []), ...(p.branch ? [p.branch] : [])];
+  const validPreset = p => p && KEY_RE.test(p.id || '') && isText(p.label, 60) && Array.isArray(p.args)
+    && (p.branch == null || p.remote != null)
+    && (() => { try { const n = checkPushArgs(presetTokens(p)); return JSON.stringify(n.args) === JSON.stringify(p.args) && (n.remote ?? null) === (p.remote ?? null) && (n.branch ?? null) === (p.branch ?? null); } catch { return false; } })();
   const config = {
     gitPushPresets: {
       empty: {},
@@ -731,8 +746,8 @@ module.exports = function createGit(ctx) {
         const presets = list.map(p => {
           const label = String(p?.label ?? '').trim();
           if (!label || !isText(label, 60)) throw ctx.error(400, 'push_preset_label');
-          const args = parsePushArgs(p?.args);
-          return { id: KEY_RE.test(p?.id || '') ? p.id : crypto.randomBytes(4).toString('hex'), label, args };
+          const parsed = parsePushArgs(Array.isArray(p?.args) ? [...p.args, ...(p.remote ? [p.remote] : []), ...(p.branch ? [p.branch] : [])] : p?.args);
+          return { id: KEY_RE.test(p?.id || '') ? p.id : crypto.randomBytes(4).toString('hex'), label, ...parsed };
         });
         const all = { ...(ctx.config.get('gitPushPresets') || {}) };
         if (presets.length) all[repo.id] = presets; else delete all[repo.id];
@@ -745,14 +760,18 @@ module.exports = function createGit(ctx) {
       async action(req, res) {
         const repo = repoOr404(req);
 
-        const { action, message, branch, remote = 'origin', files = [], startPoint, stash, mode, preset } = req.body;
-        // push con i parametri di un profilo salvato del progetto (mai parametri arbitrari dal client)
+        const { action, message, files = [], startPoint, stash, mode, preset } = req.body;
+        let { branch, remote = 'origin' } = req.body;
+        // push con i parametri di un profilo salvato del progetto (mai parametri arbitrari dal client);
+        // remote e branch del profilo, se ci sono, al posto di quelli della barra
         let pushArgs = [];
         if (preset != null) {
           if (action !== 'push') throw ctx.error(400, 'push_preset_action');
           const p = presetsOf(repo.id).find(x => x.id === preset);
           if (!p) throw ctx.error(404, 'push_preset_not_found', { id: String(preset) });
           pushArgs = p.args;
+          if (p.remote) remote = p.remote;
+          if (p.branch) branch = p.branch;
         }
         if (action === 'merge' && mode != null && !['ff', 'no-ff', 'squash'].includes(mode)) throw ctx.error(400, 'merge_mode_invalid');
 

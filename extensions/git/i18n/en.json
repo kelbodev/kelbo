@@ -232,14 +232,14 @@
   "push.labelPlaceholder": "Promote",
   "push.add": "Add a profile",
   "push.remove": "Remove",
-  "push.allowed": "Allowed: -o / --push-option with a value (also -ovalue or --push-option=value), --tags, --follow-tags, --no-follow-tags, --no-verify, --force-with-lease, --set-upstream / -u, --atomic, --dry-run / -n, --signed, --no-signed, --prune, --verbose / -v, --quiet / -q. Remote and branch are the ones of the bar.",
+  "push.allowed": "Allowed: -o / --push-option with a value (also -ovalue or --push-option=value), --tags, --follow-tags, --no-follow-tags, --no-verify, --force-with-lease, --set-upstream / -u, --atomic, --dry-run / -n, --signed, --no-signed, --prune, --verbose / -v, --quiet / -q; then, optionally, remote and branch (e.g. -o promote origin dev), otherwise the ones of the bar are used. The whole line with git push can be pasted too.",
   "push.saved": {
     "one": "{count} push profile saved",
     "other": "{count} push profiles saved"
   },
   "push.confirmTitle": "Push · {name}",
   "push.confirmText": "This will run:",
-  "push.confirmHint": "Remote and branch are the current ones; the parameters are the ones saved in the profile.",
+  "push.confirmHint": "Remote and branch are the ones of the profile or, when it has none, the current ones.",
   "push.run": "Push",
   "errors.push_option_value": "{option} needs a value (no control characters, 200 characters at most)",
   "errors.push_arg_invalid": "Push parameter not allowed: {arg}",
@@ -248,5 +248,7 @@
   "errors.push_preset_label": "The push profile needs a name (60 characters at most)",
   "errors.push_preset_action": "The parameters of a profile only apply to push",
   "errors.push_preset_not_found": "Push profile not found: {id}",
-  "errors.push_presets_invalid": "Invalid push parameters for project {id}"
+  "errors.push_presets_invalid": "Invalid push parameters for project {id}",
+  "errors.push_remote_invalid": "Invalid remote name: {value}",
+  "errors.push_branch_invalid": "Invalid branch name: {value}"
 }
