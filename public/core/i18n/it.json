@@ -432,5 +432,7 @@
   "core.json.collapseAll": "Comprimi",
   "core.json.expandAllTitle": "Apri tutti i livelli",
   "core.json.collapseAllTitle": "Chiudi tutto sotto il primo livello",
-  "core.json.treeHint": "▾ chiude un livello, Alt+clic anche quelli dentro"
+  "core.json.treeHint": "▾ chiude un livello, Alt+clic anche quelli dentro",
+  "core.vault.show": "Mostra la password",
+  "core.vault.hide": "Nascondi la password"
 }

@@ -1,15 +1,9 @@
-<!-- Vault: creazione o sblocco della master password -->
-<div class="db-gate" data-role="gate" hidden>
-  <form class="db-gate-box" data-role="gate-form" autocomplete="off">
-    <div class="db-gate-icon"><i data-icon="lock-keyhole"></i></div>
-    <h3 data-role="gate-title"></h3>
-    <p class="db-gate-text" data-role="gate-text"></p>
-    <input class="form-input" type="password" data-role="gate-password" autocomplete="off">
-    <input class="form-input" type="password" data-role="gate-confirm" data-i18n-placeholder="gate.confirmPlaceholder" autocomplete="off" hidden>
-    <div class="db-gate-error" data-role="gate-error"></div>
-    <button class="btn btn-primary" type="submit" data-role="gate-submit"></button>
-    <button class="btn btn-ghost btn-sm db-gate-forgot" type="button" data-action="vault-reset" data-role="gate-forgot" data-i18n="gate.forgot" hidden></button>
-  </form>
+<!-- Vault bloccato o da creare: come nelle altre sezioni, il dialogo della master password del core -->
+<div class="empty-state db-gate" data-role="gate" hidden>
+  <div class="icon"><i data-icon="lock"></i></div>
+  <p data-role="gate-text"></p>
+  <button class="btn btn-primary" data-action="unlock"><i data-icon="lock-open"></i> <span data-role="gate-submit"></span></button>
+  <button class="btn btn-ghost btn-sm db-gate-forgot" type="button" data-action="vault-reset" data-role="gate-forgot" data-i18n="gate.forgot" hidden></button>
 </div>
 
 <!-- Contenuto disponibile a vault sbloccato -->

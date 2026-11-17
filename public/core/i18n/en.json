@@ -432,5 +432,7 @@
   "core.json.collapseAll": "Collapse",
   "core.json.expandAllTitle": "Open every level",
   "core.json.collapseAllTitle": "Close everything below the first level",
-  "core.json.treeHint": "▾ closes a level, Alt+click the ones inside too"
+  "core.json.treeHint": "▾ closes a level, Alt+click the ones inside too",
+  "core.vault.show": "Show password",
+  "core.vault.hide": "Hide password"
 }

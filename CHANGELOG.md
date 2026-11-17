@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.44.2] - 2026-11-17
+
+### Changed
+- Master password: an eye next to the password fields of the unlock (and create) dialog shows what was typed, and hides it again.
+- Database: when the master password is locked or still to be created, the section shows the same panel as the other ones (lock, text, **Unlock**, also in the sidebar) and opens the same dialog, instead of a form of its own; *I forgot the master password* stays under the button.
+
 ## [2.44.1] - 2026-11-16
 
 ### Fixed

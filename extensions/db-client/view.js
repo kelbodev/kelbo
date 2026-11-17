@@ -469,7 +469,8 @@ export default {
       $(ctx.sidebar, 'import-btn').hidden = !unlocked;
       $(ctx.sidebar, 'tree-search').hidden = !unlocked;
       if (!unlocked) {
-        $(ctx.sidebar, 'connections').innerHTML = `<p class="db-muted db-pad">${ctx.ui.icon('lock')} ${esc(t('sidebar.locked'))}</p>`;
+        $(ctx.sidebar, 'connections').innerHTML = `<p class="db-muted db-pad">${ctx.ui.icon('lock')} ${esc(t('sidebar.locked'))}<br><br>
+          <button class="btn btn-primary btn-sm" data-action="unlock">${ctx.ui.icon('lock-open')} ${esc(t(vault.state === 'uninitialized' ? 'gate.create' : 'gate.unlock'))}</button></p>`;
         renderGate();
         return;
       }
@@ -2363,38 +2364,16 @@ export default {
 
     function renderGate() {
       const creating = vault.state === 'uninitialized';
-      $(ctx.root, 'gate-title').textContent = t(creating ? 'gate.createTitle' : 'gate.lockedTitle');
       $(ctx.root, 'gate-text').textContent = creating
         ? t('gate.createText', { min: vault.minLength })
         : t('gate.unlockText', { count: vault.lockAfterMinutes });
-      $(ctx.root, 'gate-password').placeholder = t('gate.placeholder');
-      $(ctx.root, 'gate-confirm').hidden = !creating;
       $(ctx.root, 'gate-forgot').hidden = creating;
       $(ctx.root, 'gate-submit').textContent = t(creating ? 'gate.create' : 'gate.unlock');
-      $(ctx.root, 'gate-error').textContent = '';
-      setTimeout(() => $(ctx.root, 'gate-password').focus(), 0);
     }
 
-    async function submitGate(e) {
-      e.preventDefault();
-      const pwd = $(ctx.root, 'gate-password').value;
-      const error = $(ctx.root, 'gate-error');
-      if (vault.state === 'uninitialized') {
-        if ([...pwd].length < vault.minLength) { error.textContent = t('gate.tooShort', { min: vault.minLength }); return; }
-        if (pwd !== $(ctx.root, 'gate-confirm').value) { error.textContent = t('gate.mismatch'); return; }
-      }
-      const submit = $(ctx.root, 'gate-submit');
-      submit.disabled = true;
-      try {
-        await ctx.core.post(vault.state === 'uninitialized' ? '/vault/init' : '/vault/unlock', { password: pwd });
-        $(ctx.root, 'gate-password').value = '';
-        $(ctx.root, 'gate-confirm').value = '';
-        await loadVault();
-      } catch (err) {
-        error.textContent = err.message;
-      } finally {
-        submit.disabled = false;
-      }
+    // Sblocco (o creazione) con il dialogo del core, come le altre sezioni
+    async function unlockGate() {
+      if (await ctx.vault.ensure()) await loadVault();
     }
 
     // Menu del vault: blocca, cambia password, timeout
@@ -2633,10 +2612,10 @@ export default {
       },
     };
 
-    $(ctx.root, 'gate-form').addEventListener('submit', submitGate);
     ctx.root.addEventListener('click', e => {
       const a = e.target.closest('[data-action]')?.dataset.action;
       if (a === 'vault-reset') resetVault();
+      else if (a === 'unlock') unlockGate();
       else if (a === 'run') run();
       else if (a === 'change-params') changeParams();
       else if (a === 'export-query') exportQuery(e.target.closest('[data-action]'));
@@ -2736,6 +2715,7 @@ export default {
     });
     ctx.sidebar.addEventListener('click', e => {
       if (e.target.closest('[data-action="vault-menu"]')) vaultMenu();
+      else if (e.target.closest('[data-action="unlock"]')) unlockGate();
       else if (e.target.closest('[data-action="add-connection"]')) actions.addConnection();
       else if (e.target.closest('[data-action="add-folder"]')) actions.addFolder();
       else if (e.target.closest('[data-action="import-connections"]')) actions.importConnections();

@@ -55,7 +55,7 @@ after(() => srv?.stop());
 test('db-client accoglie add-on: punti, versione, add-on compatibile e no', async () => {
   const list = (await srv.request('GET', '/api/core/extensions')).json;
   const host = list.find(e => e.code === 'db-client');
-  assert.equal(host.version, '1.1.0');
+  assert.match(host.version, /^1\.([1-9]|\d{2,})\./, 'db-client >= 1.1');
   assert.deepEqual(host.addonPoints.map(p => p.id), ['database-menu', 'table-menu', 'workspace-tab']);
   assert.equal(list.find(e => e.code === 'erd').state, 'ok');
   const future = list.find(e => e.code === 'future');

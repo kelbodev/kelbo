@@ -10,20 +10,14 @@
   "tree.noDatabases": "Nessun database",
   "tree.noTables": "Nessuna tabella",
   "tree.rowsEstimate": "~{count} righe",
-  "gate.confirmPlaceholder": "Ripeti la master password",
   "gate.forgot": "Ho dimenticato la master password",
-  "gate.createTitle": "Crea la master password",
-  "gate.lockedTitle": "Database bloccato",
   "gate.createText": "Le password dei database vengono cifrate con questa password. Non viene salvata da nessuna parte: se la dimentichi le password salvate andranno reinserite. Almeno {min} caratteri.",
   "gate.unlockText": {
-    "one": "Inserisci la master password per usare le connessioni. Si blocca da sola dopo {count} minuto di inattività.",
-    "other": "Inserisci la master password per usare le connessioni. Si blocca da sola dopo {count} minuti di inattività."
+    "one": "Le password delle connessioni sono cifrate con la master password: sbloccala per usarle. Si blocca da sola dopo {count} minuto di inattività.",
+    "other": "Le password delle connessioni sono cifrate con la master password: sbloccala per usarle. Si blocca da sola dopo {count} minuti di inattività."
   },
-  "gate.placeholder": "Master password",
-  "gate.create": "Crea",
+  "gate.create": "Crea la master password",
   "gate.unlock": "Sblocca",
-  "gate.tooShort": "Almeno {min} caratteri",
-  "gate.mismatch": "Le due password non coincidono",
   "main.noConnection": "Seleziona una connessione dalla sidebar",
   "toolbar.limitTitle": "Righe massime",
   "toolbar.limit": "{count} righe",

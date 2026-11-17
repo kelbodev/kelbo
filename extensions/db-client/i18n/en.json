@@ -10,20 +10,14 @@
   "tree.noDatabases": "No databases",
   "tree.noTables": "No tables",
   "tree.rowsEstimate": "~{count} rows",
-  "gate.confirmPlaceholder": "Repeat the master password",
   "gate.forgot": "I forgot the master password",
-  "gate.createTitle": "Create the master password",
-  "gate.lockedTitle": "Database locked",
   "gate.createText": "Database passwords are encrypted with this password. It is not stored anywhere: if you forget it, the saved passwords will have to be entered again. At least {min} characters.",
   "gate.unlockText": {
-    "one": "Enter the master password to use the connections. It locks itself after {count} minute of inactivity.",
-    "other": "Enter the master password to use the connections. It locks itself after {count} minutes of inactivity."
+    "one": "Connection passwords are encrypted with the master password: unlock it to use them. It locks itself after {count} minute of inactivity.",
+    "other": "Connection passwords are encrypted with the master password: unlock it to use them. It locks itself after {count} minutes of inactivity."
   },
-  "gate.placeholder": "Master password",
-  "gate.create": "Create",
+  "gate.create": "Create the master password",
   "gate.unlock": "Unlock",
-  "gate.tooShort": "At least {min} characters",
-  "gate.mismatch": "The two passwords do not match",
   "main.noConnection": "Select a connection in the sidebar",
   "toolbar.limitTitle": "Maximum rows",
   "toolbar.limit": "{count} rows",

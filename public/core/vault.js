@@ -9,6 +9,22 @@ window.Vault = (() => {
 
   const status = () => api.get('/vault');
 
+  // Campo password con l'occhio per vedere quello che si è scritto
+  const passwordField = (id, placeholder) => `<div class="pw-field">
+      <input class="form-input" type="password" id="${id}" autocomplete="off" spellcheck="false" placeholder="${esc(placeholder)}" onkeydown="if(event.key==='Enter')Vault.submit()">
+      <button type="button" class="pw-eye" onclick="Vault.toggleShow(this)" aria-pressed="false" title="${esc(t('core.vault.show'))}" aria-label="${esc(t('core.vault.show'))}">${window.UI.icon('eye')}</button>
+    </div>`;
+  function toggleShow(btn) {
+    const input = btn.previousElementSibling;
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    btn.setAttribute('aria-pressed', String(show));
+    btn.title = t(show ? 'core.vault.hide' : 'core.vault.show');
+    btn.setAttribute('aria-label', btn.title);
+    btn.innerHTML = window.UI.icon(show ? 'eye-off' : 'eye');
+    input.focus();
+  }
+
   // true quando il vault è sbloccato (subito o dopo il dialogo), false se l'utente rinuncia
   async function ensure() {
     const st = await status();
@@ -19,10 +35,8 @@ window.Vault = (() => {
       const finish = ok => { pending = null; resolve(ok); };
       openModal(t(creating ? 'core.vault.createTitle' : 'core.vault.unlockTitle'), `
         <p class="vault-text">${esc(creating ? t('core.vault.createText', { min: st.minLength }) : t('core.vault.unlockText'))}</p>
-        <div class="form-row"><input class="form-input" type="password" id="f_core_vault" autocomplete="off"
-          placeholder="${esc(t('core.vault.password'))}" onkeydown="if(event.key==='Enter')Vault.submit()"></div>
-        ${creating ? `<div class="form-row"><input class="form-input" type="password" id="f_core_vault2" autocomplete="off"
-          placeholder="${esc(t('core.vault.repeat'))}" onkeydown="if(event.key==='Enter')Vault.submit()"></div>` : ''}
+        <div class="form-row">${passwordField('f_core_vault', t('core.vault.password'))}</div>
+        ${creating ? `<div class="form-row">${passwordField('f_core_vault2', t('core.vault.repeat'))}</div>` : ''}
         <div class="vault-error" id="f_core_vault_err"></div>`,
         `<button class="btn btn-ghost" onclick="Vault.cancel()">${esc(t('core.action.cancel'))}</button>
          <button class="btn btn-primary" onclick="Vault.submit()">${esc(t(creating ? 'core.vault.create' : 'core.vault.unlock'))}</button>`);
@@ -61,5 +75,5 @@ window.Vault = (() => {
   // Errori del vault (423 bloccato o non creato): true se l'errore è del vault
   const isVaultError = e => e?.code === 'core.vault_locked' || e?.code === 'core.vault_missing';
 
-  return { status, ensure, isVaultError, submit: () => current?.submit(), cancel: () => current?.cancel() };
+  return { status, ensure, isVaultError, toggleShow, submit: () => current?.submit(), cancel: () => current?.cancel() };
 })();

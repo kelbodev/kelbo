@@ -4,13 +4,8 @@
 .db-main{flex:1;display:flex;flex-direction:column;min-height:0}
 
 /* vault */
-.db-gate{flex:1;display:flex;align-items:center;justify-content:center;padding:24px}
-.db-gate-box{width:100%;max-width:380px;display:flex;flex-direction:column;gap:10px;text-align:center}
-.db-gate-icon{font-size:36px}
-.db-gate-box h3{font-size:16px}
-.db-gate-text{font-size:12px;color:var(--muted);line-height:1.5}
-.db-gate-error{min-height:16px;font-size:12px;color:var(--danger)}
-.db-gate-forgot{align-self:center;color:var(--muted)}
+.db-gate{flex:1}
+.db-gate-forgot{margin-top:4px;color:var(--muted)}
 
 /* connessioni */
 .db-row-folder{font-weight:600}
