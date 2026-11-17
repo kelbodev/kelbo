@@ -65,9 +65,8 @@ window.UI = (() => {
     }
   }
 
-  function styled(st, text) {
-    if (!text) return '';
-    const safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // Apertura e chiusura dello <span> dello stile attuale ('' se testo semplice)
+  function styleTags(st) {
     const cls = [], css = [];
     if (st.bold) cls.push('ansi-bold');
     if (st.dim) cls.push('ansi-dim');
@@ -75,19 +74,39 @@ window.UI = (() => {
     if (st.underline) cls.push('ansi-underline');
     if (st.fg?.cls) cls.push('ansi-' + st.fg.cls); else if (st.fg?.rgb) css.push(`color:${st.fg.rgb}`);
     if (st.bg?.cls) cls.push('ansi-bg-' + st.bg.cls); else if (st.bg?.rgb) css.push(`background:${st.bg.rgb}`);
-    if (!cls.length && !css.length) return safe;
-    return `<span${cls.length ? ` class="${cls.join(' ')}"` : ''}${css.length ? ` style="${css.join(';')}"` : ''}>${safe}</span>`;
+    if (!cls.length && !css.length) return ['', ''];
+    return [`<span${cls.length ? ` class="${cls.join(' ')}"` : ''}${css.length ? ` style="${css.join(';')}"` : ''}>`, '</span>'];
+  }
+  const escText = text => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+  // Indirizzi http/https nel testo (senza colori): [inizio, fine, url]; la punteggiatura finale
+  // ("…su http://localhost:5001/." o tra parentesi) resta fuori
+  const URL_RE = /\bhttps?:\/\/[^\s<>"'`\u0000-\u001f]+/g;
+  function findUrls(text) {
+    const out = [];
+    let m;
+    URL_RE.lastIndex = 0;
+    while ((m = URL_RE.exec(text))) {
+      let url = m[0];
+      const balanced = u => (u.match(/\(/g) || []).length >= (u.match(/\)/g) || []).length;
+      while (/[.,;:!?'")\]}>]$/.test(url) && !(url.endsWith(')') && balanced(url))) url = url.slice(0, -1);
+      if (/^https?:\/\/[^/\s]+/.test(url)) out.push([m.index, m.index + url.length, url]);
+    }
+    return out;
   }
 
-  // ansiToHtml(text) per un testo isolato; ansiToHtml(text, state) per un flusso a pezzi
+  // ansiToHtml(text) per un testo isolato; ansiToHtml(text, state) per un flusso a pezzi.
+  // Gli indirizzi http/https diventano link (nuova tab), anche quando sono colorati a pezzi
+  // (es. "http://localhost:" normale e la porta in grassetto)
   function ansiToHtml(input, state = ansiState()) {
     const text = state.pending + String(input ?? '');
     state.pending = '';
     // CSI (ESC [ … lettera), OSC (ESC ] … BEL/ST), altri ESC di due caratteri
     const re = /\x1b(?:\[([0-9;?]*)([ -\/]*)([@-~])|\][^\x07\x1b]*(?:\x07|\x1b\\)|[@-Z\\-_])/g;
-    let out = '', last = 0, m;
+    const parts = []; // [testo, [apertura, chiusura] dello stile], in ordine
+    let last = 0, m;
     while ((m = re.exec(text))) {
-      out += styled(state, text.slice(last, m.index));
+      if (m.index > last) parts.push([text.slice(last, m.index), styleTags(state)]);
       if (m[3] === 'm' && !m[2]) applySgr(state, (m[1] || '').replace(/^\?/, ''));
       last = re.lastIndex;
     }
@@ -95,7 +114,25 @@ window.UI = (() => {
     // sequenza incompleta alla fine: si completa con il prossimo pezzo
     const cut = rest.lastIndexOf('\x1b');
     if (cut !== -1 && /^\x1b(\[[0-9;?]*[ -\/]*|\][^\x07]*)?$/.test(rest.slice(cut))) { state.pending = rest.slice(cut); rest = rest.slice(0, cut); }
-    return out + styled(state, rest.replace(/\x1b/g, ''));
+    rest = rest.replace(/\x1b/g, '');
+    if (rest) parts.push([rest, styleTags(state)]);
+    const urls = findUrls(parts.map(p => p[0]).join(''));
+    let out = '', pos = 0;
+    for (const [chunk, [open, close]] of parts) {
+      const end = pos + chunk.length;
+      const slice = (from, to) => escText(chunk.slice(from - pos, to - pos));
+      let i = pos, html = '';
+      for (const [a, b, url] of urls) {
+        if (b <= i || a >= end) continue;
+        const from = Math.max(a, i), to = Math.min(b, end);
+        html += `${slice(i, from)}<a class="ansi-link" href="${escText(url)}" target="_blank" rel="noopener noreferrer">${slice(from, to)}</a>`;
+        i = to;
+      }
+      html += slice(i, end);
+      if (html) out += open + html + close;
+      pos = end;
+    }
+    return out;
   }
 
   // ---- TOAST ----

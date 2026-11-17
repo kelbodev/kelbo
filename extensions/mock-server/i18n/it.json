@@ -104,5 +104,7 @@
   "running.mocks": {
     "one": "{count} mock server avviato",
     "other": "{count} mock server avviati"
-  }
+  },
+  "addons.failed": "L'add-on non ha funzionato: {error}",
+  "addons.routeGone": "La rotta non esiste più"
 }

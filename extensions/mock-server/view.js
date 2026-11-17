@@ -221,8 +221,66 @@ export default {
       return i < 0 ? { name: l, value: '' } : { name: l.slice(0, i).trim(), value: l.slice(i + 1).trim() };
     });
 
+    // ---- add-on (docs: ADDONS.md): pulsanti accanto al corpo della risposta (punto route-body) ----
+    const bodyActions = [];
+    let dialogRoute = null; // rotta della finestra aperta (anche nuova, senza id)
+    const safeAddon = (fn, fallback) => { try { return fn(); } catch (e) { console.error('[mock-server add-on]', e); toast(t('addons.failed', { error: e.message }), 'error'); return fallback; } };
+    // quello che un add-on sa della risposta nella finestra: mock, rotta, corpo scritto adesso
+    function bodyTarget() {
+      const m = active();
+      const r = dialogRoute || {};
+      const open = !!byId('f_ms_body');
+      return {
+        mock: m ? { id: m.id, label: m.label, port: m.port } : null,
+        route: r.id ? { id: r.id, method: r.method, path: r.path, label: r.label || '' } : null,
+        body: open ? val('f_ms_body') : r.body || '',
+        bodyType: (open ? document.querySelector('input[name="f_ms_btype"]:checked')?.value : r.bodyType) || 'json',
+        // nel campo della finestra (se è ancora aperta)
+        setBody(text, bodyType = 'json') {
+          const ta = byId('f_ms_body');
+          if (!ta) return false;
+          ta.value = String(text);
+          const radio = document.querySelector(`input[name="f_ms_btype"][value="${bodyType}"]`);
+          if (radio) radio.checked = true;
+          ta.focus();
+          return true;
+        },
+        // salvato nella rotta (anche a finestra chiusa): solo per una rotta già salvata
+        saveBody: r.id && m ? text => hostApi.saveBody(m.id, r.id, text) : null,
+      };
+    }
+    function bodyButtons() {
+      if (!bodyActions.length) return '';
+      const target = bodyTarget();
+      return `<span class="ms-body-actions">${bodyActions.map((a, i) => {
+        if (a.when && !safeAddon(() => a.when(target), false)) return '';
+        const label = typeof a.label === 'function' ? safeAddon(() => a.label(target), '') : a.label;
+        const title = typeof a.title === 'function' ? safeAddon(() => a.title(target), '') : a.title;
+        return `<button type="button" class="btn btn-ghost btn-sm" onclick="Ext['mock-server'].bodyAction(${i})" title="${esc(title || label || '')}">${ctx.ui.icon(a.icon || 'puzzle')}${label ? ` ${esc(label)}` : ''}</button>`;
+      }).join('')}</span>`;
+    }
+    const hostApi = {
+      version: ctx.meta.version,
+      // action: { icon?, label (testo o target → testo), title?, run(target), when?(target) }
+      addBodyAction(action) {
+        if (typeof action?.run !== 'function') throw new Error('mock-server: addBodyAction needs run(target)');
+        bodyActions.push(action);
+      },
+      // Corpo JSON di una rotta salvata, sostituito (es. modificato nel Coltellino)
+      async saveBody(mockId, routeId, text) {
+        const m = mocks.find(x => x.id === mockId);
+        const r = m?.routes.find(x => x.id === routeId);
+        if (!r) throw new Error(t('addons.routeGone'));
+        const saved = await ctx.api.put(`/mocks/${encodeURIComponent(mockId)}/routes/${encodeURIComponent(routeId)}`, { ...r, bodyType: 'json', body: String(text) });
+        m.routes = m.routes.map(x => (x.id === saved.id ? saved : x));
+        if (mockId === activeId) renderMain();
+        return saved;
+      },
+    };
+
     function routeDialog(route, { fromCall = false } = {}) {
       const r = route || { method: 'GET', path: '/', status: 200, headers: [], bodyType: 'json', body: '{\n  "ok": true\n}', delayMs: 0 };
+      dialogRoute = r;
       openModal(t(r.id ? 'routeDlg.editTitle' : fromCall ? 'routeDlg.fromCallTitle' : 'routeDlg.newTitle'), `
         <div class="ms-inline">
           <select class="form-input ms-method" id="f_ms_method">${METHODS.map(m => `<option value="${m}" ${m === r.method ? 'selected' : ''}>${esc(m === 'ANY' ? t('routes.any') : m)}</option>`).join('')}</select>
@@ -236,7 +294,8 @@ export default {
         </div>
         <div class="form-row"><label>${esc(t('routeDlg.headers'))}</label><textarea class="form-input ms-code" id="f_ms_headers" rows="2" spellcheck="false" placeholder="X-Request-Id: 42">${esc(linesOf(r.headers))}</textarea></div>
         <div class="form-row"><label>${esc(t('routeDlg.body'))}</label>
-          <div class="ms-inline ms-body-types">${['json', 'text', 'none'].map(bt => `<label class="ms-check"><input type="radio" name="f_ms_btype" value="${bt}" ${bt === (r.bodyType || 'json') ? 'checked' : ''}> ${esc(t(`routeDlg.bodyTypes.${bt}`))}</label>`).join('')}</div>
+          <div class="ms-inline ms-body-types">${['json', 'text', 'none'].map(bt => `<label class="ms-check"><input type="radio" name="f_ms_btype" value="${bt}" ${bt === (r.bodyType || 'json') ? 'checked' : ''}> ${esc(t(`routeDlg.bodyTypes.${bt}`))}</label>`).join('')}
+            ${bodyButtons(r)}</div>
           <textarea class="form-input ms-code" id="f_ms_body" rows="8" spellcheck="false">${esc(r.body || '')}</textarea></div>`,
         `<button class="btn btn-ghost" onclick="UI.closeModal()">${esc(t('core.action.cancel'))}</button>
          <button class="btn btn-primary" onclick="Ext['mock-server'].saveRoute(${js(r.id || '')})">${esc(t(r.id ? 'core.action.save' : 'core.action.add'))}</button>`);
@@ -321,6 +380,10 @@ export default {
         try { await ctx.api.put(base('/order'), { ids }); m.routes = ids.map(id => m.routes.find(r => r.id === id)); renderMain(); } catch (e) { toast(e.message, 'error'); }
       },
       showCall(id) { selectedCall = id; renderCalls(); },
+      bodyAction(i) {
+        const a = bodyActions[i];
+        if (a) safeAddon(() => Promise.resolve(a.run(bodyTarget())).catch(e => { console.error('[mock-server add-on]', e); toast(t('addons.failed', { error: e.message }), 'error'); }));
+      },
       // Rotta dalla chiamata senza corrispondenza: metodo e percorso, la risposta da compilare
       routeFromCall(id) {
         const c = calls.find(x => x.id === id);
@@ -328,6 +391,7 @@ export default {
       },
     });
 
+    await ctx.addons?.activate(hostApi);
     await load();
     const pollTimer = setInterval(poll, POLL_MS);
     this.refresh = load;

@@ -162,12 +162,12 @@ Goal: besides *tab* and *header*, an extension can sit in the section bar as an 
 
 ---
 
-## M13 — JSON between Mock and Toolbox, links in the output — core, `mock-server`, `toolbox` (kelbo-extensions)
+## M13 — JSON between Mock and Toolbox, links in the output — core, `mock-server`, `toolbox` (kelbo-extensions) ✅ (2.45.0, `toolbox@1.4.0`)
 
 Goal: the JSON of the mock responses is edited with the tools of the Toolbox and goes back to the mock, and the addresses printed by the processes open with a click.
 
-- [ ] **M13.1** Mock ↔ Toolbox: the JSON body of a mock response opens in the JSON tab of the Toolbox to edit it (format, tree, errors with line and column), and a JSON of the Toolbox is imported into the body of a mock response. Likely the same pattern as HTTP: the Mock section as a host (`addonPoints`, a button on the response body, an API to write the body back), the Toolbox as an optional add-on of it, and a way for the Toolbox to send its JSON back to the response it came from
-- [ ] **M13.2** Output drawer (`ctx.ui.output`, the footer of the sections: npm scripts, Git, Scripts, Monitor…): addresses in the output (`http://localhost:5001/`, `https://…`) recognised and made clickable, opened in a new browser tab (`target="_blank" rel="noopener noreferrer"`); only `http`/`https`, the rest of the text escaped as now, ANSI colours kept
+- [x] **M13.1** Mock ↔ Toolbox: the JSON body of a mock response opens in the JSON tab of the Toolbox to edit it (format, tree, errors with line and column), and a JSON of the Toolbox is imported into the body of a mock response. Likely the same pattern as HTTP: the Mock section as a host (`addonPoints`, a button on the response body, an API to write the body back), the Toolbox as an optional add-on of it, and a way for the Toolbox to send its JSON back to the response it came from
+- [x] **M13.2** Output drawer (`ctx.ui.output`, the footer of the sections: npm scripts, Git, Scripts, Monitor…): addresses in the output (`http://localhost:5001/`, `https://…`) recognised and made clickable, opened in a new browser tab (`target="_blank" rel="noopener noreferrer"`); only `http`/`https`, the rest of the text escaped as now, ANSI colours kept
 
 ## Parked
 
@@ -194,4 +194,4 @@ Not planned for now; to be taken back into the roadmap when needed (descriptions
 | M10 Project management and traits | M | core (traits, header panel), `npm`, `git`, `env` | done in 2.18.0 |
 | M11 Color themes | M | core, built-in extensions, `theme-light` and `theme-dim` (kelbo-extensions) | done in 2.26.0 |
 | M12 Icon tab and right sidebar | S | core | after M5 |
-| M13 JSON between Mock and Toolbox, links in the output | M | core (`mock-server` as host, output drawer), `toolbox` (kelbo-extensions) | not started |
+| M13 JSON between Mock and Toolbox, links in the output | M | core (`mock-server` as host, output drawer), `toolbox` (kelbo-extensions) | done in 2.45.0 and `toolbox@1.4.0`; the Toolbox became an add-on of several hosts (core contract extended) |

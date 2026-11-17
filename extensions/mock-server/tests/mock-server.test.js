@@ -34,6 +34,11 @@ after(() => srv?.stop());
 
 const call = (m, p, body) => srv.request(m, `/api/ext/mock-server${p}`, body !== undefined ? { body } : m === 'POST' ? { body: {} } : {});
 const mockUrl = p => `http://127.0.0.1:${port}${p}`;
+
+test('host di add-on: punto route-body (pulsanti accanto al corpo della risposta)', async () => {
+  const ext = (await srv.request('GET', '/api/core/extensions')).json.find(e => e.code === 'mock-server');
+  assert.deepEqual(ext.addonPoints.map(p => p.id), ['route-body']);
+});
 let id;
 
 test('mock: creazione, validazione, avvio, rotte modificate a mock avviato', async () => {

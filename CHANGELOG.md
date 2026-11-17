@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.45.0] - 2026-11-17
+
+### Added
+- **Links in the output** (M13.2): `http`/`https` addresses printed by npm scripts, Git, Scripts, Monitor… are clickable and open in a new tab — also when a tool colours them in pieces, like Vite's `http://localhost:` with the port in bold. Only `http` and `https`; the rest of the text stays escaped as before (`ctx.ui.ansiToHtml`).
+- **Mock 1.1 as a host** (M13.1, `extensions/mock-server/ADDONS.md`): point `route-body`, buttons of the add-ons next to the response body in the route dialog, with `setBody` (into the dialog) and `saveBody` (into a saved route). The Toolbox uses it: *Edit in the Toolbox* opens the JSON body of a route in its JSON tab with *Save to the response*, *Import from the Toolbox* puts its current JSON into the body.
+- **Add-ons of several hosts**: `addon` can be a list, one entry per host, each with its own versions, module and points; `GET /api/core/extensions` reports `addons`. The Extensions panel shows one line per host.
+
 ## [2.44.2] - 2026-11-17
 
 ### Changed

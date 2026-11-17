@@ -351,6 +351,8 @@
   .ansi-dim{opacity:.6}
   .ansi-italic{font-style:italic}
   .ansi-underline{text-decoration:underline}
+  .ansi-link{color:inherit;text-decoration:underline;text-decoration-color:color-mix(in srgb,currentColor 45%,transparent);text-underline-offset:2px;cursor:pointer}
+  .ansi-link:hover{text-decoration-color:currentColor}
   .ansi-black{color:var(--ansi-black)}   .ansi-bright-black{color:var(--ansi-bright-black)}
   .ansi-red{color:var(--ansi-red)}     .ansi-bright-red{color:var(--ansi-bright-red)}
   .ansi-green{color:var(--ansi-green)}   .ansi-bright-green{color:var(--ansi-bright-green)}
