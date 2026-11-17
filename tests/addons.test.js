@@ -47,9 +47,16 @@ before(async () => {
     fs.writeFileSync(path.join(root, code, 'server.js'), "let started = Date.now(); module.exports = () => ({ handlers: { ping(req, res) { res.json({ started }); } } });");
   };
   optional('opt-ok', 'host', '>=1.1');
+  // add-on di due host: un modulo per ciascuno
+  writeExtension(root, 'host2', { 'setting.json': manifest('host2', { version: '3.0.0', frontend: { js: 'view.js' }, addonPoints: [{ id: 'panel' }] }), 'view.js': 'export default { mount() {} };' });
+  writeExtension(root, 'multi', { ...addon('multi', [
+    { host: 'host', version: '>=1.1', js: 'addon.js', points: ['item-menu'], optional: true },
+    { host: 'host2', version: '^3', js: 'addon2.js', points: ['panel'], optional: true },
+    { host: 'ghost', version: '>=1', js: 'addon.js', optional: true },
+  ], { position: 'tab', frontend: { js: 'view.js' } }), 'view.js': 'export default { mount() {} };', 'addon2.js': 'export default { activate() {} };' });
   optional('opt-new', 'host', '^2.0');
   optional('opt-ghost', 'ghost', '>=1.0');
-  srv = await startServer({ projects: [] }, { extensions: null, install: [path.join(root, 'host'), path.join(root, 'plain'), path.join(root, 'good'), path.join(root, 'too-new'), path.join(root, 'bad-point'), path.join(root, 'not-host'), path.join(root, 'orphan'), path.join(root, 'opt-ok'), path.join(root, 'opt-new'), path.join(root, 'opt-ghost')] });
+  srv = await startServer({ projects: [] }, { extensions: null, install: [path.join(root, 'host'), path.join(root, 'plain'), path.join(root, 'good'), path.join(root, 'too-new'), path.join(root, 'bad-point'), path.join(root, 'not-host'), path.join(root, 'orphan'), path.join(root, 'opt-ok'), path.join(root, 'opt-new'), path.join(root, 'opt-ghost'), path.join(root, 'host2'), path.join(root, 'multi')] });
 });
 after(() => srv?.stop());
 
@@ -133,4 +140,22 @@ test('add-on facoltativo: attivo con l\'host compatibile, altrimenti solo la sua
   e = await ext('opt-ok');
   assert.deepEqual([e.state, e.addonActive], ['ok', true]);
   assert.equal((await srv.request('GET', '/api/ext/opt-ok/ping')).json.started, before);
+});
+
+test('add-on di più host: un modulo per host, ognuno attivo o no per conto suo', async () => {
+  const m = (await list()).find(e => e.code === 'multi');
+  assert.deepEqual([m.state, m.kinds, m.dependencies], ['ok', ['component', 'addon'], []]);
+  assert.deepEqual(m.addons.map(a => [a.host, a.js, a.active, a.problem?.code ?? null]),
+    [['host', 'addon.js', true, null], ['host2', 'addon2.js', true, null], ['ghost', 'addon.js', false, 'core.ext_addon_host_missing']]);
+  assert.equal(m.addon.host, 'host', 'addon: il primo, per chi lo legge ancora');
+  assert.equal((await srv.request('GET', '/ext/multi/addon.js')).status, 200);
+  assert.equal((await srv.request('GET', '/ext/multi/addon2.js')).status, 200);
+  const h2 = (await list()).find(e => e.code === 'host2');
+  assert.equal(h2.addonPoints[0].id, 'panel');
+  // validazione: host ripetuto, lista vuota
+  const bad = (addonDef, re) => assert.throws(() => validateManifest(manifest('a', { position: undefined, addon: addonDef }), 'a'), re);
+  bad([{ host: 'x', version: '>=1' }, { host: 'x', version: '>=2' }], /ripetuto/);
+  bad([], /lista di 1-8/);
+  const ok = validateManifest(manifest('a', { position: undefined, addon: [{ host: 'x', version: '>=1', optional: true }, { host: 'y', version: '>=1' }] }), 'a');
+  assert.deepEqual([ok.addons.length, ok.dependencies], [2, [{ code: 'y', required: true }]]);
 });

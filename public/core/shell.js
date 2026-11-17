@@ -545,15 +545,17 @@ window.Shell = (() => {
       // add-on che estendono questa estensione (host): list() e activate(hostApi), che importa i
       // loro moduli e chiama activate(addonCtx, hostApi) di ognuno (docs/EXTENSIONS.md → Add-ons)
       addons: {
-        list: () => addonsOf(meta.code).map(a => ({ code: a.code, name: pick(a.name), version: a.version, points: a.addon.points })),
+        list: () => addonsOf(meta.code).map(({ meta: a, part }) => ({ code: a.code, name: pick(a.name), version: a.version, points: part.points })),
         activate: hostApi => activateAddons(entry, hostApi),
       },
     };
   }
 
   // ---- add-on: moduli di altre estensioni caricati dentro un host ----
-  const addonsOf = (host, list = extList) => list.filter(m => usable(m) && m.addon?.host === host && m.addon.js && m.addonActive !== false);
-  const addonSignature = (host, list = extList) => addonsOf(host, list).map(m => `${m.code}@${m.loadId}`).sort().join(',');
+  // le estensioni con una parte add-on attiva per host: [{ meta, part: { host, js, css, points } }]
+  const partsOf = m => m.addons || (m.addon ? [{ ...m.addon, active: m.addonActive !== false }] : []);
+  const addonsOf = (host, list = extList) => list.filter(usable).flatMap(m => partsOf(m).filter(a => a.host === host && a.js && a.active !== false).map(part => ({ meta: m, part })));
+  const addonSignature = (host, list = extList) => addonsOf(host, list).map(({ meta }) => `${meta.code}@${meta.loadId}`).sort().join(',');
 
   // Ogni add-on con il suo contesto (API, traduzioni, ui); uno che fallisce non tocca l'host né gli
   // altri. Restituisce gli add-on attivati: [{ code, name }]
@@ -561,17 +563,17 @@ window.Shell = (() => {
     deactivateAddons(entry);
     entry.addonSig = addonSignature(entry.meta.code);
     const done = [];
-    for (const meta of addonsOf(entry.meta.code)) {
+    for (const { meta, part } of addonsOf(entry.meta.code)) {
       const v = `?v=${encodeURIComponent(meta.loadId ?? 0)}`;
       try {
-        if (meta.addon.css && !entry.addonCss?.has(meta.code)) {
+        if (part.css && !entry.addonCss?.has(meta.code)) {
           const link = document.createElement('link');
           link.rel = 'stylesheet';
-          link.href = `/ext/${meta.code}/${meta.addon.css}${v}`;
+          link.href = `/ext/${meta.code}/${part.css}${v}`;
           document.head.appendChild(link);
           (entry.addonCss ||= new Map()).set(meta.code, link);
         }
-        let mod = await import(`/ext/${meta.code}/${meta.addon.js}${v}`);
+        let mod = await import(`/ext/${meta.code}/${part.js}${v}`);
         mod = mod.default || mod;
         const ctx = addonContext(meta, entry.meta.code);
         await mod.activate?.(ctx, hostApi);

@@ -30,3 +30,14 @@ test('sequenze non di colore tolte senza perdere testo; colori estesi; HTML esca
   assert.equal(ansiToHtml(`${E}[38;2;31;32;33mtrue${E}[0m`), '<span style="color:rgb(31,32,33)">true</span>');
   assert.equal(ansiToHtml(`${E}[38;5;9mx`), '<span class="ansi-bright-red">x</span>');
 });
+
+test('indirizzi http/https cliccabili (nuova tab), anche colorati a pezzi; nient\'altro diventa link', () => {
+  const a = url => `<a class="ansi-link" href="${url}" target="_blank" rel="noopener noreferrer">`;
+  assert.equal(ansiToHtml('Server su http://localhost:5001/ pronto.'), `Server su ${a('http://localhost:5001/')}http://localhost:5001/</a> pronto.`);
+  // Vite: "http://localhost:" in ciano, la porta in grassetto
+  assert.equal(ansiToHtml(`${E}[36mhttp://localhost:${E}[1m5173${E}[22m/${E}[39m`),
+    `<span class="ansi-cyan">${a('http://localhost:5173/')}http://localhost:</a></span><span class="ansi-bold ansi-cyan">${a('http://localhost:5173/')}5173</a></span><span class="ansi-cyan">${a('http://localhost:5173/')}/</a></span>`);
+  // punteggiatura finale fuori, parentesi bilanciate dentro, & e " escapati
+  assert.equal(ansiToHtml('(vedi https://x.test/a_(b)?q=1&r=2).'), `(vedi ${a('https://x.test/a_(b)?q=1&amp;r=2')}https://x.test/a_(b)?q=1&amp;r=2</a>).`);
+  assert.equal(ansiToHtml('ftp://x.test javascript:alert(1) http:// "q"'), 'ftp://x.test javascript:alert(1) http:// &quot;q&quot;');
+});

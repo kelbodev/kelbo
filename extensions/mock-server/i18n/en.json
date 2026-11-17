@@ -104,5 +104,7 @@
   "running.mocks": {
     "one": "{count} mock server running",
     "other": "{count} mock servers running"
-  }
+  },
+  "addons.failed": "The add-on failed: {error}",
+  "addons.routeGone": "The route no longer exists"
 }
