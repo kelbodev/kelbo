@@ -120,7 +120,8 @@ function createAuth({ ctx, vault, pageText, varsOf, browserPath = () => null }) 
   const tokens = new Map();   // "sezione\0utenza" → { token, expiresAt, refreshToken, source }
   const logins = new Map();   // "sezione\0utenza" → login OAuth in corso { authUrl, promise, cancel }
   const discovery = new Map(); // issuer → documento .well-known (in memoria)
-  const keyOf = (section, user) => `${section.id}\0${user.id}`;
+  // token per sezione, utenza e environment attivo (quello di sviluppo non vale in produzione)
+  const keyOf = (section, user) => `${section.id}\0${user.id}\0${section.activeEnvironment || ''}`;
 
   const err = e => {
     if (e instanceof SendError) return ctx.error(e.status, e.key, e.params);

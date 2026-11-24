@@ -212,7 +212,18 @@ export default {
     let tab = 'query';
     let response = null;    // ultima risposta della richiesta attiva
     let respTab = 'body';
-    let sending = false;
+    // risposte per richiesta (in memoria): passando da una richiesta all'altra ognuna ritrova la sua;
+    // un invio in corso finisce sulla richiesta da cui è partito
+    const responses = new Map(); // "sezione|richiesta" → risposta
+    const inFlight = new Set();  // richieste con un invio in corso
+    const RESPONSES_MAX = 50;
+    const keyNow = () => (active ? `${active.section}|${active.request}` : '');
+    const isSending = () => inFlight.has(keyNow());
+    function keepResponse(key, r) {
+      responses.delete(key);
+      responses.set(key, r);
+      while (responses.size > RESPONSES_MAX) responses.delete(responses.keys().next().value);
+    }
     let pendingLogin = null; // URL di autorizzazione mentre si attende il login nel browser
 
     const section = id => sections.find(s => s.id === id);
@@ -442,7 +453,7 @@ export default {
       active = { section: sectionId, request: requestId };
       draft = JSON.parse(JSON.stringify(r));
       dirty = false;
-      response = null;
+      response = responses.get(keyNow()) || null;
       pendingLogin = null;
       renderSidebar();
       renderEditor();
@@ -482,6 +493,7 @@ export default {
       renderCrumbs();
       $(ctx.root, 'label').value = draft.label;
       $(ctx.root, 'dirty').hidden = !dirty;
+      $(ctx.root, 'send-btn').disabled = isSending();
       $(ctx.root, 'method').innerHTML = info.methods.map(m => `<option ${m === draft.method ? 'selected' : ''}>${esc(m)}</option>`).join('');
       $(ctx.root, 'method').style.color = methodColor(draft.method);
       $(ctx.root, 'url').value = draft.url;
@@ -581,12 +593,114 @@ export default {
       ctx.ui.output.close();
     }
 
+    // Variabili usabili adesso: comuni della sezione e, sopra, quelle dell'environment attivo
+    function effectiveVars(sec) {
+      const env = (sec.environments || []).find(e => e.id === sec.activeEnvironment) || null;
+      const out = new Map([['baseUrl', { value: env?.baseUrl || sec.baseUrl || '', from: env?.baseUrl ? env.label : null }]]);
+      for (const v of sec.variables) out.set(v.name, { value: v.value, from: null });
+      for (const v of env?.variables || []) out.set(v.name, { value: v.value, from: env.label });
+      return { env, vars: out };
+    }
+
     function renderVars() {
       const s = activeSection();
-      const names = ['baseUrl', ...s.variables.map(v => v.name)];
-      $(ctx.root, 'vars').innerHTML = `<span class="hc-muted">${esc(t('editor.variables'))}</span> ` +
-        names.map(n => `<code class="hc-var" title="${esc(n === 'baseUrl' ? s.baseUrl || t('editor.baseUrlMissing') : s.variables.find(v => v.name === n)?.value ?? '')} · ${esc(t('editor.variableForms', { name: n }))}">{{${esc(n)}}}</code>`).join(' ') +
-        ` <button class="btn btn-ghost btn-sm" onclick="Ext['http-client'].editSection(${js(s.id)})"><i data-icon="pencil"></i></button>`;
+      const { vars } = effectiveVars(s);
+      const envs = s.environments || [];
+      $(ctx.root, 'vars').innerHTML = `
+        <select class="form-input hc-env" data-role="env" title="${esc(t('env.selectTitle'))}" aria-label="${esc(t('env.selectTitle'))}">
+          <option value="">${esc(t(envs.length ? 'env.none' : 'env.noneYet'))}</option>
+          ${envs.map(e => `<option value="${esc(e.id)}" ${e.id === s.activeEnvironment ? 'selected' : ''}>${esc(e.label)}</option>`).join('')}
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="Ext['http-client'].environments(${js(s.id)})" title="${esc(t('env.manageTitle'))}"><i data-icon="layers"></i> ${esc(t('env.manage'))}</button>
+        <span class="hc-muted">${esc(t('editor.variables'))}</span> ` +
+        [...vars].map(([n, v]) => `<code class="hc-var ${v.from ? 'hc-var-env' : ''}" title="${esc(n === 'baseUrl' && !v.value ? t('editor.baseUrlMissing') : v.value)}${v.from ? ` · ${esc(t('env.from', { env: v.from }))}` : ''} · ${esc(t('editor.variableForms', { name: n }))}">{{${esc(n)}}}</code>`).join(' ') +
+        ` <button class="btn btn-ghost btn-sm" onclick="Ext['http-client'].editSection(${js(s.id)})" title="${esc(t('env.commonTitle'))}"><i data-icon="pencil"></i></button>`;
+    }
+
+    // ---- environment: finestra per crearli, modificarli, importare variabili, eliminarli ----
+    let envDlg = null; // { section, id (null = nuovo), label, baseUrl, variables }
+
+    async function setActiveEnv(sectionId, id) {
+      try {
+        const sec = await ctx.api.put(`/sections/${encodeURIComponent(sectionId)}/active-environment`, { id: id || null });
+        sections = sections.map(x => (x.id === sec.id ? sec : x));
+        if (active?.section === sec.id) { renderVars(); refreshTokenButton(); }
+      } catch (e) { toast(e.message, 'error'); }
+    }
+
+    function envDialog(sectionId, envId) {
+      const sec = section(sectionId);
+      const envs = sec.environments || [];
+      const id = envId === undefined ? (sec.activeEnvironment || envs[0]?.id || null) : envId;
+      const e = envs.find(x => x.id === id);
+      envDlg = { section: sectionId, id: e ? e.id : null, label: e?.label || '', baseUrl: e?.baseUrl || '', variables: JSON.parse(JSON.stringify(e?.variables || [])) };
+      renderEnvDialog();
+    }
+
+    function readEnvDialog() {
+      if (!envDlg || !byId('f_env_label')) return;
+      envDlg.label = val('f_env_label').trim();
+      envDlg.baseUrl = val('f_env_base').trim();
+      envDlg.variables = [...byId('f_env_vars').querySelectorAll('tr')].map(tr => ({
+        name: tr.querySelector('[data-var="name"]').value.trim(), value: tr.querySelector('[data-var="value"]').value,
+      })).filter(v => v.name || v.value);
+    }
+
+    function renderEnvDialog() {
+      const sec = section(envDlg.section);
+      const envs = sec.environments || [];
+      // da dove importare: le variabili comuni e gli environment di ogni sezione (non quello aperto)
+      const sources = sections.flatMap(x => [
+        ...(x.variables.length ? [{ value: `${x.id}|`, label: `${x.label} · ${t('env.common')}`, count: x.variables.length }] : []),
+        ...(x.environments || []).filter(e => !(x.id === sec.id && e.id === envDlg.id)).map(e => ({ value: `${x.id}|${e.id}`, label: `${x.label} · ${e.label}`, count: e.variables.length })),
+      ]);
+      openModal(t('env.title', { section: sec.label }), `
+        <div class="hc-env-bar">
+          <select class="form-input" id="f_env_pick" onchange="Ext['http-client'].envPick(this.value)" aria-label="${esc(t('env.pick'))}">
+            ${envs.map(e => `<option value="${esc(e.id)}" ${e.id === envDlg.id ? 'selected' : ''}>${esc(e.label)}${e.id === sec.activeEnvironment ? ` · ${esc(t('env.active'))}` : ''}</option>`).join('')}
+            <option value="" ${envDlg.id ? '' : 'selected'}>＋ ${esc(t('env.new'))}</option>
+          </select>
+          ${envDlg.id ? `<button class="btn btn-ghost btn-sm" onclick="Ext['http-client'].envDuplicate()"><i data-icon="copy"></i> ${esc(t('env.duplicate'))}</button>` : ''}
+        </div>
+        <div class="form-row"><label for="f_env_label">${esc(t('env.name'))}</label><input class="form-input" id="f_env_label" value="${esc(envDlg.label)}" maxlength="60" placeholder="${esc(t('env.namePlaceholder'))}"></div>
+        <div class="form-row"><label for="f_env_base">${esc(t('sectionDlg.baseUrl'))} <code>{{baseUrl}}</code></label>
+          <input class="form-input" id="f_env_base" value="${esc(envDlg.baseUrl)}" spellcheck="false" placeholder="${esc(sec.baseUrl || 'https://staging.example.com')}">
+          <p class="hc-muted">${esc(t('env.baseUrlHint', { url: sec.baseUrl || '—' }))}</p></div>
+        <div class="form-row"><label>${esc(t('sectionDlg.variables'))}</label>
+          <table class="hc-pairs"><tbody id="f_env_vars">${variablesRows(envDlg.variables)}</tbody></table>
+          <button class="btn btn-ghost btn-sm" onclick="Ext['http-client'].envAddVar()"><i data-icon="plus"></i> ${esc(t('sectionDlg.addVariable'))}</button>
+          <p class="hc-muted">${esc(t('env.variablesHint'))}</p></div>
+        ${sources.length ? `<div class="form-row hc-env-import"><label for="f_env_src">${esc(t('env.import'))}</label>
+          <div class="hc-inline">
+            <select class="form-input" id="f_env_src">${sources.map(x => `<option value="${esc(x.value)}">${esc(x.label)} (${esc(fmt.number(x.count))})</option>`).join('')}</select>
+            <select class="form-input" id="f_env_mode" aria-label="${esc(t('env.importMode'))}">
+              <option value="missing">${esc(t('env.importMissing'))}</option>
+              <option value="overwrite">${esc(t('env.importOverwrite'))}</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="Ext['http-client'].envImport()"><i data-icon="download"></i> ${esc(t('env.importRun'))}</button>
+          </div></div>` : ''}`,
+        `${envDlg.id ? `<button class="btn btn-ghost hc-danger-text" onclick="Ext['http-client'].envDelete()">${esc(t('core.action.delete'))}</button>` : ''}
+         <button class="btn btn-ghost" onclick="UI.closeModal()">${esc(t('core.action.close'))}</button>
+         <button class="btn btn-primary" onclick="Ext['http-client'].envSave()">${esc(t(envDlg.id ? 'core.action.save' : 'env.create'))}</button>`);
+      byId('modal').classList.add('modal-wide');
+      setTimeout(() => byId('f_env_label')?.focus(), 0);
+    }
+
+    async function envSave({ andActivate = false } = {}) {
+      readEnvDialog();
+      if (!envDlg.label) { toast(t('env.nameRequired'), 'error'); byId('f_env_label')?.focus(); return; }
+      const base = `/sections/${encodeURIComponent(envDlg.section)}/environments`;
+      const body = { label: envDlg.label, baseUrl: envDlg.baseUrl, variables: envDlg.variables };
+      try {
+        const sec = envDlg.id ? await ctx.api.put(`${base}/${encodeURIComponent(envDlg.id)}`, body) : await ctx.api.post(base, body);
+        sections = sections.map(x => (x.id === sec.id ? sec : x));
+        const created = !envDlg.id;
+        if (created) envDlg.id = sec.environments.at(-1).id;
+        toast(t(created ? 'env.created' : 'env.saved', { env: envDlg.label }), 'success');
+        if (andActivate) await setActiveEnv(sec.id, envDlg.id);
+        if (active?.section === sec.id) renderVars();
+        renderEnvDialog();
+      } catch (e) { toast(e.message, 'error'); }
     }
 
     const count = list => (list || []).filter(p => p.name && p.enabled !== false).length;
@@ -670,7 +784,7 @@ export default {
 
     function renderResponse() {
       const el = $(ctx.root, 'response');
-      if (sending) {
+      if (isSending()) {
         el.innerHTML = `<div class="hc-resp-wait"><span class="hc-spinner"></span> ${esc(t(pendingLogin ? 'response.waitingLogin' : 'response.sending'))}
           ${pendingLogin ? ` <a href="${esc(pendingLogin)}" target="_blank" rel="noopener noreferrer">${esc(t('response.openLogin'))}</a>` : ''}</div>`;
         return;
@@ -749,36 +863,43 @@ export default {
     }
 
     async function send() {
-      if (!draft || sending) return;
+      if (!draft || isSending()) return;
       readEditor();
-      sending = true;
+      const key = keyNow();
+      const here = () => keyNow() === key; // la richiesta è ancora quella mostrata
+      inFlight.add(key);
       pendingLogin = null;
       $(ctx.root, 'send-btn').disabled = true;
       renderResponse();
       const s = activeSection();
       const user = s.userTypes.find(u => u.id === draft.userType);
+      const sent = JSON.parse(JSON.stringify(draft));
       // durante un login OAuth nel browser l'invio resta in attesa: si mostra il link di riserva
       const poll = user?.auth.type === 'oauth' ? setInterval(async () => {
         try {
           const st = (await ctx.api.get(`/sections/${encodeURIComponent(s.id)}/auth`)).users.find(u => u.id === user.id);
-          if (sending && st?.pendingLogin !== pendingLogin) { pendingLogin = st?.pendingLogin || null; renderResponse(); }
+          if (here() && st?.pendingLogin !== pendingLogin) { pendingLogin = st?.pendingLogin || null; renderResponse(); }
         } catch { /* riprova al giro dopo */ }
       }, 1200) : null;
+      let result;
       try {
-        response = await withVault(() => ctx.api.post('/send', { section: s.id, request: draft }));
-        respTab = 'body';
-        if (response.base64) downloadResponse(); // contenuto binario: salvato subito nei Download
+        result = await withVault(() => ctx.api.post('/send', { section: s.id, request: sent }));
       } catch (e) {
-        response = { error: e.message };
+        result = { error: e.message };
         if (e.code === 'http-client.token_missing' || e.code === 'http-client.token_expired') pasteToken(s.id, user.id);
       } finally {
         clearInterval(poll);
-        sending = false;
-        pendingLogin = null;
-        $(ctx.root, 'send-btn').disabled = false;
-        renderResponse();
-        refreshTokenButton(); // l'invio può aver ottenuto un token
+        inFlight.delete(key);
       }
+      keepResponse(key, result);
+      if (!here()) return; // si è passati a un'altra richiesta: la risposta resta per quando si torna
+      response = result;
+      respTab = 'body';
+      if (response.base64) downloadResponse(); // contenuto binario: salvato subito nei Download
+      pendingLogin = null;
+      $(ctx.root, 'send-btn').disabled = false;
+      renderResponse();
+      refreshTokenButton(); // l'invio può aver ottenuto un token
     }
 
     function readEditor() {
@@ -1346,6 +1467,7 @@ export default {
         if (proc) followNpm(proc); else unfollowNpm();
         return;
       }
+      if (role === 'env') { setActiveEnv(active.section, e.target.value); return; }
       if (role === 'user') { draft.userType = e.target.value || null; if (!draft.userType) delete draft.userType; markDirty(); refreshTokenButton(); renderCrumbs(); }
     });
 
@@ -1444,6 +1566,41 @@ export default {
         ]);
       },
       editSection: sectionDialog,
+      environments: id => envDialog(id),
+      envPick(id) { readEnvDialog(); envDialog(envDlg.section, id || null); },
+      envAddVar() { byId('f_env_vars').insertAdjacentHTML('beforeend', variablesRows([{ name: '', value: '' }])); byId('f_env_vars').lastElementChild.querySelector('input').focus(); },
+      envSave: () => envSave(),
+      envDuplicate() {
+        readEnvDialog();
+        envDlg = { ...envDlg, id: null, label: t('env.copyOf', { env: envDlg.label }), variables: JSON.parse(JSON.stringify(envDlg.variables)) };
+        renderEnvDialog();
+      },
+      // variabili da un altro environment (o dalle comuni di una sezione): solo le mancanti o sovrascrivendo
+      envImport() {
+        readEnvDialog();
+        const [sid, eid] = val('f_env_src').split('|');
+        const src = section(sid);
+        const from = eid ? (src?.environments || []).find(e => e.id === eid)?.variables : src?.variables;
+        if (!from) return;
+        const overwrite = val('f_env_mode') === 'overwrite';
+        let added = 0, replaced = 0;
+        for (const v of from) {
+          const cur = envDlg.variables.find(x => x.name === v.name);
+          if (!cur) { envDlg.variables.push({ name: v.name, value: v.value }); added++; }
+          else if (overwrite && cur.value !== v.value) { cur.value = v.value; replaced++; }
+        }
+        renderEnvDialog();
+        toast(t('env.imported', { added: fmt.number(added), replaced: fmt.number(replaced) }), 'success');
+      },
+      async envDelete() {
+        if (!envDlg?.id || !confirm(t('env.confirmDelete', { env: envDlg.label }))) return;
+        try {
+          const sec = await ctx.api.del(`/sections/${encodeURIComponent(envDlg.section)}/environments/${encodeURIComponent(envDlg.id)}`);
+          sections = sections.map(x => (x.id === sec.id ? sec : x));
+          if (active?.section === sec.id) renderVars();
+          envDialog(sec.id);
+        } catch (e) { toast(e.message, 'error'); }
+      },
       proposeBase,
       addVariable() { byId('f_hc_vars').insertAdjacentHTML('beforeend', variablesRows([{ name: '', value: '' }])); byId('f_hc_vars').lastElementChild.querySelector('input').focus(); },
       saveSection,

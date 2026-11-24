@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [2.46.0] - 2026-11-24
+
+### Added
+- **HTTP 1.3: environments** (dev, staging, prod…) per section, with variables of their own and an optional base URL of their own, over the common variables of the section. The active environment is chosen in the variables bar of the editor (environment variables are highlighted, the tooltip says where a value comes from) and is used for every send, also from the dashboard widget and MCP. **Environments…** creates, duplicates, edits and deletes them, and imports variables from another environment of any section or from the common variables of a section (only the missing ones, or overwriting). Tokens of the user types are kept per environment. Environments are part of `httpSections` (export/import) and validated on import.
+
+### Fixed
+- HTTP: the response of a request is no longer lost when switching to another request: every request keeps its last response while Kelbo is open, and a send still running ends on its own request instead of the one shown.
+
 ## [2.45.0] - 2026-11-17
 
 ### Added

@@ -21,7 +21,7 @@ const HTTP_URL_RE = /^https?:\/\/[^\s]{1,500}$/i;
 const REDIRECT_RE = /^http:\/\/(localhost|127\.0\.0\.1):(\d{1,5})(\/[^\s#?]*)$/;
 const EXTRACT_FROM_RE = /^(header:[A-Za-z0-9!#$%&'*+.^_`|~-]{1,64}|(json:)?[\w$-]+(\.[\w$-]+)*)$/;
 const CONTROL_RE = /[\x00-\x1f\x7f]/;
-const LIMITS = { sections: 200, requests: 500, users: 30, pairs: 100, value: 8000, body: 100000, url: 4000, folders: 300, depth: 10 };
+const LIMITS = { sections: 200, requests: 500, users: 30, pairs: 100, value: 8000, body: 100000, url: 4000, folders: 300, depth: 10, environments: 20 };
 
 const newId = () => crypto.randomBytes(4).toString('hex');
 const isStr = (v, max) => typeof v === 'string' && v.length <= max;
@@ -58,10 +58,14 @@ module.exports = function createHttpClient(ctx) {
   const save = list => ctx.config.set('httpSections', list);
   const replaceSection = s => save(sections().map(x => (x.id === s.id ? s : x)));
 
-  // Variabili della sezione: {{baseUrl}} e quelle definite dall'utente
+  // Environment attivo della sezione (dev, staging, prod…), o null
+  const envOf = s => (s.activeEnvironment && (s.environments || []).find(e => e.id === s.activeEnvironment)) || null;
+  // Variabili della sezione: {{baseUrl}} e quelle definite dall'utente; quelle dell'environment
+  // attivo (e il suo URL di base, se c'è) prevalgono sulle comuni
   const varsOf = s => ({
-    baseUrl: (s.baseUrl || '').replace(/\/+$/, ''),
+    baseUrl: ((envOf(s)?.baseUrl || s.baseUrl) || '').replace(/\/+$/, ''),
     ...Object.fromEntries((s.variables || []).map(v => [v.name, v.value])),
+    ...Object.fromEntries((envOf(s)?.variables || []).map(v => [v.name, v.value])),
   });
 
   // Testi della pagina mostrata nel browser al termine del login OAuth (lingua del browser)
@@ -162,15 +166,28 @@ module.exports = function createHttpClient(ctx) {
     if (!isText(s.label, 100)) throw bad('label');
     if (s.projectId != null && !KEY_RE.test(s.projectId)) throw bad('project');
     if (!isStr(s.baseUrl ?? '', 500) || CONTROL_RE.test(s.baseUrl || '')) throw bad('base_url');
-    const vars = s.variables ?? [];
-    if (!Array.isArray(vars) || vars.length > LIMITS.pairs) throw bad('variables');
-    const names = new Set();
-    for (const v of vars) {
-      if (!v || !VAR_NAME_RE.test(v.name || '') || RESERVED_VARS.has(v.name) || names.has(v.name) || !isStr(v.value ?? '', LIMITS.value)) {
-        throw ctx.error.config('section_variable', { id: s.id, name: String(v?.name ?? '') });
+    const checkVars = (vars, where) => {
+      if (!Array.isArray(vars) || vars.length > LIMITS.pairs) throw bad('variables');
+      const names = new Set();
+      for (const v of vars) {
+        if (!v || !VAR_NAME_RE.test(v.name || '') || RESERVED_VARS.has(v.name) || names.has(v.name) || !isStr(v.value ?? '', LIMITS.value)) {
+          throw ctx.error.config('section_variable', { id: where, name: String(v?.name ?? '') });
+        }
+        names.add(v.name);
       }
-      names.add(v.name);
+    };
+    checkVars(s.variables ?? [], s.id);
+    // environment: variabili proprie (e un URL di base proprio, facoltativo) sopra le comuni
+    const envs = s.environments ?? [];
+    if (!Array.isArray(envs) || envs.length > LIMITS.environments) throw bad('environments');
+    const envIds = new Set();
+    for (const e of envs) {
+      if (!e || !KEY_RE.test(e.id || '') || envIds.has(e.id) || !isText(e.label, 60)
+        || !isStr(e.baseUrl ?? '', 500) || CONTROL_RE.test(e.baseUrl || '')) throw ctx.error.config('environment_invalid', { id: s.id, env: String(e?.id ?? '') });
+      envIds.add(e.id);
+      checkVars(e.variables ?? [], `${s.id}/${e.label}`);
     }
+    if (s.activeEnvironment != null && !envIds.has(s.activeEnvironment)) throw ctx.error.config('environment_invalid', { id: s.id, env: String(s.activeEnvironment) });
     const users = s.userTypes ?? [];
     if (!Array.isArray(users) || users.length > LIMITS.users) throw bad('users');
     const userIds = new Set();
@@ -267,7 +284,7 @@ module.exports = function createHttpClient(ctx) {
     const { password, clientSecret, ...a } = u.auth || {};
     return { ...u, auth: { ...a, ...(password !== undefined ? { hasPassword: !!password } : {}), ...(clientSecret !== undefined ? { hasClientSecret: !!clientSecret } : {}) } };
   };
-  const publicSection = s => ({ ...s, variables: s.variables || [], requests: s.requests || [], folders: s.folders || [], userTypes: (s.userTypes || []).map(publicUser) });
+  const publicSection = s => ({ ...s, variables: s.variables || [], environments: s.environments || [], activeEnvironment: s.activeEnvironment || null, requests: s.requests || [], folders: s.folders || [], userTypes: (s.userTypes || []).map(publicUser) });
 
   // ---- dati dal form ----
 
@@ -284,6 +301,18 @@ module.exports = function createHttpClient(ctx) {
     if (body.variables !== undefined) s.variables = pairs(body.variables).map(({ name, value }) => ({ name: name.trim(), value }));
     if (!s.projectId) delete s.projectId;
     return s;
+  }
+
+  function buildEnvironment(body, existing = {}) {
+    const label = String(body.label ?? existing.label ?? '').trim();
+    if (!label || !isText(label, 60)) throw ctx.error(400, 'environment_label');
+    const e = {
+      label,
+      baseUrl: String(body.baseUrl ?? existing.baseUrl ?? '').trim(),
+      variables: body.variables !== undefined ? pairs(body.variables).map(({ name, value }) => ({ name: name.trim(), value })) : existing.variables || [],
+    };
+    if (!e.baseUrl) delete e.baseUrl;
+    return e;
   }
 
   function buildRequest(body, existing = {}) {
@@ -503,6 +532,47 @@ module.exports = function createHttpClient(ctx) {
         const s = buildSection(req.body || {}, sectionOr404(req.params.id));
         replaceSection(s);
         res.json(publicSection(s));
+      },
+
+      // ---- environment (dev, staging, prod…): variabili proprie sopra le comuni ----
+
+      createEnvironment(req, res) {
+        const s = sectionOr404(req.params.id);
+        const e = { id: newId(), ...buildEnvironment(req.body || {}) };
+        const environments = [...(s.environments || []), e];
+        // il primo diventa quello attivo
+        replaceSection({ ...s, environments, activeEnvironment: s.activeEnvironment || e.id });
+        res.json(publicSection(sectionOr404(s.id)));
+      },
+
+      updateEnvironment(req, res) {
+        const s = sectionOr404(req.params.id);
+        const cur = (s.environments || []).find(x => x.id === req.params.eid);
+        if (!cur) throw ctx.error(404, 'environment_not_found', { id: String(req.params.eid) });
+        const e = { id: cur.id, ...buildEnvironment(req.body || {}, cur) };
+        replaceSection({ ...s, environments: s.environments.map(x => (x.id === e.id ? e : x)) });
+        res.json(publicSection(sectionOr404(s.id)));
+      },
+
+      deleteEnvironment(req, res) {
+        const s = sectionOr404(req.params.id);
+        if (!(s.environments || []).some(x => x.id === req.params.eid)) throw ctx.error(404, 'environment_not_found', { id: String(req.params.eid) });
+        const environments = s.environments.filter(x => x.id !== req.params.eid);
+        const next = { ...s, environments, activeEnvironment: s.activeEnvironment === req.params.eid ? environments[0]?.id || null : s.activeEnvironment };
+        if (!next.activeEnvironment) delete next.activeEnvironment;
+        replaceSection(next);
+        res.json(publicSection(sectionOr404(s.id)));
+      },
+
+      // { id } (o null: solo le variabili comuni)
+      setActiveEnvironment(req, res) {
+        const s = sectionOr404(req.params.id);
+        const id = req.body?.id || null;
+        if (id && !(s.environments || []).some(x => x.id === id)) throw ctx.error(404, 'environment_not_found', { id: String(id) });
+        const next = { ...s, activeEnvironment: id };
+        if (!id) delete next.activeEnvironment;
+        replaceSection(next);
+        res.json(publicSection(sectionOr404(s.id)));
       },
 
       deleteSection(req, res) {
