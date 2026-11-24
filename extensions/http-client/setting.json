@@ -4,7 +4,7 @@
     "en": "HTTP"
   },
   "code": "http-client",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "kelbo": "^2.0",
   "description": {
     "it": "Client HTTP per le API locali dei progetti: sezioni di richieste con variabili, rotte Express trovate nel codice, token per tipologia di utenza (basic, login, OAuth/OpenID Connect)",
@@ -72,6 +72,26 @@
         "method": "DELETE",
         "path": "/sections/:id",
         "handler": "deleteSection"
+      },
+      {
+        "method": "POST",
+        "path": "/sections/:id/environments",
+        "handler": "createEnvironment"
+      },
+      {
+        "method": "PUT",
+        "path": "/sections/:id/environments/:eid",
+        "handler": "updateEnvironment"
+      },
+      {
+        "method": "DELETE",
+        "path": "/sections/:id/environments/:eid",
+        "handler": "deleteEnvironment"
+      },
+      {
+        "method": "PUT",
+        "path": "/sections/:id/active-environment",
+        "handler": "setActiveEnvironment"
       },
       {
         "method": "GET",

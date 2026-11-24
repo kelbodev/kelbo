@@ -141,3 +141,9 @@ select.hc-dest option.hc-dest-root{font-weight:600}
 /* risposta JSON come albero richiudibile: core (jv-*) */
 .hc-resp-scope > .jv-tools{padding:6px 16px 0}
 .hc-routes-dest{display:flex;align-items:center;gap:6px;margin:0 0 8px;font-size:12.5px;color:var(--text)}
+.hc-env{width:auto;max-width:180px;padding:3px 26px 3px 8px;font-size:12px;height:auto}
+.hc-var-env{border-color:color-mix(in srgb,var(--ext-color) 55%,var(--border));color:var(--text)}
+.hc-env-bar{display:flex;gap:6px;align-items:center;margin-bottom:10px}
+.hc-env-bar select{flex:1}
+.hc-env-import .hc-inline select:first-child{flex:1;min-width:0}
+.hc-danger-text{color:var(--danger);margin-inline-end:auto}
